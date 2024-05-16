@@ -1,0 +1,16 @@
+input signal A;
+output signal B;
+signal C;
+emit B;
+emit C;
+emit C(3);
+g = 10 + 2 * ?C;
+emit C(g);
+if (g == ?C) {emit A; g = g + 1;} else {emit B;};
+pause;				//This is the first state end
+emit L;
+{emit C; weak suspend(F){emit L;};}||{emit D;};
+if(S) {emit C;} else {nothing;};
+abort(immediate P){emit G;};
+abort(A){loop{emit A; pause;};};
+

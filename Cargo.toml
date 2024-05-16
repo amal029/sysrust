@@ -1,0 +1,20 @@
+[package]
+name = "sysrust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Avinash Malik <avinash.malik@auckland.ac.nz>"]
+
+[build-dependencies]
+lalrpop = "0.20.2"
+logos = "0.14"
+lalrpop-util = "0.20.2"
+
+[dependencies]
+logos = "0.14"
+lalrpop-util = "0.20.2"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3

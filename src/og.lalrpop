@@ -1,0 +1,182 @@
+use crate::tokens::{LexicalError, Token};
+use crate::ast;
+
+grammar;
+
+pub Script: Vec<ast::Stmt> = {
+    <stmts:Statement*> => {return stmts},
+}
+
+pub Block: ast::Stmt = {
+   <l:@L> "{" <ss:Script> "}" <r:@R> => ast::Stmt::Block(ss, (l, r)),
+}
+
+pub Present: ast::Stmt = {
+    <l:@L> "if" "(" <e:Expr> ")" <b:Statement> <r:@R> =>
+    ast::Stmt::Present(e, Box::new(b), None, (l, r)),
+    <l:@L> "if" "(" <e:Expr> ")" <b:Statement> "else" <eb:Statement> <r:@R> =>
+    ast::Stmt::Present(e, Box::new(b), Some(Box::new(eb)), (l, r)),
+}
+
+pub Abort: ast::Stmt = {
+    <l:@L> "abort" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Abort(e, None, Box::new(s), (l, r)),
+    <l:@L> "weak" "abort" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Abort(e, Some(ast::ASQual::Weak), Box::new(s), (l, r)),
+    <l:@L> "abort" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Abort(e, Some(ast::ASQual::Immediate), Box::new(s), (l, r)),
+    <l:@L> "weak" "abort" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Abort(e, Some(ast::ASQual::WeakImmediate), Box::new(s), (l, r)),
+}
+
+pub Suspend: ast::Stmt = {
+    <l:@L> "suspend" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Suspend(e, None, Box::new(s), (l, r)),
+    <l:@L> "weak" "suspend" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Suspend(e, Some(ast::ASQual::Weak), Box::new(s), (l, r)),
+    <l:@L> "suspend" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Suspend(e, Some(ast::ASQual::Immediate), Box::new(s), (l, r)),
+    <l:@L> "weak" "suspend" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    ast::Stmt::Suspend(e, Some(ast::ASQual::WeakImmediate), Box::new(s), (l, r)),
+}
+
+pub Statement: ast::Stmt = {
+   <l:@L> "nothing" ";" <r:@R> =>
+   	  {return ast::Stmt::Noop((l, r))},
+   <l:@L> <i:IOT> "signal" <s:Symbol> ";" <r:@R> =>
+   	  ast::Stmt::Signal(s, Some(i), (l, r)),
+   <l:@L> "signal" <s:Symbol> ";" <r:@R> =>
+   	  ast::Stmt::Signal(s, None, (l, r)),
+   <l:@L> <s:Symbol> "=" <e:SimpleDataExpr> ";" <r:@R> =>
+   	 ast::Stmt::Assign(s, e, (l,r)),
+   <l:@L> <s:"pause"> ";" <r:@R> => ast::Stmt::Pause((l,r)),
+   <l:@L> "emit" <s:Symbol> "(" <e:SimpleDataExpr> ")" ";" <r:@R> =>
+   	 ast::Stmt::Emit(s, Some(e), (l,r)),
+   <l:@L> "emit" <s:Symbol> ";" <r:@R> =>
+   	 ast::Stmt::Emit(s, None, (l,r)),
+   <l:@L> "loop" <b:Block> ";" <r:@R> =>
+   	   ast::Stmt::Loop(Box::new(b), (l, r)),
+   <p:Present> ";" => p,
+   <b:Block> => b,
+   <l:@L> <lb:Block> "||" <rb:Block> <r:@R> ";" =>
+	  ast::Stmt::Spar(vec![lb, rb], (l, r)),
+   <a:Abort> ";" => a,
+   <a:Suspend> ";" => a,
+}
+
+pub IOT : ast::IO =  {
+    <l:@L> "input" <r:@R> => ast::IO::Input,
+    <l:@L> "output" <r:@R> => ast::IO::Output,
+}
+
+pub Symbol: ast::Symbol = {
+   <l:@L> <id: "id"> <r:@R> => ast::Symbol::Symbol(id, (l, r)),
+}
+
+pub Expr: ast::Expr = {
+    #[precedence(level="0")] // Highest precedence
+    <l:@L> <s:Symbol> <r:@R> =>
+    	   ast::Expr::Esymbol(s, (l, r)),
+   #[precedence(level="1")]
+    <l:@L> "!" <le:Expr> <r:@R> =>
+    	   ast::Expr::Not(Box::new(le), (l, r)),
+   #[precedence(level="2")] #[assoc(side="left")]
+    <l:@L> <le:RelDataExpr> <r:@R> =>
+    	   ast::Expr::DataExpr(le, (l, r)),
+   #[precedence(level="3")] #[assoc(side="left")]
+    <l:@L> <le:Expr> "and" <re:Expr> <r:@R> =>
+    	    ast::Expr::And(Box::new(le), Box::new(re), (l, r)),
+    <l:@L> <le:Expr> "or" <re:Expr> <r:@R> =>
+    	   ast::Expr::Or(Box::new(le), Box::new(re), (l, r)),
+    <l:@L> "(" <le:Expr> ")" <r:@R> =>
+    	   ast::Expr::Brackets(Box::new(le), (l, r)),
+}
+
+pub RelDataExpr: ast::RelDataExpr = {
+    <l:@L> <le: SimpleDataExpr> "<" <re:SimpleDataExpr> <r:@R> =>
+    ast::RelDataExpr::LessThan(le, re, (l, r)),
+    <l:@L> <le: SimpleDataExpr> ">" <re:SimpleDataExpr> <r:@R> =>
+    ast::RelDataExpr::GreaterThan(le, re, (l, r)),
+    <l:@L> <le: SimpleDataExpr> "<=" <re:SimpleDataExpr> <r:@R> =>
+    ast::RelDataExpr::LessThanEqual(le, re, (l, r)),
+    <l:@L> <le: SimpleDataExpr> ">=" <re:SimpleDataExpr> <r:@R> =>
+    ast::RelDataExpr::GreaterThanEqual(le, re, (l, r)),
+    <l:@L> <le: SimpleDataExpr> "==" <re:SimpleDataExpr> <r:@R> =>
+    ast::RelDataExpr::EqualTo(le, re, (l, r)),
+}
+
+pub SimpleDataExpr: ast::SimpleDataExpr = {
+    #[precedence(level="0")] // Highest precedence
+    <l:@L> <i:"int"> <r:@R> => ast::SimpleDataExpr::ConstI(i, (l,r)),
+    <l:@L> <i:"float"> <r:@R> => ast::SimpleDataExpr::ConstF(i, (l,r)),
+    <l:@L> <i:Symbol> <r:@R> => ast::SimpleDataExpr::VarRef(i, (l,r)),
+    <l:@L> "?" <i:Symbol> <r:@R> => ast::SimpleDataExpr::SignalRef(i, (l,r)),
+   #[precedence(level="1")] #[assoc(side="left")] // Highest precedence
+    <l:@L> <e1:SimpleDataExpr> "^^" <e2:SimpleDataExpr> <r:@R> =>
+    	   ast::SimpleDataExpr::SimpleBinaryOp(Box::new(e1), ast::ExprOp::Pow,
+	   Box::new(e2), (l, r)),
+   #[precedence(level="2")] #[assoc(side="left")] // Highest precedence
+   <l:@L> <e1:SimpleDataExpr> "*" <e2:SimpleDataExpr> <r:@R> =>
+    	   ast::SimpleDataExpr::SimpleBinaryOp(Box::new(e1), ast::ExprOp::Mul,
+	   Box::new(e2), (l, r)),
+    <l:@L> <e1:SimpleDataExpr> "/" <e2:SimpleDataExpr> <r:@R> =>
+    	   ast::SimpleDataExpr::SimpleBinaryOp(Box::new(e1), ast::ExprOp::Div,
+	   Box::new(e2), (l, r)),
+    <l:@L> <e1:SimpleDataExpr> "%" <e2:SimpleDataExpr> <r:@R> =>
+    	   ast::SimpleDataExpr::SimpleBinaryOp(Box::new(e1), ast::ExprOp::Mod,
+	   Box::new(e2), (l, r)),
+   #[precedence(level="3")] #[assoc(side="left")] // Highest precedence
+    <l:@L> <e1:SimpleDataExpr> "+" <e2:SimpleDataExpr> <r:@R> =>
+    	   ast::SimpleDataExpr::SimpleBinaryOp(Box::new(e1), ast::ExprOp::Plus,
+	   Box::new(e2), (l, r)),
+    <l:@L> <e1:SimpleDataExpr> "-" <e2:SimpleDataExpr> <r:@R> =>
+    	   ast::SimpleDataExpr::SimpleBinaryOp(Box::new(e1), ast::ExprOp::Minus,
+	   Box::new(e2), (l, r)),
+    
+}
+
+extern {
+       type Location = usize;
+       type Error = LexicalError;
+
+enum Token {
+    "signal" => Token::Signal,
+    "pause" => Token::Pause,
+    "emit" => Token::Emit,
+    "loop" => Token::Loop,
+    "abort" => Token::Abort,
+    "suspend" => Token::Suspend,
+    "weak" => Token::Weak,
+    "immediate" => Token::Immediate,
+    "if" => Token::If,
+    "else" => Token::Else,
+    "input" => Token::Input,
+    "output" => Token::Output,
+    "id" => Token::Symbol(<String>),
+    "int" => Token::Integer(<i64>),
+    "float" => Token::Float(<f64>),
+    "(" => Token::LParen,
+    ")" => Token::RParen,
+    "{" => Token::LBrace,
+    "}" => Token::RBrace,
+    "+" => Token::OpAdd,
+    "-" => Token::OpSub,
+    "*" => Token::OpMul,
+    "/" => Token::OpDiv,
+    "%" => Token::OpMod,
+    "^^" => Token::OpPow,
+    "=" => Token::OpEqual,
+    "==" => Token::OpEqualEqual,
+    "<=" => Token::OpLEEqual,
+    ">=" => Token::OpGEEqual,
+    "<" => Token::OpLT,
+    ">" => Token::OpGT,
+    "!" => Token::OpNot,
+    "and" => Token::OpAnd,
+    "or" => Token::OpOr,
+    "||" => Token::OpPar,
+    ";" => Token::Semicolon,
+    "?" => Token::OpQ,
+    "nothing" => Token::OpNothing,
+    }
+}
