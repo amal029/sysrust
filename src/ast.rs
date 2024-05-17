@@ -59,7 +59,7 @@ pub enum ASQual {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>, Pos),
-    Pause(Pos),
+    Pause(Symbol, Pos),
     Emit(Symbol, Option<SimpleDataExpr>, Pos),
     Present(Expr, Box<Stmt>, Option<Box<Stmt>>, Pos),
     Signal(Symbol, Option<IO>, Pos),

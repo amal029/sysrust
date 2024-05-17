@@ -107,7 +107,8 @@ pub enum Token {
     OpNot,
     #[token("nothing")]
     OpNothing,
-
+    #[token(":")]
+    OpColon,
 
     // XXX: Combination tokens
     #[token("and")]

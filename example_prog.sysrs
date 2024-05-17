@@ -7,10 +7,10 @@ emit C(3+4*8);
 g = 10 + 2 * ?C;
 emit C(g);
 if (g == ?C) {emit A; g = g + 1;} else {emit B;};
-pause;				//This is the first state end
+S1 : pause;	//This is the first state end
 emit L;
 {emit C; weak suspend(F){emit L;};}||{emit D;};
 if(S) {emit C;} else {nothing;};
 abort(immediate P){emit G;};
-abort(A){loop{emit A; pause;};};
+weak abort(A){loop{emit A; S2: pause;};}; //This is the second state
 

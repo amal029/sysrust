@@ -49,7 +49,7 @@ pub Statement: ast::Stmt = {
    	  ast::Stmt::Signal(s, None, (l, r)),
    <l:@L> <s:Symbol> "=" <e:SimpleDataExpr> ";" <r:@R> =>
    	 ast::Stmt::Assign(s, e, (l,r)),
-   <l:@L> <s:"pause"> ";" <r:@R> => ast::Stmt::Pause((l,r)),
+   <l:@L> <la:Symbol> ":" <s:"pause"> ";" <r:@R> => ast::Stmt::Pause(la, (l,r)),
    <l:@L> "emit" <s:Symbol> "(" <e:SimpleDataExpr> ")" ";" <r:@R> =>
    	 ast::Stmt::Emit(s, Some(e), (l,r)),
    <l:@L> "emit" <s:Symbol> ";" <r:@R> =>
@@ -178,5 +178,6 @@ enum Token {
     ";" => Token::Semicolon,
     "?" => Token::OpQ,
     "nothing" => Token::OpNothing,
+    ":" => Token::OpColon,
     }
 }
