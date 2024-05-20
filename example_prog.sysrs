@@ -9,8 +9,12 @@ emit C(g);
 if (g == ?C) {emit A; g = g + 1;} else {emit B;};
 S1 : pause;	//This is the first state end
 emit L;
+// Allocate par 1 and par 2 to th1
 {emit C; weak suspend(F){emit L;};}||{emit D;};
-if(S) {emit C;} else {nothing;};
+if(S and (?S == 10.8) or (!(g == 100)) and (g == 100)) {emit C;} else {nothing;};
 abort(immediate P){emit G;};
 weak abort(A){loop{emit A; S2: pause;};}; //This is the second state
+S3: await (A);				  //This has a pause inside it so it has a label
+S4: sustain B;
+emit B(1+3*?S);
 

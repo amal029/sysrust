@@ -35,6 +35,8 @@ pub enum RelDataExpr {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
+    True(Pos),
+    False(Pos),
     Esymbol(Symbol, Pos),
     And(Box<Expr>, Box<Expr>, Pos),
     Or(Box<Expr>, Box<Expr>, Pos),

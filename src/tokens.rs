@@ -51,6 +51,10 @@ pub enum Token {
     Input,
     #[token("output")]
     Output,
+    #[token("await")]
+    Await,
+    #[token("sustain")]
+    Sustain,
 
     // XXX: Varaible, signal, etc name
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice().to_string())]
@@ -110,6 +114,10 @@ pub enum Token {
     #[token(":")]
     OpColon,
 
+    #[token("false")]
+    False,
+    #[token("true")]
+    True,
     // XXX: Combination tokens
     #[token("and")]
     OpAnd,

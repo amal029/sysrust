@@ -40,6 +40,21 @@ pub Suspend: ast::Stmt = {
     ast::Stmt::Suspend(e, Some(ast::ASQual::WeakImmediate), Box::new(s), (l, r)),
 }
 
+pub Await : ast::Stmt = {
+    <l:@L> <la: Symbol> ":" "await" "(" <s:Symbol> ")" <r:@R> =>
+    ast::Stmt::Abort(s, None, Box::new(ast::Stmt::Loop (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
+}
+
+pub Sustain : ast::Stmt = {
+    <l:@L> <la: Symbol> ":" "sustain" <s:Symbol> "(" <e:SimpleDataExpr> ")" <r:@R> =>
+    ast::Stmt::Loop(Box::new(ast::Stmt::Block(vec![ast::Stmt::Emit(s,Some(e), (l, r)),
+    ast::Stmt::Pause(la, (l, r))], (l, r))), (l, r)),
+    <l:@L> <la: Symbol> ":" "sustain" <s:Symbol> <r:@R> =>
+    ast::Stmt::Loop(Box::new(ast::Stmt::Block(vec![ast::Stmt::Emit(s,None, (l, r)),
+    ast::Stmt::Pause(la, (l, r))], (l, r))), (l, r)),
+
+}
+
 pub Statement: ast::Stmt = {
    <l:@L> "nothing" ";" <r:@R> =>
    	  {return ast::Stmt::Noop((l, r))},
@@ -62,6 +77,8 @@ pub Statement: ast::Stmt = {
 	  ast::Stmt::Spar(vec![lb, rb], (l, r)),
    <a:Abort> ";" => a,
    <a:Suspend> ";" => a,
+   <a:Await> ";" => a,
+   <a:Sustain> ";" => a,
 }
 
 pub IOT : ast::IO =  {
@@ -75,21 +92,21 @@ pub Symbol: ast::Symbol = {
 
 pub Expr: ast::Expr = {
     #[precedence(level="0")] // Highest precedence
+    <l:@L> <i:"true"> <r:@R> => ast::Expr::True((l,r)),
+    <l:@L> <i:"false"> <r:@R> => ast::Expr::False((l,r)),
     <l:@L> <s:Symbol> <r:@R> =>
     	   ast::Expr::Esymbol(s, (l, r)),
-   #[precedence(level="1")]
     <l:@L> "!" <le:Expr> <r:@R> =>
     	   ast::Expr::Not(Box::new(le), (l, r)),
-   #[precedence(level="2")] #[assoc(side="left")]
     <l:@L> <le:RelDataExpr> <r:@R> =>
     	   ast::Expr::DataExpr(le, (l, r)),
+    <l:@L> "(" <le:Expr> ")" <r:@R> =>
+    	   ast::Expr::Brackets(Box::new(le), (l, r)),
    #[precedence(level="3")] #[assoc(side="left")]
     <l:@L> <le:Expr> "and" <re:Expr> <r:@R> =>
     	    ast::Expr::And(Box::new(le), Box::new(re), (l, r)),
     <l:@L> <le:Expr> "or" <re:Expr> <r:@R> =>
     	   ast::Expr::Or(Box::new(le), Box::new(re), (l, r)),
-    <l:@L> "(" <le:Expr> ")" <r:@R> =>
-    	   ast::Expr::Brackets(Box::new(le), (l, r)),
 }
 
 pub RelDataExpr: ast::RelDataExpr = {
@@ -178,6 +195,10 @@ enum Token {
     ";" => Token::Semicolon,
     "?" => Token::OpQ,
     "nothing" => Token::OpNothing,
+    "await" => Token::Await,
+    "sustain" => Token::Sustain,
+    "true" => Token::True,
+    "false" => Token::False,
     ":" => Token::OpColon,
     }
 }

@@ -95,3 +95,47 @@ fn imm_rewrite(_ast: Stmt, state: &mut State) -> Stmt {
         Stmt::Spar(sts, p) => Stmt::Spar(rewrite_stmts(sts, state), p),
     }
 }
+
+// XXX: Write the function to rewrite statements to the fsm graph
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+struct GraphNode {
+    pub children: Vec<usize>, // this is the destination state
+    pub parents: Vec<usize>,  //this is the parent state
+    pub actions: Vec<Stmt>,   // these are the actions on the transitions
+    pub guards: Vec<Expr>,    // these are the guards on transitions
+    pub tag: bool,            // this is to tell if this is a real state of
+                              // dummy state
+}
+
+#[allow(dead_code)]
+impl GraphNode {
+    fn new(child: usize, parent: usize, action: Stmt, guard: Expr, t: bool) -> Self {
+        Self {
+            children: vec![child],
+            parents: vec![parent],
+            actions: vec![action],
+            guards: vec![guard],
+            tag: t,
+        }
+    }
+}
+
+impl Default for GraphNode {
+    fn default() -> Self {
+        Self {
+            children: vec![],
+            parents: vec![],
+            actions: vec![],
+            guards: vec![],
+            tag: false,
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn rewrite_to_graph_fsm(_v: Vec<Stmt>) -> GraphNode {
+    // TODO: Write this code.
+    GraphNode::default()
+}
