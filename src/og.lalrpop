@@ -19,29 +19,29 @@ pub Present: ast::Stmt = {
 }
 
 pub Abort: ast::Stmt = {
-    <l:@L> "abort" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "abort" "(" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Abort(e, None, Box::new(s), (l, r)),
-    <l:@L> "weak" "abort" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "weak" "abort" "(" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Abort(e, Some(ast::ASQual::Weak), Box::new(s), (l, r)),
-    <l:@L> "abort" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "abort" "(" "immediate" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Abort(e, Some(ast::ASQual::Immediate), Box::new(s), (l, r)),
-    <l:@L> "weak" "abort" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "weak" "abort" "(" "immediate" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Abort(e, Some(ast::ASQual::WeakImmediate), Box::new(s), (l, r)),
 }
 
 pub Suspend: ast::Stmt = {
-    <l:@L> "suspend" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "suspend" "(" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Suspend(e, None, Box::new(s), (l, r)),
-    <l:@L> "weak" "suspend" "(" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "weak" "suspend" "(" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Suspend(e, Some(ast::ASQual::Weak), Box::new(s), (l, r)),
-    <l:@L> "suspend" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "suspend" "(" "immediate" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Suspend(e, Some(ast::ASQual::Immediate), Box::new(s), (l, r)),
-    <l:@L> "weak" "suspend" "(" "immediate" <e:Symbol> ")" <s:Block> <r:@R> =>
+    <l:@L> "weak" "suspend" "(" "immediate" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Suspend(e, Some(ast::ASQual::WeakImmediate), Box::new(s), (l, r)),
 }
 
 pub Await : ast::Stmt = {
-    <l:@L> <la: Symbol> ":" "await" "(" <s:Symbol> ")" <r:@R> =>
+    <l:@L> <la: Symbol> ":" "await" "(" <s:Expr> ")" <r:@R> =>
     ast::Stmt::Abort(s, None, Box::new(ast::Stmt::Loop (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
 }
 
