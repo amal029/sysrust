@@ -16,5 +16,5 @@ fn main() {
     let mut _nodes: Vec<GraphNode> = Vec::with_capacity(1000);
     let mut idx = 0usize;
     let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, &mut idx, &mut _nodes);
-    dbg!("{:?} {:?} {:?}", _nodes, _i, _e);
+    println!("{:?} {:?} {:?}", _nodes, _i, _e);
 }

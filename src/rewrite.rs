@@ -307,6 +307,42 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
 
             // XXX: Always immediate type abort
+            // _nodes[_bi].children.push(r2);
+            // _nodes[_bi].guards.push(_a.clone());
+            // _nodes[r2].parents.push(_bi);
+
+            // XXX: Now add an edge from every real node in body to "e"
+            vis = vec![false; _nodes.len()];
+            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
+
+            // XXX: Now attach the last case -- iff the last does not
+            // have children already. If it has children it would be a
+            // loop!
+            if !_nodes[_be].children.contains(&_bi) {
+                _nodes[_be].children.push(r2);
+                _nodes[_be].guards.push(Expr::True(*_pos));
+                _nodes[r2].parents.push(_be);
+            }
+
+            // XXX: Return the initial and end indices
+            (_bi, r2)
+        }
+	Stmt::Abort(_a, Some(ASQual::Immediate), _body, _pos) => {
+	    // XXX: This is strong immediate abort
+	    let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
+	    let mut vis = vec![false; _nodes.len()];
+	    let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
+	    attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
+
+            // XXX: Now make the end node
+            let mut e = GraphNode::default();
+            e.idx = *idx;
+            e.label = String::from("AbortEnd");
+            let r2 = e.idx;
+            _nodes.push(e);
+            *idx += 1;
+
+            // XXX: Immediate type abort
             _nodes[_bi].children.push(r2);
             _nodes[_bi].guards.push(_a.clone());
             _nodes[r2].parents.push(_bi);

@@ -54,6 +54,7 @@ pub enum IO {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ASQual {
     Weak,
+    Immediate,
 }
 
 #[derive(Clone, Debug, PartialEq)]
