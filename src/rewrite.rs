@@ -214,8 +214,10 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Add edges between e and _tr2 and _er2
             e.parents.push(_tr2);
             _nodes[_tr2].children.push(e.idx);
+            _nodes[_tr2].guards.push(Expr::True(_pos.clone()));
             e.parents.push(_er2);
             _nodes[_er2].children.push(e.idx);
+            _nodes[_er2].guards.push(Expr::True(_pos.clone()));
 
             _nodes.push(e);
             let r2 = _nodes[*idx].idx;
@@ -261,8 +263,10 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Add edges between e and _tr2 and _er2
             e.parents.push(_tr2);
             _nodes[_tr2].children.push(e.idx);
+            _nodes[_tr2].guards.push(Expr::True(_pos.clone()));
             e.parents.push(_er2);
             _nodes[_er2].children.push(e.idx);
+            _nodes[_er2].guards.push(Expr::True(_pos.clone()));
 
             _nodes.push(e);
             let r2 = _nodes[*idx].idx;
@@ -275,6 +279,7 @@ fn rewrite_stmt_to_graph_fsm(
             let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
             // XXX: Attach an edge from end node to the initial node
             _nodes[_be].children.push(_bi);
+            _nodes[_be].guards.push(Expr::True(_pos.clone()));
             _nodes[_bi].parents.push(_be);
             // XXX: Perform loop causality analysis
             let mut vis: Vec<bool> = vec![false; _nodes.len()];
@@ -290,14 +295,63 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: This is strong immediate abort
             let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
             let mut vis = vec![false; _nodes.len()];
-            let _aexpr = Expr::Not(Box::new(_a.clone()), _pos.clone());
-            attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, _pos.clone());
+            let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
+            attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
+
+            let mut e = GraphNode::default();
+            e.idx = *idx;
+            let r2 = e.idx;
+            _nodes.push(e);
+            *idx += 1;
+
+            // XXX: Now add an edge from every real node in body to "e"
+	    vis = vec![false; _nodes.len()];
+            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
+
+            // XXX: Always immediate type abort
+            _nodes[_bi].children.push(*idx);
+            _nodes[_bi].guards.push(_a.clone());
+            _nodes[r2].parents.push(_bi);
+
+            // XXX: Now attach the last case
+	    _nodes[_be].children.push(r2);
+	    _nodes[_be].guards.push(Expr::True(*_pos));
+	    _nodes[r2].parents.push(_be);
+
+            // XXX: Now make the end node
             // XXX: Return the initial and end indices
-            (_bi, 0)
+            (_bi, r2)
         }
         Stmt::Abort(_a, Some(ASQual::Weak), _body, _pos) => todo!(),
         Stmt::Suspend(_a, _at, _body, _pos) => todo!("Suspend rewrite not done"),
         Stmt::Spar(_stmts, _pos) => todo!("Parallel rewrite not done yet"),
+    }
+}
+
+fn attach_abort_end(
+    _nodes: &mut [GraphNode],
+    _s: Index,
+    _d: Index,
+    _e: Index,
+    _vis: &mut [bool],
+    _expr: &Expr,
+) {
+    assert!(_nodes[_s].children.len() == _nodes[_s].guards.len());
+    if !_vis[_s] {
+        _vis[_s] = true;
+    }
+    // XXX: Only for a real node
+    if _nodes[_s].tag && _s != _d {
+        // XXX: Attach the edge to the end node
+        _nodes[_s].children.push(_e);
+        _nodes[_s].guards.push(_expr.clone());
+        _nodes[_e].parents.push(_s);
+    }
+    let _childs = _nodes[_s].children.clone();
+    for i in _childs {
+        if !_vis[i] {
+            attach_abort_end(_nodes, i, _d, _e, _vis, _expr);
+        }
     }
 }
 
@@ -309,6 +363,7 @@ fn attach_abort_expr(
     _expr: &Expr,
     _pos: (usize, usize),
 ) {
+    assert!(_nodes[_s].children.len() == _nodes[_s].guards.len());
     if !_vis[_s] {
         _vis[_s] = true;
     }
@@ -321,7 +376,7 @@ fn attach_abort_expr(
         }
     }
     // XXX: Now do the same for all the children
-    let _childs = _nodes[_s].children.clone(); // this copy is bullshit rust issue
+    let _childs = _nodes[_s].children.clone(); // this copy is problematic rust issue
     for i in _childs {
         if !_vis[i] {
             attach_abort_expr(_nodes, i, _d, _vis, _expr, _pos);
@@ -349,6 +404,7 @@ pub fn rewrite_to_graph_fsm(
         // XXX: Now you need to merge the nodes one after the other
         if ii > 0 {
             _nodes[_pe].children.push(si);
+            _nodes[_pe].guards.push(Expr::True((0, 0)));
             _nodes[si].parents.push(_pe);
         }
         _pe = ei;
