@@ -4,7 +4,7 @@ use crate::ast;
 grammar;
 
 pub Script: Vec<ast::Stmt> = {
-    <stmts:Statement*> => {return stmts},
+    <stmts:Statement*> => return stmts,
 }
 
 pub Block: ast::Stmt = {
@@ -12,9 +12,9 @@ pub Block: ast::Stmt = {
 }
 
 pub Present: ast::Stmt = {
-    <l:@L> "if" "(" <e:Expr> ")" <b:Statement> <r:@R> =>
+    <l:@L> "if" "(" <e:Expr> ")" <b:Block> <r:@R> =>
     ast::Stmt::Present(e, Box::new(b), None, (l, r)),
-    <l:@L> "if" "(" <e:Expr> ")" <b:Statement> "else" <eb:Statement> <r:@R> =>
+    <l:@L> "if" "(" <e:Expr> ")" <b:Block> "else" <eb:Block> <r:@R> =>
     ast::Stmt::Present(e, Box::new(b), Some(Box::new(eb)), (l, r)),
 }
 
@@ -55,9 +55,15 @@ pub Sustain : ast::Stmt = {
 
 }
 
+pub Spar: Vec<ast::Stmt> = {
+    <ss:Spar> "||" <bb:Block> =>
+    	   {let mut mm = ss; mm.push(bb); mm},
+    <lb:Block> "||" <rb:Block> => vec![lb, rb],
+}
+
 pub Statement: ast::Stmt = {
    <l:@L> "nothing" ";" <r:@R> =>
-   	  {return ast::Stmt::Noop((l, r))},
+   	  return ast::Stmt::Noop((l, r)),
    <l:@L> <i:IOT> "signal" <s:Symbol> ";" <r:@R> =>
    	  ast::Stmt::Signal(s, Some(i), (l, r)),
    <l:@L> "signal" <s:Symbol> ";" <r:@R> =>
@@ -72,13 +78,11 @@ pub Statement: ast::Stmt = {
    <l:@L> "loop" <b:Block> ";" <r:@R> =>
    	   ast::Stmt::Loop(Box::new(b), (l, r)),
    <p:Present> ";" => p,
-   <b:Block> => b,
-   <l:@L> <lb:Block> "||" <rb:Block> <r:@R> ";" =>
-	  ast::Stmt::Spar(vec![lb, rb], (l, r)),
    <a:Abort> ";" => a,
    <a:Suspend> ";" => a,
    <a:Await> ";" => a,
    <a:Sustain> ";" => a,
+   <l:@L> <ss:Spar> ";" <r:@R> => ast::Stmt::Spar(ss, (l, r)),
 }
 
 pub IOT : ast::IO =  {
