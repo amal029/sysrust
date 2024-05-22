@@ -4,10 +4,12 @@ use sysrust::ast::*;
 
 use crate::error::print_bytes;
 
+#[allow(dead_code)]
 pub struct State {
     labelnum: u64,
 }
 
+#[allow(dead_code)]
 impl State {
     pub fn new() -> Self {
         State { labelnum: 0 }
@@ -19,89 +21,11 @@ impl State {
     }
 }
 
-pub fn rewrite_stmts(stmts: Vec<Stmt>, state: &mut State) -> Vec<Stmt> {
-    stmts
-        .into_iter()
-        .map(|x| imm_rewrite(x, state))
-        .collect::<Vec<Stmt>>()
-}
-
 // XXX: Consume the ast and give back a new ast with weak and immediate
 // aborts rewritten.
-fn imm_rewrite(_ast: Stmt, state: &mut State) -> Stmt {
-    fn rewrite_option(s: Option<Box<Stmt>>, state: &mut State) -> Option<Box<Stmt>> {
-        match s {
-            Some(x) => Some(Box::new(imm_rewrite(*x, state))),
-            None => None,
-        }
-    }
-    fn abort_rewrite(a: Option<ASQual>, s: Stmt, sy: Expr, p: (usize, usize)) -> Stmt {
-        match a {
-            Some(x) => match x {
-                ASQual::Immediate => Stmt::Present(
-                    sy.clone(),
-                    Box::new(Stmt::Noop(p)),
-                    Some(Box::new(Stmt::Abort(sy, None, Box::new(s), p))),
-                    p,
-                ),
-                ASQual::Weak => Stmt::Abort(sy, Some(ASQual::Weak), Box::new(s), p),
-                ASQual::WeakImmediate => todo!("Weak and immediate abort"),
-            },
-            None => Stmt::Abort(sy, a, Box::new(s), p),
-        }
-    }
-    fn suspend_rewrite(
-        a: Option<ASQual>,
-        s: Stmt,
-        sy: Expr,
-        p: (usize, usize),
-        state: &mut State,
-    ) -> Stmt {
-        match a {
-            Some(x) => match x {
-                ASQual::Immediate => {
-                    let mut ss = String::from("S");
-                    ss.push_str(state.get_label_num().to_string().as_str());
-                    let pa = Stmt::Pause(Symbol::Symbol(ss, p), p);
-                    let lop = Stmt::Loop(Box::new(pa), p);
-                    let ab = Stmt::Abort(sy.clone(), None, Box::new(lop), p);
-                    let sus = Stmt::Suspend(sy, None, Box::new(s), p);
-                    Stmt::Block(vec![ab, sus], p)
-                }
-                ASQual::Weak => Stmt::Abort(sy, Some(ASQual::Weak), Box::new(s), p),
-                ASQual::WeakImmediate => todo!("Weak and immediate suspend"),
-            },
-            None => Stmt::Abort(sy, a, Box::new(s), p),
-        }
-    }
-    match _ast {
-        Stmt::Block(x, p) => Stmt::Block(rewrite_stmts(x, state), p),
-        Stmt::Pause(s, p) => Stmt::Pause(s, p),
-        Stmt::Emit(s, v, p) => Stmt::Emit(s, v, p),
-        Stmt::Present(e, s, o, p) => Stmt::Present(
-            e,
-            Box::new(imm_rewrite(*s, state)),
-            rewrite_option(o, state),
-            p,
-        ),
-        Stmt::Signal(s, o, p) => Stmt::Signal(s, o, p),
-        Stmt::Abort(s, o, st, p) => {
-            let sg = imm_rewrite(*st, state);
-            abort_rewrite(o, sg, s, p)
-        }
-        Stmt::Suspend(s, o, st, p) => {
-            let sg = imm_rewrite(*st, state);
-            suspend_rewrite(o, sg, s, p, state)
-        }
-        Stmt::Loop(s, p) => Stmt::Loop(Box::new(imm_rewrite(*s, state)), p),
-        Stmt::Assign(s, e, p) => Stmt::Assign(s, e, p),
-        Stmt::Noop(p) => Stmt::Noop(p),
-        Stmt::Spar(sts, p) => Stmt::Spar(rewrite_stmts(sts, state), p),
-    }
-}
-
 // XXX: Write the function to rewrite statements to the fsm graph
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 enum NodeT {
     SPAR,
@@ -357,18 +281,54 @@ fn rewrite_stmt_to_graph_fsm(
             if !loop_causality_analysis(_nodes, &mut vis, _bi, _bi) {
                 let _ = print_bytes(ff, _pos.0, _pos.1);
                 println!("is not causal");
-		exit(1);
+                exit(1);
             }
             // XXX: Return the initial and end node index
             (_bi, _be)
         }
-        Stmt::Abort(_a, _at, _body, _pos) => todo!("Abort rewrite not done yet"),
-        Stmt::Suspend(_a, _at, _body, _pos) => todo!("Suspend rewrite not done yet"),
+        Stmt::Abort(_a, None, _body, _pos) => {
+            // XXX: This is strong immediate abort
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
+            let mut vis = vec![false; _nodes.len()];
+            let _aexpr = Expr::Not(Box::new(_a.clone()), _pos.clone());
+            attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, _pos.clone());
+            // XXX: Return the initial and end indices
+            (_bi, 0)
+        }
+        Stmt::Abort(_a, Some(ASQual::Weak), _body, _pos) => todo!(),
+        Stmt::Suspend(_a, _at, _body, _pos) => todo!("Suspend rewrite not done"),
         Stmt::Spar(_stmts, _pos) => todo!("Parallel rewrite not done yet"),
     }
 }
 
-#[allow(dead_code)]
+fn attach_abort_expr(
+    _nodes: &mut [GraphNode],
+    _s: Index,
+    _d: Index,
+    _vis: &mut [bool],
+    _expr: &Expr,
+    _pos: (usize, usize),
+) {
+    if !_vis[_s] {
+        _vis[_s] = true;
+    }
+    // XXX: Now update the guard for this node
+    if _nodes[_s].guards.is_empty() && _s != _d {
+        _nodes[_s].guards.push(_expr.clone());
+    } else if _s != _d {
+        for _g in _nodes[_s].guards.iter_mut() {
+            *_g = Expr::And(Box::new(_expr.clone()), Box::new(_g.clone()), _pos);
+        }
+    }
+    // XXX: Now do the same for all the children
+    let _childs = _nodes[_s].children.clone(); // this copy is bullshit rust issue
+    for i in _childs {
+        if !_vis[i] {
+            attach_abort_expr(_nodes, i, _d, _vis, _expr, _pos);
+        }
+    }
+}
+
 pub fn rewrite_to_graph_fsm(
     ff: &str,
     _v: &[Stmt],
