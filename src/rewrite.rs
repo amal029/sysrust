@@ -301,6 +301,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the end node
             let mut e = GraphNode::default();
             e.idx = *idx;
+            e.label = String::from("AbortEnd");
             let r2 = e.idx;
             _nodes.push(e);
             *idx += 1;
@@ -314,10 +315,14 @@ fn rewrite_stmt_to_graph_fsm(
             vis = vec![false; _nodes.len()];
             attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
 
-            // XXX: Now attach the last case
-            _nodes[_be].children.push(r2);
-            _nodes[_be].guards.push(Expr::True(*_pos));
-            _nodes[r2].parents.push(_be);
+            // XXX: Now attach the last case -- iff the last does not
+            // have children already. If it has children it would be a
+            // loop!
+            if !_nodes[_be].children.contains(&_bi) {
+                _nodes[_be].children.push(r2);
+                _nodes[_be].guards.push(Expr::True(*_pos));
+                _nodes[r2].parents.push(_be);
+            }
 
             // XXX: Return the initial and end indices
             (_bi, r2)
