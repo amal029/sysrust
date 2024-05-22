@@ -298,27 +298,27 @@ fn rewrite_stmt_to_graph_fsm(
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
 
+            // XXX: Now make the end node
             let mut e = GraphNode::default();
             e.idx = *idx;
             let r2 = e.idx;
             _nodes.push(e);
             *idx += 1;
 
-            // XXX: Now add an edge from every real node in body to "e"
-	    vis = vec![false; _nodes.len()];
-            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
-
             // XXX: Always immediate type abort
-            _nodes[_bi].children.push(*idx);
+            _nodes[_bi].children.push(r2);
             _nodes[_bi].guards.push(_a.clone());
             _nodes[r2].parents.push(_bi);
 
-            // XXX: Now attach the last case
-	    _nodes[_be].children.push(r2);
-	    _nodes[_be].guards.push(Expr::True(*_pos));
-	    _nodes[r2].parents.push(_be);
+            // XXX: Now add an edge from every real node in body to "e"
+            vis = vec![false; _nodes.len()];
+            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
 
-            // XXX: Now make the end node
+            // XXX: Now attach the last case
+            _nodes[_be].children.push(r2);
+            _nodes[_be].guards.push(Expr::True(*_pos));
+            _nodes[r2].parents.push(_be);
+
             // XXX: Return the initial and end indices
             (_bi, r2)
         }
