@@ -327,12 +327,21 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Return the initial and end indices
             (_bi, r2)
         }
-	Stmt::Abort(_a, Some(ASQual::Immediate), _body, _pos) => {
-	    // XXX: This is strong immediate abort
-	    let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
-	    let mut vis = vec![false; _nodes.len()];
-	    let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
-	    attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
+        Stmt::Abort(_a, Some(ASQual::Immediate), _body, _pos) => {
+            // XXX: This is strong immediate abort
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
+            let mut vis = vec![false; _nodes.len()];
+            let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
+            attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
+
+            // XXX: Attach expr to initial node too, because immediate
+            if _nodes[_bi].guards.is_empty() {
+                _nodes[_bi].guards.push(_aexpr.clone());
+            } else {
+                for _g in _nodes[_bi].guards.iter_mut() {
+                    *_g = Expr::And(Box::new(_aexpr.clone()), Box::new(_g.clone()), *_pos);
+                }
+            }
 
             // XXX: Now make the end node
             let mut e = GraphNode::default();
@@ -409,9 +418,9 @@ fn attach_abort_expr(
         _vis[_s] = true;
     }
     // XXX: Now update the guard for this node
-    if _nodes[_s].guards.is_empty() && _s != _d {
+    if _nodes[_s].guards.is_empty() && _s != _d && _nodes[_s].tag {
         _nodes[_s].guards.push(_expr.clone());
-    } else if _s != _d {
+    } else if _s != _d && _nodes[_s].tag {
         for _g in _nodes[_s].guards.iter_mut() {
             *_g = Expr::And(Box::new(_expr.clone()), Box::new(_g.clone()), _pos);
         }
