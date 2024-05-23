@@ -372,7 +372,10 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Return the initial and end indices
             (_bi, r2)
         }
-        Stmt::Abort(_a, Some(ASQual::Weak), _body, _pos) => todo!(),
+        Stmt::Abort(_a, Some(ASQual::Weak), _body, _pos) => {
+            let _ = print_bytes(ff, _pos.0, _pos.1);
+	    todo!("Not yet supported");
+        }
         Stmt::Suspend(_a, None, _body, _pos) => {
             // XXX: This is strong suspend
             let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
