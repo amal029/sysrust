@@ -32,8 +32,8 @@ pub Abort: ast::Stmt = {
 pub Suspend: ast::Stmt = {
     <l:@L> "suspend" "(" <e:Expr> ")" <s:Block> <r:@R> =>
     ast::Stmt::Suspend(e, None, Box::new(s), (l, r)),
-    <l:@L> "weak" "suspend" "(" <e:Expr> ")" <s:Block> <r:@R> =>
-    ast::Stmt::Suspend(e, Some(ast::ASQual::Weak), Box::new(s), (l, r)),
+    // <l:@L> "weak" "suspend" "(" <e:Expr> ")" <s:Block> <r:@R> =>
+    // ast::Stmt::Suspend(e, Some(ast::ASQual::Weak), Box::new(s), (l, r)),
     // <l:@L> "suspend" "(" "immediate" <e:Expr> ")" <s:Block> <r:@R> =>
     // ast::Stmt::Suspend(e, Some(ast::ASQual::Immediate), Box::new(s), (l, r)),
     // <l:@L> "weak" "suspend" "(" "immediate" <e:Expr> ")" <s:Block> <r:@R> =>
@@ -46,6 +46,11 @@ pub Await : ast::Stmt = {
    <l:@L> <la: Symbol> ":" "await" "(" "immediate" <s:Expr> ")" <r:@R> =>
     ast::Stmt::Abort(s, Some(ast::ASQual::Immediate), Box::new(ast::Stmt::Loop (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
 
+}
+
+pub Halt: ast::Stmt ={
+    <l:@L> <la:Symbol> ":" "halt" <r:@R> =>
+    ast::Stmt::Loop(Box::new(ast::Stmt::Pause(la, (l, r))), (l, r))
 }
 
 pub Sustain : ast::Stmt = {
@@ -82,9 +87,10 @@ pub Statement: ast::Stmt = {
    	   ast::Stmt::Loop(Box::new(b), (l, r)),
    <p:Present> ";" => p,
    <a:Abort> ";" => a,
-   // <a:Suspend> ";" => a,
+   <a:Suspend> ";" => a,
    <a:Await> ";" => a,
    <a:Sustain> ";" => a,
+   <a:Halt> ";" => a,
    <l:@L> <ss:Spar> ";" <r:@R> => ast::Stmt::Spar(ss, (l, r)),
 }
 
@@ -205,6 +211,7 @@ enum Token {
     "await" => Token::Await,
     "sustain" => Token::Sustain,
     "true" => Token::True,
+    "halt" => Token::Halt,
     "false" => Token::False,
     ":" => Token::OpColon,
     }

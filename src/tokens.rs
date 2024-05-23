@@ -27,6 +27,8 @@ impl From<ParseIntError> for LexicalError {
 #[logos(skip r"[ \t\n\f]+", skip r"//.*\n?", error = LexicalError)]
 pub enum Token {
     // XXX: Keywords in the language
+    #[token("halt")]
+    Halt,
     #[token("emit")]
     Emit,
     #[token("pause")]

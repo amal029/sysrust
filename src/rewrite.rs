@@ -292,7 +292,7 @@ fn rewrite_stmt_to_graph_fsm(
             (_bi, _be)
         }
         Stmt::Abort(_a, None, _body, _pos) => {
-            // XXX: This is strong immediate abort
+            // XXX: This is strong abort
             let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
@@ -318,7 +318,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now attach the last case -- iff the last does not
             // have children already. If it has children it would be a
             // loop!
-            if !_nodes[_be].children.contains(&_bi) {
+            if _nodes[_be].children.len() == 0 {
                 _nodes[_be].children.push(r2);
                 _nodes[_be].guards.push(Expr::True(*_pos));
                 _nodes[r2].parents.push(_be);
@@ -363,7 +363,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now attach the last case -- iff the last does not
             // have children already. If it has children it would be a
             // loop!
-            if !_nodes[_be].children.contains(&_bi) {
+            if _nodes[_be].children.len() == 0 {
                 _nodes[_be].children.push(r2);
                 _nodes[_be].guards.push(Expr::True(*_pos));
                 _nodes[r2].parents.push(_be);
@@ -373,8 +373,56 @@ fn rewrite_stmt_to_graph_fsm(
             (_bi, r2)
         }
         Stmt::Abort(_a, Some(ASQual::Weak), _body, _pos) => todo!(),
-        Stmt::Suspend(_a, _at, _body, _pos) => todo!("Suspend rewrite not done"),
+        Stmt::Suspend(_a, None, _body, _pos) => {
+            // XXX: This is strong suspend
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, idx, _body);
+            let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
+
+            // XXX: Get the guards for every real node
+            let mut vis = vec![false; _nodes.len()];
+            add_suspend_expr(_nodes, &mut vis, _bi, &_aexpr, _be, *_pos);
+
+            let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
+
+            (_bi, _be)
+        }
+        Stmt::Suspend(_a, Some(_), _body, _pos) => {
+            let _ = print_bytes(ff, _pos.0, _pos.1);
+            println!("Cannot happen!");
+            exit(1);
+        }
         Stmt::Spar(_stmts, _pos) => todo!("Parallel rewrite not done yet"),
+    }
+}
+
+fn add_suspend_expr(
+    _nodes: &mut [GraphNode],
+    _vis: &mut [bool],
+    _s: Index,
+    _expr: &Expr,
+    _d: Index,
+    _pos: (Index, Index),
+) {
+    assert!(_nodes[_s].children.len() == _nodes[_s].guards.len());
+    if !_vis[_s] {
+        _vis[_s] = true;
+    }
+    if _nodes[_s].tag && _s != _d {
+        for _g in _nodes[_s].guards.iter_mut() {
+            *_g = Expr::And(Box::new(_expr.clone()), Box::new(_g.clone()), _pos);
+        }
+        // XXX: Add a self loop for the Not of _expr
+        _nodes[_s].children.push(_s);
+        _nodes[_s].parents.push(_s);
+        _nodes[_s]
+            .guards
+            .push(Expr::Not(Box::new(_expr.clone()), _pos));
+    }
+    let _childs = _nodes[_s].children.clone();
+    for i in _childs {
+        if !_vis[i] {
+            add_suspend_expr(_nodes, _vis, i, _expr, _d, _pos);
+        }
     }
 }
 
