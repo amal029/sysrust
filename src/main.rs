@@ -15,6 +15,7 @@ fn main() {
     // XXX: Make the FSM graph
     let mut _nodes: Vec<GraphNode> = Vec::with_capacity(1000);
     let mut idx = 0usize;
-    let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, &mut idx, &mut _nodes);
+    let tid = 0usize;
+    let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, tid, &mut idx, &mut _nodes);
     dbg!("{:?} {:?} {:?}", _nodes, _i, _e);
 }
