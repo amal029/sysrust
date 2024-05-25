@@ -1,6 +1,6 @@
 type Pos = (usize, usize);
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Symbol {
     Symbol(String, Pos),
 }

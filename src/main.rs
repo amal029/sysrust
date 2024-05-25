@@ -4,6 +4,7 @@ use sysrust::parse;
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod error;
 mod rewrite;
+mod analyse;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

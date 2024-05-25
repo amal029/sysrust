@@ -4,23 +4,6 @@ use sysrust::ast::*;
 
 use crate::error::print_bytes;
 
-#[allow(dead_code)]
-pub struct State {
-    labelnum: u64,
-}
-
-#[allow(dead_code)]
-impl State {
-    pub fn new() -> Self {
-        State { labelnum: 0 }
-    }
-    fn get_label_num(&mut self) -> u64 {
-        let r = self.labelnum;
-        self.labelnum += 1;
-        return r;
-    }
-}
-
 // XXX: Consume the ast and give back a new ast with weak and immediate
 // aborts rewritten.
 // XXX: Write the function to rewrite statements to the fsm graph
@@ -32,7 +15,6 @@ enum NodeT {
     BRANCH,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct GraphNode {
     children: Vec<usize>, // this is the destination state
