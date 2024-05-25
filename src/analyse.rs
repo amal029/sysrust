@@ -6,7 +6,7 @@ use sysrust::ast::*;
 use crate::error::print_bytes;
 
 #[allow(dead_code)]
-enum Type {
+pub enum Type {
     Float,
     Int,
     None,
@@ -17,7 +17,7 @@ type HT = HashMap<Symbol, Type>;
 #[allow(dead_code)]
 type Pos = (usize, usize);
 
-fn _analyse_var_signal_uses(ff: &str, _stmts: &[Stmt], stack: Vec<HT>) -> Vec<HT> {
+pub fn _analyse_var_signal_uses(ff: &str, _stmts: &[Stmt], stack: Vec<HT>) -> Vec<HT> {
     let mut u = stack;
     for i in _stmts.iter() {
         u = _analyse_var_signal_use(ff, i, u);
@@ -77,12 +77,12 @@ fn _check_sym_in_expr(_ff: &str, _expr: &Expr, _vmap: &[HT], _pos: Pos) {
     }
 }
 
-fn _analyse_var_signal_use(ff: &str, stmt: &Stmt, _stack: Vec<HT>) -> Vec<HT> {
+pub fn _analyse_var_signal_use(ff: &str, stmt: &Stmt, _stack: Vec<HT>) -> Vec<HT> {
     match stmt {
         Stmt::Block(_stmts, _pos) => {
             // XXX: Push a new hashmap on the stack
             let mut _stack = _stack;
-            let vmap: HT = HashMap::new();
+            let vmap: HT = HashMap::with_capacity(1000);
             _stack.push(vmap);
             _stack = _analyse_var_signal_uses(ff, _stmts, _stack);
             _stack.pop();
@@ -96,12 +96,10 @@ fn _analyse_var_signal_use(ff: &str, stmt: &Stmt, _stack: Vec<HT>) -> Vec<HT> {
         }
         Stmt::Present(_sy, _st, None, _pos) => {
             _check_sym_in_expr(ff, &_sy, &_stack, *_pos);
-            // XXX: Do the then body of the present statement
             _analyse_var_signal_use(ff, _st, _stack)
         }
         Stmt::Present(_sy, _st1, Some(_st), _pos) => {
             _check_sym_in_expr(ff, &_sy, &_stack, *_pos);
-            // XXX: Do the then body of the present statement
             let ss = _analyse_var_signal_use(ff, _st1, _stack);
             _analyse_var_signal_use(ff, _st, ss)
         }
