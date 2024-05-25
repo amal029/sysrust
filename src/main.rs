@@ -20,12 +20,12 @@ fn main() {
     stack.push(HashMap::with_capacity(1000)); // pushed the first hashmap
     stack = _analyse_var_signal_uses(&args[1], &_ast, stack, &mut rets);
     stack.pop(); // removed the final hashmap
-                 // XXX: Print all the errors
+
+    // XXX: Print all the errors
     let bb = rets.is_empty();
     for i in rets {
         print_bytes(&args[1], i.0, i.1).unwrap();
-	print!("signal/var {} ", i.2);
-	println!("not declared in scope");
+        println!("signal/var {} not declared in scope", i.2);
     }
     if !bb {
         exit(1);
