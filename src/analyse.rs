@@ -15,6 +15,7 @@ pub enum Type {
 type HT = HashMap<String, Type>;
 #[allow(dead_code)]
 type Pos = (usize, usize);
+type Pos1 = (usize, usize, String);
 
 fn symbol_string(s: &Symbol) -> String {
     match s {
@@ -26,7 +27,7 @@ pub fn _analyse_var_signal_uses(
     ff: &str,
     _stmts: &[Stmt],
     stack: Vec<HT>,
-    rets: &mut Vec<Pos>,
+    rets: &mut Vec<Pos1>,
 ) -> Vec<HT> {
     let mut u = stack;
     for i in _stmts.iter() {
@@ -35,7 +36,7 @@ pub fn _analyse_var_signal_uses(
     return u;
 }
 
-fn _check_sym_in_map(_ff: &str, s: &Symbol, vmap: &[HT], pos: Pos, rets: &mut Vec<Pos>) {
+fn _check_sym_in_map(_ff: &str, s: &Symbol, vmap: &[HT], pos: Pos, rets: &mut Vec<Pos1>) {
     let mut there = false;
     for map in vmap.iter() {
         if map.contains_key(&symbol_string(s)) {
@@ -44,7 +45,7 @@ fn _check_sym_in_map(_ff: &str, s: &Symbol, vmap: &[HT], pos: Pos, rets: &mut Ve
         }
     }
     if !there {
-        rets.push((pos.0, pos.1));
+        rets.push((pos.0, pos.1, symbol_string(s)));
         // print_bytes(ff, pos.0, pos.1).unwrap();
     }
 }
@@ -54,7 +55,7 @@ fn _check_sym_in_simple_expr(
     _expr: &SimpleDataExpr,
     _vmap: &[HT],
     _pos: Pos,
-    rets: &mut Vec<Pos>,
+    rets: &mut Vec<Pos1>,
 ) {
     match _expr {
         SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _) => {
@@ -72,7 +73,7 @@ fn _check_sym_in_rel_expr(
     _expr: &RelDataExpr,
     _vmap: &[HT],
     _pos: Pos,
-    rets: &mut Vec<Pos>,
+    rets: &mut Vec<Pos1>,
 ) {
     match _expr {
         RelDataExpr::LessThan(_l, _r, _pos)
@@ -86,13 +87,13 @@ fn _check_sym_in_rel_expr(
     }
 }
 
-fn _check_sym_in_expr(_ff: &str, _expr: &Expr, _vmap: &[HT], _pos: Pos, rets: &mut Vec<Pos>) {
+fn _check_sym_in_expr(_ff: &str, _expr: &Expr, _vmap: &[HT], _pos: Pos, rets: &mut Vec<Pos1>) {
     match _expr {
         Expr::True(_) | Expr::False(_) => (),
-        Expr::Esymbol(_sy, _pos) => _check_sym_in_map(_ff, _sy, _vmap, *_pos, rets),
-        Expr::And(_l, _r, _pos) | Expr::Or(_l, _r, _pos) => {
-            _check_sym_in_expr(_ff, _l, _vmap, *_pos, rets);
-            _check_sym_in_expr(_ff, _r, _vmap, *_pos, rets);
+        Expr::Esymbol(_sy, _) => _check_sym_in_map(_ff, _sy, _vmap, _pos, rets),
+        Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
+            _check_sym_in_expr(_ff, _l, _vmap, _pos, rets);
+            _check_sym_in_expr(_ff, _r, _vmap, _pos, rets);
         }
         Expr::Not(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets),
         Expr::Brackets(_e, _pos) => _check_sym_in_expr(_ff, _e, _vmap, *_pos, rets),
@@ -104,7 +105,7 @@ pub fn _analyse_var_signal_use(
     ff: &str,
     stmt: &Stmt,
     _stack: Vec<HT>,
-    rets: &mut Vec<Pos>,
+    rets: &mut Vec<Pos1>,
 ) -> Vec<HT> {
     match stmt {
         Stmt::Block(_stmts, _pos) => {
