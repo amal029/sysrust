@@ -127,6 +127,10 @@ pub enum Token {
     OpOr,
     #[token("||")]
     OpPar,
+    #[token("int")]
+    TInt,
+    #[token("float")]
+    TFloat,
 }
 
 impl fmt::Display for Token {

@@ -6,6 +6,13 @@ pub enum Symbol {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum Type{
+    Int,
+    Float,
+    None,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum ExprOp {
     Plus,
     Minus,
@@ -58,12 +65,21 @@ pub enum ASQual {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum Val {
+    VInt(i64),
+    VFloat(f64),
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>, Pos),
     Pause(Symbol, Pos),
     Emit(Symbol, Option<SimpleDataExpr>, Pos),
     Present(Expr, Box<Stmt>, Option<Box<Stmt>>, Pos),
     Signal(Symbol, Option<IO>, Pos),
+    DataSignal(Symbol, Option<IO>, Type, Val, Pos),
+    Variable(Symbol, Type, Pos),
     Abort(Expr, Option<ASQual>, Box<Stmt>, Pos),
     Suspend(Expr, Option<ASQual>, Box<Stmt>, Pos),
     Loop(Box<Stmt>, Pos),

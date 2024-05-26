@@ -4,12 +4,12 @@ use std::collections::HashMap;
 use sysrust::ast::*;
 
 #[allow(dead_code)]
-#[derive(Debug)]
-pub enum Type {
-    Float,
-    Int,
-    None,
-}
+// #[derive(Debug)]
+// pub enum Type {
+//     Float,
+//     Int,
+//     None,
+// }
 
 #[allow(dead_code)]
 type HT = HashMap<String, Type>;
@@ -137,7 +137,23 @@ pub fn _analyse_var_signal_use(
             let mut ss = _stack;
             let idx = ss.len() - 1;
             // FIXME: Fix the type later in parser
-            ss[idx].insert(symbol_string(_sy), Type::Int);
+            ss[idx].insert(symbol_string(_sy), Type::None);
+            ss
+        }
+        Stmt::Variable(_sy, _type, _pos) => {
+            // XXX: Push the signal Symbol into the hashmap
+            let mut ss = _stack;
+            let idx = ss.len() - 1;
+            // FIXME: Fix the type later in parser
+            ss[idx].insert(symbol_string(_sy), _type.clone());
+            ss
+        }
+        Stmt::DataSignal(_sy, _io, _stype, _sval, _pos) => {
+            // XXX: Push the signal Symbol into the hashmap
+            let mut ss = _stack;
+            let idx = ss.len() - 1;
+            // FIXME: Fix the type later in parser
+            ss[idx].insert(symbol_string(_sy), _stype.clone());
             ss
         }
         Stmt::Abort(_expr, _, _body, _pos) | Stmt::Suspend(_expr, _, _body, _pos) => {

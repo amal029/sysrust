@@ -120,6 +120,53 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
             (r1, r2)
         }
+        Stmt::Variable(a, vtype, pos) => {
+            let mut i = GraphNode::default(tid);
+            i.label = String::from("VariableStart");
+            i.actions
+                .push(Stmt::Variable(a.clone(), vtype.clone(), pos.clone()));
+            i.guards.push(Expr::True(pos.clone()));
+            let mut e = GraphNode::default(tid);
+            e.label = String::from("VariableEnd");
+            // XXX: Add the doubly linked list annotations
+            _nodes.push(i);
+            _nodes[*idx].children.push(*idx + 1);
+            _nodes[*idx].idx = *idx;
+            let r1 = _nodes[*idx].idx;
+            *idx += 1;
+            _nodes.push(e);
+            _nodes[*idx].parents.push(*idx - 1);
+            _nodes[*idx].idx = *idx;
+            let r2 = _nodes[*idx].idx;
+            *idx += 1;
+            (r1, r2)
+        }
+        Stmt::DataSignal(a, io, stype, sval, pos) => {
+            let mut i = GraphNode::default(tid);
+            i.label = String::from("DataSignalStart");
+            i.actions.push(Stmt::DataSignal(
+                a.clone(),
+                io.clone(),
+                stype.clone(),
+                sval.clone(),
+                pos.clone(),
+            ));
+            i.guards.push(Expr::True(pos.clone()));
+            let mut e = GraphNode::default(tid);
+            e.label = String::from("DataSignalEnd");
+            // XXX: Add the doubly linked list annotations
+            _nodes.push(i);
+            _nodes[*idx].children.push(*idx + 1);
+            _nodes[*idx].idx = *idx;
+            let r1 = _nodes[*idx].idx;
+            *idx += 1;
+            _nodes.push(e);
+            _nodes[*idx].parents.push(*idx - 1);
+            _nodes[*idx].idx = *idx;
+            let r2 = _nodes[*idx].idx;
+            *idx += 1;
+            (r1, r2)
+        }
         Stmt::Signal(a, io, pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("SignalStart");
@@ -380,14 +427,14 @@ fn rewrite_stmt_to_graph_fsm(
             exit(1);
         }
         Stmt::Spar(_stmts, _pos) => {
-	    // XXX: Note that we can get edges outside the current
-	    // thread. This can be identified with tid. If we go outside
-	    // the current thread that means we just produce a Done
-	    // state for that thread. Moreover, the join node will
-	    // produce a done state if all its incoming threads are in
-	    // done state. Same for parent threads. If the join node
-	    // does not produce a done state then next time we loop
-	    // again and call children threads, that are not yet done.
+            // XXX: Note that we can get edges outside the current
+            // thread. This can be identified with tid. If we go outside
+            // the current thread that means we just produce a Done
+            // state for that thread. Moreover, the join node will
+            // produce a done state if all its incoming threads are in
+            // done state. Same for parent threads. If the join node
+            // does not produce a done state then next time we loop
+            // again and call children threads, that are not yet done.
 
             // XXX: For each _stmts get the _bi and _ei
             let (_bi, _ei): (Vec<Index>, Vec<Index>) = _stmts

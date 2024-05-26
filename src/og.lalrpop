@@ -76,6 +76,16 @@ pub Statement: ast::Stmt = {
    	  ast::Stmt::Signal(s, Some(i), (l, r)),
    <l:@L> "signal" <s:Symbol> ";" <r:@R> =>
    	  ast::Stmt::Signal(s, None, (l, r)),
+   <l:@L> <i:IOT> "i64" "signal" <s:Symbol> "=" <iv:"int"> ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Int, ast::Val::VInt(iv), (l, r)),
+   <l:@L> <i:IOT> "f64" "signal" <s:Symbol> "=" <iv:"float"> ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Float,
+	  ast::Val::VFloat(iv), (l, r)),
+   <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, None, ast::Type::Int, ast::Val::VInt(iv), (l, r)),
+   <l:@L> "f64" "signal" <s:Symbol> "=" <iv:"float"> ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, None, ast::Type::Float,
+	  ast::Val::VFloat(iv), (l, r)),
    <l:@L> <s:Symbol> "=" <e:SimpleDataExpr> ";" <r:@R> =>
    	 ast::Stmt::Assign(s, e, (l,r)),
    <l:@L> <la:Symbol> ":" <s:"pause"> ";" <r:@R> => ast::Stmt::Pause(la, (l,r)),
@@ -91,6 +101,8 @@ pub Statement: ast::Stmt = {
    <a:Await> ";" => a,
    <a:Sustain> ";" => a,
    <a:Halt> ";" => a,
+   <l:@L> "i64" <s:Symbol> <r:@R> ";" => ast::Stmt::Variable(s, ast::Type::Int, (l, r)),
+   <l:@L> "f64" <s:Symbol> <r:@R> ";" => ast::Stmt::Variable(s, ast::Type::Float, (l, r)),
    <l:@L> <ss:Spar> ";" <r:@R> => ast::Stmt::Spar(ss, (l, r)),
 }
 
@@ -214,5 +226,7 @@ enum Token {
     "halt" => Token::Halt,
     "false" => Token::False,
     ":" => Token::OpColon,
+    "i64" => Token::TInt,
+    "f64" => Token::TFloat,
     }
 }
