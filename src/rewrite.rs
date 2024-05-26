@@ -141,7 +141,7 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
             (r1, r2)
         }
-        Stmt::DataSignal(a, io, stype, sval, pos) => {
+        Stmt::DataSignal(a, io, stype, sval, sop, pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("DataSignalStart");
             i.actions.push(Stmt::DataSignal(
@@ -149,6 +149,7 @@ fn rewrite_stmt_to_graph_fsm(
                 io.clone(),
                 stype.clone(),
                 sval.clone(),
+		sop.clone(),
                 pos.clone(),
             ));
             i.guards.push(Expr::True(pos.clone()));

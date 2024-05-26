@@ -36,5 +36,5 @@ fn main() {
     let mut idx = 0usize;
     let tid = 0usize;
     let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, tid, &mut idx, &mut _nodes);
-    println!("{:?} {:?} {:?}", _nodes, _i, _e);
+    // println!("{:?} {:?} {:?}", _nodes, _i, _e);
 }

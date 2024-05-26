@@ -76,16 +76,30 @@ pub Statement: ast::Stmt = {
    	  ast::Stmt::Signal(s, Some(i), (l, r)),
    <l:@L> "signal" <s:Symbol> ";" <r:@R> =>
    	  ast::Stmt::Signal(s, None, (l, r)),
-   <l:@L> <i:IOT> "i64" "signal" <s:Symbol> "=" <iv:"int"> ";" <r:@R> =>
-   	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Int, ast::Val::VInt(iv), (l, r)),
-   <l:@L> <i:IOT> "f64" "signal" <s:Symbol> "=" <iv:"float"> ";" <r:@R> =>
+   <l:@L> <i:IOT> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "+" ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Int,
+	  ast::Val::VInt(iv), ast::ExprOp::Plus, (l, r)),
+   <l:@L> <i:IOT> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "*" ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Int,
+	  ast::Val::VInt(iv), ast::ExprOp::Mul, (l, r)),
+   <l:@L> <i:IOT> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "+" ";" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Float,
-	  ast::Val::VFloat(iv), (l, r)),
-   <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ";" <r:@R> =>
-   	  ast::Stmt::DataSignal(s, None, ast::Type::Int, ast::Val::VInt(iv), (l, r)),
-   <l:@L> "f64" "signal" <s:Symbol> "=" <iv:"float"> ";" <r:@R> =>
+	  ast::Val::VFloat(iv), ast::ExprOp::Plus, (l, r)),
+   <l:@L> <i:IOT> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "*" ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(i), ast::Type::Float,
+	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
+   <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "+" ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, None, ast::Type::Int,
+	  ast::Val::VInt(iv), ast::ExprOp::Plus, (l, r)),
+   <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "*" ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, None, ast::Type::Int,
+	  ast::Val::VInt(iv), ast::ExprOp::Mul, (l, r)),
+   <l:@L> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "+" ";" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Float,
-	  ast::Val::VFloat(iv), (l, r)),
+	  ast::Val::VFloat(iv), ast::ExprOp::Plus, (l, r)),
+   <l:@L> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "*" ";" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, None, ast::Type::Float,
+	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
    <l:@L> <s:Symbol> "=" <e:SimpleDataExpr> ";" <r:@R> =>
    	 ast::Stmt::Assign(s, e, (l,r)),
    <l:@L> <la:Symbol> ":" <s:"pause"> ";" <r:@R> => ast::Stmt::Pause(la, (l,r)),

@@ -148,7 +148,7 @@ pub fn _analyse_var_signal_use(
             ss[idx].insert(symbol_string(_sy), _type.clone());
             ss
         }
-        Stmt::DataSignal(_sy, _io, _stype, _sval, _pos) => {
+        Stmt::DataSignal(_sy, _io, _stype, _sval, _sop, _pos) => {
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
