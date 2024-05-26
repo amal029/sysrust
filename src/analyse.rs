@@ -1,18 +1,19 @@
 use std::collections::HashMap;
 
-// use crate::error::print_bytes;
 use sysrust::ast::*;
 
-#[allow(dead_code)]
-// #[derive(Debug)]
-// pub enum Type {
-//     Float,
-//     Int,
-//     None,
-// }
+pub enum SignalVarType {
+    Signal,
+    Var,
+}
+
+enum ValuedSignalDataCheck {
+    Check,
+    NoCheck,
+}
 
 #[allow(dead_code)]
-type HT = HashMap<String, Type>;
+type HT = HashMap<String, (Type, SignalVarType)>;
 #[allow(dead_code)]
 type Pos = (usize, usize);
 type Pos1 = (usize, usize, String);
@@ -36,17 +37,57 @@ pub fn _analyse_var_signal_uses(
     return u;
 }
 
-fn _check_sym_in_map(_ff: &str, s: &Symbol, vmap: &[HT], pos: Pos, rets: &mut Vec<Pos1>) {
+fn _check_sym_in_map(
+    _ff: &str,
+    s: &Symbol,
+    vmap: &[HT],
+    pos: Pos,
+    rets: &mut Vec<Pos1>,
+    _svt: SignalVarType,
+    _dvt: ValuedSignalDataCheck,
+) {
+    fn match_signal_var_type(_svt1: &SignalVarType, _svt2: &SignalVarType) -> bool {
+        match (_svt1, _svt2) {
+            (SignalVarType::Signal, SignalVarType::Signal) => true,
+            (SignalVarType::Var, SignalVarType::Var) => true,
+            (SignalVarType::Var, SignalVarType::Signal) => false,
+            (SignalVarType::Signal, SignalVarType::Var) => false,
+        }
+    }
     let mut there = false;
+    let mut _dcheck = false;
     for map in vmap.iter() {
         if map.contains_key(&symbol_string(s)) {
-            there = true;
-            break;
+            let _svt2 = &map.get(&symbol_string(s)).unwrap().1;
+            if match_signal_var_type(&_svt, _svt2) {
+                // XXX: Check if the signal ref being used is a valued signal.
+                _dcheck = match _dvt {
+                    ValuedSignalDataCheck::Check => {
+                        let _dvt2 = &map.get(&symbol_string(s)).unwrap().0;
+                        match _dvt2 {
+                            Type::Float | Type::Int => true,
+                            Type::None => false,
+                        }
+                    }
+                    ValuedSignalDataCheck::NoCheck => true,
+                };
+                there = true;
+                break;
+            }
         }
     }
     if !there {
-        rets.push((pos.0, pos.1, symbol_string(s)));
-        // print_bytes(ff, pos.0, pos.1).unwrap();
+        let ss = format!(
+            "Signal/Var {} not declared.\nSignal and variable \
+	     declarations can shadow each other.",
+            symbol_string(s)
+        );
+        rets.push((pos.0, pos.1, ss));
+        return;
+    }
+    if !_dcheck {
+        let ss = format!("Signal {} is not a valued signal.", symbol_string(s));
+        rets.push((pos.0, pos.1, ss));
     }
 }
 
@@ -62,8 +103,24 @@ fn _check_sym_in_simple_expr(
             _check_sym_in_simple_expr(_ff, _l, _vmap, _pos, rets);
             _check_sym_in_simple_expr(_ff, _r, _vmap, _pos, rets);
         }
-        SimpleDataExpr::VarRef(_sy, _) => _check_sym_in_map(_ff, _sy, _vmap, _pos, rets),
-        SimpleDataExpr::SignalRef(_sy, _) => _check_sym_in_map(_ff, _sy, _vmap, _pos, rets),
+        SimpleDataExpr::VarRef(_sy, _) => _check_sym_in_map(
+            _ff,
+            _sy,
+            _vmap,
+            _pos,
+            rets,
+            SignalVarType::Var,
+            ValuedSignalDataCheck::NoCheck,
+        ),
+        SimpleDataExpr::SignalRef(_sy, _) => _check_sym_in_map(
+            _ff,
+            _sy,
+            _vmap,
+            _pos,
+            rets,
+            SignalVarType::Signal,
+            ValuedSignalDataCheck::Check,
+        ),
         SimpleDataExpr::ConstI(_, _) | SimpleDataExpr::ConstF(_, _) => (),
     }
 }
@@ -76,13 +133,13 @@ fn _check_sym_in_rel_expr(
     rets: &mut Vec<Pos1>,
 ) {
     match _expr {
-        RelDataExpr::LessThan(_l, _r, _pos)
-        | RelDataExpr::LessThanEqual(_l, _r, _pos)
-        | RelDataExpr::GreaterThan(_l, _r, _pos)
-        | RelDataExpr::GreaterThanEqual(_l, _r, _pos)
-        | RelDataExpr::EqualTo(_l, _r, _pos) => {
-            _check_sym_in_simple_expr(_ff, _l, _vmap, *_pos, rets);
-            _check_sym_in_simple_expr(_ff, _r, _vmap, *_pos, rets);
+        RelDataExpr::LessThan(_l, _r, _)
+        | RelDataExpr::LessThanEqual(_l, _r, _)
+        | RelDataExpr::GreaterThan(_l, _r, _)
+        | RelDataExpr::GreaterThanEqual(_l, _r, _)
+        | RelDataExpr::EqualTo(_l, _r, _) => {
+            _check_sym_in_simple_expr(_ff, _l, _vmap, _pos, rets);
+            _check_sym_in_simple_expr(_ff, _r, _vmap, _pos, rets);
         }
     }
 }
@@ -90,14 +147,22 @@ fn _check_sym_in_rel_expr(
 fn _check_sym_in_expr(_ff: &str, _expr: &Expr, _vmap: &[HT], _pos: Pos, rets: &mut Vec<Pos1>) {
     match _expr {
         Expr::True(_) | Expr::False(_) => (),
-        Expr::Esymbol(_sy, _) => _check_sym_in_map(_ff, _sy, _vmap, _pos, rets),
+        Expr::Esymbol(_sy, _) => _check_sym_in_map(
+            _ff,
+            _sy,
+            _vmap,
+            _pos,
+            rets,
+            SignalVarType::Signal,
+            ValuedSignalDataCheck::NoCheck,
+        ),
         Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
             _check_sym_in_expr(_ff, _l, _vmap, _pos, rets);
             _check_sym_in_expr(_ff, _r, _vmap, _pos, rets);
         }
         Expr::Not(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets),
-        Expr::Brackets(_e, _pos) => _check_sym_in_expr(_ff, _e, _vmap, *_pos, rets),
-        Expr::DataExpr(_re, _pos) => _check_sym_in_rel_expr(_ff, _re, _vmap, *_pos, rets),
+        Expr::Brackets(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets),
+        Expr::DataExpr(_re, _) => _check_sym_in_rel_expr(_ff, _re, _vmap, _pos, rets),
     }
 }
 
@@ -120,7 +185,15 @@ pub fn _analyse_var_signal_use(
         Stmt::Pause(_, _) => _stack,
         Stmt::Emit(_sy, _expr, _pos) => {
             // XXX: Check if the _sy is in the hashmap
-            _check_sym_in_map(ff, &_sy, &_stack, *_pos, rets);
+            _check_sym_in_map(
+                ff,
+                &_sy,
+                &_stack,
+                *_pos,
+                rets,
+                SignalVarType::Signal,
+                ValuedSignalDataCheck::NoCheck,
+            );
             _stack
         }
         Stmt::Present(_sy, _st, None, _pos) => {
@@ -136,24 +209,21 @@ pub fn _analyse_var_signal_use(
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            // FIXME: Fix the type later in parser
-            ss[idx].insert(symbol_string(_sy), Type::None);
+            ss[idx].insert(symbol_string(_sy), (Type::None, SignalVarType::Signal));
             ss
         }
         Stmt::Variable(_sy, _type, _pos) => {
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            // FIXME: Fix the type later in parser
-            ss[idx].insert(symbol_string(_sy), _type.clone());
+            ss[idx].insert(symbol_string(_sy), (_type.clone(), SignalVarType::Var));
             ss
         }
         Stmt::DataSignal(_sy, _io, _stype, _sval, _sop, _pos) => {
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            // FIXME: Fix the type later in parser
-            ss[idx].insert(symbol_string(_sy), _stype.clone());
+            ss[idx].insert(symbol_string(_sy), (_stype.clone(), SignalVarType::Signal));
             ss
         }
         Stmt::Abort(_expr, _, _body, _pos) | Stmt::Suspend(_expr, _, _body, _pos) => {
@@ -172,9 +242,17 @@ pub fn _analyse_var_signal_use(
         Stmt::Noop(_) => _stack,
         Stmt::Assign(_sy, _expr, _pos) => {
             _check_sym_in_simple_expr(ff, &_expr, &_stack, *_pos, rets);
-	    _check_sym_in_map(ff, _sy, &_stack, *_pos, rets);
-            // FIXME: Add variable declaration in parser
+            _check_sym_in_map(
+                ff,
+                _sy,
+                &_stack,
+                *_pos,
+                rets,
+                SignalVarType::Var,
+                ValuedSignalDataCheck::NoCheck,
+            );
             _stack
         }
     }
 }
+

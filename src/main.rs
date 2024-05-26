@@ -15,8 +15,13 @@ fn main() {
     let _ast = parse(&args[1]);
 
     // XXX: Analyse signa/var declaration and their uses
-    let mut stack: Vec<HashMap<String, ast::Type>> = Vec::with_capacity(1000);
+    let mut stack: Vec<HashMap<String, (ast::Type, analyse::SignalVarType)>> =
+        Vec::with_capacity(1000);
+
+    // XXX: The errors in the program are collected here.
     let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(1000);
+
+    // XXX: Check the usage and declaration of signals and variables
     stack.push(HashMap::with_capacity(1000)); // pushed the first hashmap
     stack = _analyse_var_signal_uses(&args[1], &_ast, stack, &mut rets);
     stack.pop(); // removed the final hashmap
@@ -25,7 +30,7 @@ fn main() {
     let bb = rets.is_empty();
     for i in rets {
         print_bytes(&args[1], i.0, i.1).unwrap();
-        println!("signal/var {} not declared in scope", i.2);
+        println!("{} ", i.2);
     }
     if !bb {
         exit(1);
