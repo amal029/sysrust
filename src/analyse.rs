@@ -4,7 +4,7 @@ use sysrust::ast::*;
 
 pub enum SignalVarType {
     Signal,
-    Var,
+    Var(usize),
 }
 
 enum ValuedSignalDataCheck {
@@ -29,10 +29,11 @@ pub fn _analyse_var_signal_uses(
     _stmts: &[Stmt],
     stack: Vec<HT>,
     rets: &mut Vec<Pos1>,
+    tid: usize,
 ) -> Vec<HT> {
     let mut u = stack;
     for i in _stmts.iter() {
-        u = _analyse_var_signal_use(ff, i, u, rets);
+        u = _analyse_var_signal_use(ff, i, u, rets, tid);
     }
     return u;
 }
@@ -49,9 +50,8 @@ fn _check_sym_in_map(
     fn match_signal_var_type(_svt1: &SignalVarType, _svt2: &SignalVarType) -> bool {
         match (_svt1, _svt2) {
             (SignalVarType::Signal, SignalVarType::Signal) => true,
-            (SignalVarType::Var, SignalVarType::Var) => true,
-            (SignalVarType::Var, SignalVarType::Signal) => false,
-            (SignalVarType::Signal, SignalVarType::Var) => false,
+            (SignalVarType::Var(x), SignalVarType::Var(y)) if (x == y) => true,
+            (_, _) => false,
         }
     }
     let mut there = false;
@@ -79,7 +79,7 @@ fn _check_sym_in_map(
     if !there {
         let ss = format!(
             "Signal/Var {} not declared.\nSignal and variable \
-	     declarations can shadow each other.",
+	     declarations can shadow each other.\nVariables cannot be shared between threads.",
             symbol_string(s)
         );
         rets.push((pos.0, pos.1, ss));
@@ -97,11 +97,12 @@ fn _check_sym_in_simple_expr(
     _vmap: &[HT],
     _pos: Pos,
     rets: &mut Vec<Pos1>,
+    tid: usize,
 ) {
     match _expr {
         SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _) => {
-            _check_sym_in_simple_expr(_ff, _l, _vmap, _pos, rets);
-            _check_sym_in_simple_expr(_ff, _r, _vmap, _pos, rets);
+            _check_sym_in_simple_expr(_ff, _l, _vmap, _pos, rets, tid);
+            _check_sym_in_simple_expr(_ff, _r, _vmap, _pos, rets, tid);
         }
         SimpleDataExpr::VarRef(_sy, _) => _check_sym_in_map(
             _ff,
@@ -109,7 +110,7 @@ fn _check_sym_in_simple_expr(
             _vmap,
             _pos,
             rets,
-            SignalVarType::Var,
+            SignalVarType::Var(tid),
             ValuedSignalDataCheck::NoCheck,
         ),
         SimpleDataExpr::SignalRef(_sy, _) => _check_sym_in_map(
@@ -131,6 +132,7 @@ fn _check_sym_in_rel_expr(
     _vmap: &[HT],
     _pos: Pos,
     rets: &mut Vec<Pos1>,
+    tid: usize,
 ) {
     match _expr {
         RelDataExpr::LessThan(_l, _r, _)
@@ -138,13 +140,20 @@ fn _check_sym_in_rel_expr(
         | RelDataExpr::GreaterThan(_l, _r, _)
         | RelDataExpr::GreaterThanEqual(_l, _r, _)
         | RelDataExpr::EqualTo(_l, _r, _) => {
-            _check_sym_in_simple_expr(_ff, _l, _vmap, _pos, rets);
-            _check_sym_in_simple_expr(_ff, _r, _vmap, _pos, rets);
+            _check_sym_in_simple_expr(_ff, _l, _vmap, _pos, rets, tid);
+            _check_sym_in_simple_expr(_ff, _r, _vmap, _pos, rets, tid);
         }
     }
 }
 
-fn _check_sym_in_expr(_ff: &str, _expr: &Expr, _vmap: &[HT], _pos: Pos, rets: &mut Vec<Pos1>) {
+fn _check_sym_in_expr(
+    _ff: &str,
+    _expr: &Expr,
+    _vmap: &[HT],
+    _pos: Pos,
+    rets: &mut Vec<Pos1>,
+    tid: usize,
+) {
     match _expr {
         Expr::True(_) | Expr::False(_) => (),
         Expr::Esymbol(_sy, _) => _check_sym_in_map(
@@ -157,12 +166,12 @@ fn _check_sym_in_expr(_ff: &str, _expr: &Expr, _vmap: &[HT], _pos: Pos, rets: &m
             ValuedSignalDataCheck::NoCheck,
         ),
         Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
-            _check_sym_in_expr(_ff, _l, _vmap, _pos, rets);
-            _check_sym_in_expr(_ff, _r, _vmap, _pos, rets);
+            _check_sym_in_expr(_ff, _l, _vmap, _pos, rets, tid);
+            _check_sym_in_expr(_ff, _r, _vmap, _pos, rets, tid);
         }
-        Expr::Not(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets),
-        Expr::Brackets(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets),
-        Expr::DataExpr(_re, _) => _check_sym_in_rel_expr(_ff, _re, _vmap, _pos, rets),
+        Expr::Not(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets, tid),
+        Expr::Brackets(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets, tid),
+        Expr::DataExpr(_re, _) => _check_sym_in_rel_expr(_ff, _re, _vmap, _pos, rets, tid),
     }
 }
 
@@ -171,6 +180,7 @@ pub fn _analyse_var_signal_use(
     stmt: &Stmt,
     _stack: Vec<HT>,
     rets: &mut Vec<Pos1>,
+    tid: usize,
 ) -> Vec<HT> {
     match stmt {
         Stmt::Block(_stmts, _pos) => {
@@ -178,7 +188,7 @@ pub fn _analyse_var_signal_use(
             let mut _stack = _stack;
             let vmap: HT = HashMap::with_capacity(1000);
             _stack.push(vmap);
-            _stack = _analyse_var_signal_uses(ff, _stmts, _stack, rets);
+            _stack = _analyse_var_signal_uses(ff, _stmts, _stack, rets, tid);
             _stack.pop();
             _stack
         }
@@ -197,13 +207,13 @@ pub fn _analyse_var_signal_use(
             _stack
         }
         Stmt::Present(_sy, _st, None, _pos) => {
-            _check_sym_in_expr(ff, &_sy, &_stack, *_pos, rets);
-            _analyse_var_signal_use(ff, _st, _stack, rets)
+            _check_sym_in_expr(ff, &_sy, &_stack, *_pos, rets, tid);
+            _analyse_var_signal_use(ff, _st, _stack, rets, tid)
         }
         Stmt::Present(_sy, _st1, Some(_st), _pos) => {
-            _check_sym_in_expr(ff, &_sy, &_stack, *_pos, rets);
-            let ss = _analyse_var_signal_use(ff, _st1, _stack, rets);
-            _analyse_var_signal_use(ff, _st, ss, rets)
+            _check_sym_in_expr(ff, &_sy, &_stack, *_pos, rets, tid);
+            let ss = _analyse_var_signal_use(ff, _st1, _stack, rets, tid);
+            _analyse_var_signal_use(ff, _st, ss, rets, tid)
         }
         Stmt::Signal(_sy, _io, _pos) => {
             // XXX: Push the signal Symbol into the hashmap
@@ -216,7 +226,7 @@ pub fn _analyse_var_signal_use(
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            ss[idx].insert(symbol_string(_sy), (_type.clone(), SignalVarType::Var));
+            ss[idx].insert(symbol_string(_sy), (_type.clone(), SignalVarType::Var(tid)));
             ss
         }
         Stmt::DataSignal(_sy, _io, _stype, _sval, _sop, _pos) => {
@@ -227,32 +237,31 @@ pub fn _analyse_var_signal_use(
             ss
         }
         Stmt::Abort(_expr, _, _body, _pos) | Stmt::Suspend(_expr, _, _body, _pos) => {
-            _check_sym_in_expr(ff, _expr, &_stack, *_pos, rets);
+            _check_sym_in_expr(ff, _expr, &_stack, *_pos, rets, tid);
             // XXX: Check the body
-            _analyse_var_signal_use(ff, &_body, _stack, rets)
+            _analyse_var_signal_use(ff, &_body, _stack, rets, tid)
         }
-        Stmt::Loop(_body, _pos) => _analyse_var_signal_use(ff, &_body, _stack, rets),
+        Stmt::Loop(_body, _pos) => _analyse_var_signal_use(ff, &_body, _stack, rets, tid),
         Stmt::Spar(_bodies, _pos) => {
             let mut ss = _stack;
-            for i in _bodies {
-                ss = _analyse_var_signal_use(ff, i, ss, rets);
+            for (k, i) in _bodies.iter().enumerate() {
+                ss = _analyse_var_signal_use(ff, i, ss, rets, tid + k + 1);
             }
             ss
         }
         Stmt::Noop(_) => _stack,
         Stmt::Assign(_sy, _expr, _pos) => {
-            _check_sym_in_simple_expr(ff, &_expr, &_stack, *_pos, rets);
+            _check_sym_in_simple_expr(ff, &_expr, &_stack, *_pos, rets, tid);
             _check_sym_in_map(
                 ff,
                 _sy,
                 &_stack,
                 *_pos,
                 rets,
-                SignalVarType::Var,
+                SignalVarType::Var(tid),
                 ValuedSignalDataCheck::NoCheck,
             );
             _stack
         }
     }
 }
-

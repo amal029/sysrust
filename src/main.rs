@@ -22,8 +22,9 @@ fn main() {
     let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(1000);
 
     // XXX: Check the usage and declaration of signals and variables
+    let tid = 0;
     stack.push(HashMap::with_capacity(1000)); // pushed the first hashmap
-    stack = _analyse_var_signal_uses(&args[1], &_ast, stack, &mut rets);
+    stack = _analyse_var_signal_uses(&args[1], &_ast, stack, &mut rets, tid);
     stack.pop(); // removed the final hashmap
 
     // XXX: Print all the errors
