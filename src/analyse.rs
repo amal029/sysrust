@@ -122,6 +122,9 @@ fn _check_sym_in_simple_expr(
             SignalVarType::Signal,
             ValuedSignalDataCheck::Check,
         ),
+        SimpleDataExpr::Call(_sy, _vexp, _) => _vexp
+            .iter()
+            .for_each(|x| _check_sym_in_simple_expr(_ff, x, _vmap, _pos, rets, tid)),
         SimpleDataExpr::ConstI(_, _) | SimpleDataExpr::ConstF(_, _) => (),
     }
 }

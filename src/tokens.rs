@@ -115,6 +115,8 @@ pub enum Token {
     OpNothing,
     #[token(":")]
     OpColon,
+    #[token(",")]
+    OpComma,
 
     #[token("false")]
     False,
@@ -131,6 +133,8 @@ pub enum Token {
     TInt,
     #[token("float")]
     TFloat,
+    #[token("extern")]
+    TExtern,
 }
 
 impl fmt::Display for Token {

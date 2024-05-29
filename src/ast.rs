@@ -29,6 +29,7 @@ pub enum SimpleDataExpr {
     SignalRef(Symbol, Pos),
     ConstI(i64, Pos),
     ConstF(f64, Pos),
+    Call(Symbol, Vec<SimpleDataExpr>, Pos),
 }
 
 #[derive(Clone, Debug, PartialEq)]
