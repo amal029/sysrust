@@ -268,3 +268,108 @@ pub fn _analyse_var_signal_use(
         }
     }
 }
+
+// XXX: Get all the threads in the program
+pub fn get_num_threads(_num_threads: &mut usize, _ast: &[Stmt]) {
+    _ast.iter().for_each(|x| _get_num_threads(_num_threads, x));
+}
+
+fn _get_num_threads(_num_threads: &mut usize, _ast: &Stmt) {
+    match _ast {
+        Stmt::Block(_sts, _) => get_num_threads(_num_threads, _sts),
+        Stmt::Present(_, _t, Some(_r), _) => {
+            _get_num_threads(_num_threads, _t);
+            _get_num_threads(_num_threads, _r)
+        }
+        Stmt::Present(_, _t, None, _) => _get_num_threads(_num_threads, _t),
+        Stmt::Abort(_, _, _st, _) | Stmt::Suspend(_, _, _st, _) => {
+            _get_num_threads(_num_threads, _st)
+        }
+        Stmt::Loop(_st, _) => _get_num_threads(_num_threads, _st),
+        Stmt::Spar(_sts, _) => {
+            *_num_threads += _sts.len();
+            get_num_threads(_num_threads, _sts)
+        }
+        _ => (),
+    }
+}
+
+// XXX: Get all the states in each thread
+pub fn get_states(_state: &mut [Vec<Symbol>], _ast: &[Stmt], tid: usize) {
+    _ast.iter().for_each(|x| _get_states(_state, x, tid));
+}
+
+fn _get_states(_state: &mut [Vec<Symbol>], stmt: &Stmt, tid: usize) {
+    match stmt {
+        Stmt::Pause(_sy, _) => _state[tid].push(_sy.clone()),
+        Stmt::Block(_sts, _) => get_states(_state, _sts, tid),
+        Stmt::Present(_, _t, Some(_r), _) => {
+            _get_states(_state, _t, tid);
+            _get_states(_state, _r, tid)
+        }
+        Stmt::Present(_, _t, None, _) => _get_states(_state, _t, tid),
+        Stmt::Abort(_, _, _st, _) => _get_states(_state, _st, tid),
+        Stmt::Suspend(_, _, _st, _) => _get_states(_state, _st, tid),
+        Stmt::Loop(_st, _) => _get_states(_state, _st, tid),
+        Stmt::Spar(_sts, _) => _sts
+            .iter()
+            .enumerate()
+            .for_each(|(j, x)| _get_states(_state, x, tid + j + 1)),
+        _ => (),
+    }
+}
+
+// XXX: Get all the signals declared in the program and in each thread
+pub fn get_signals(_signals: &mut [Vec<Stmt>], _ast: &[Stmt], tid: usize) {
+    _ast.iter().for_each(|x| _get_signals(_signals, x, tid))
+}
+
+fn _get_signals(signals: &mut [Vec<Stmt>], st: &Stmt, tid: usize) {
+    match st {
+        Stmt::Block(_sts, _) => get_signals(signals, _sts, tid),
+        Stmt::Present(_, _t, Some(_r), _) => {
+            _get_signals(signals, _t, tid);
+            _get_signals(signals, _r, tid)
+        }
+        Stmt::Present(_, _t, None, _) => _get_signals(signals, _t, tid),
+        Stmt::Abort(_, _, _st, _) => _get_signals(signals, _st, tid),
+        Stmt::Suspend(_, _, _st, _) => _get_signals(signals, _st, tid),
+        Stmt::Loop(_st, _) => _get_signals(signals, _st, tid),
+        Stmt::Spar(_sts, _) => _sts
+            .iter()
+            .enumerate()
+            .for_each(|(j, x)| _get_signals(signals, x, tid + j + 1)),
+        Stmt::Signal(_, _, _) => signals[tid].push(st.clone()),
+        Stmt::DataSignal(_, _, _, _, _, _) => signals[tid].push(st.clone()),
+        _ => (),
+    }
+}
+
+// XXX: Get all the variables declared in the program and in each thread
+pub fn get_vars(_vars: &mut [Vec<Stmt>], _ast: &[Stmt], tid: usize) {
+    _ast.iter().for_each(|x| _get_vars(_vars, x, tid))
+}
+
+fn _get_vars(vars: &mut [Vec<Stmt>], st: &Stmt, tid: usize) {
+    match st {
+        Stmt::Block(_sts, _) => get_vars(vars, _sts, tid),
+        Stmt::Present(_, _t, Some(_r), _) => {
+            _get_vars(vars, _t, tid);
+            _get_vars(vars, _r, tid)
+        }
+        Stmt::Present(_, _t, None, _) => _get_vars(vars, _t, tid),
+        Stmt::Abort(_, _, _st, _) => _get_vars(vars, _st, tid),
+        Stmt::Suspend(_, _, _st, _) => _get_vars(vars, _st, tid),
+        Stmt::Loop(_st, _) => _get_vars(vars, _st, tid),
+        Stmt::Spar(_sts, _) => _sts
+            .iter()
+            .enumerate()
+            .for_each(|(j, x)| _get_vars(vars, x, tid + j + 1)),
+        Stmt::Variable(_, _, _, _) => vars[tid].push(st.clone()),
+        _ => (),
+    }
+}
+
+// TODO: Get all the signals "used" in each thread
+
+// TODO: Get all the vars "used" in each thread
