@@ -35,7 +35,7 @@ pub fn _analyse_var_signal_uses(
     for i in _stmts.iter() {
         u = _analyse_var_signal_use(ff, i, u, rets, tid);
     }
-    return u;
+    u
 }
 
 fn _check_sym_in_map(
@@ -200,7 +200,7 @@ pub fn _analyse_var_signal_use(
             // XXX: Check if the _sy is in the hashmap
             _check_sym_in_map(
                 ff,
-                &_sy,
+                _sy,
                 &_stack,
                 *_pos,
                 rets,
@@ -210,11 +210,11 @@ pub fn _analyse_var_signal_use(
             _stack
         }
         Stmt::Present(_sy, _st, None, _pos) => {
-            _check_sym_in_expr(ff, &_sy, &_stack, *_pos, rets, tid);
+            _check_sym_in_expr(ff, _sy, &_stack, *_pos, rets, tid);
             _analyse_var_signal_use(ff, _st, _stack, rets, tid)
         }
         Stmt::Present(_sy, _st1, Some(_st), _pos) => {
-            _check_sym_in_expr(ff, &_sy, &_stack, *_pos, rets, tid);
+            _check_sym_in_expr(ff, _sy, &_stack, *_pos, rets, tid);
             let ss = _analyse_var_signal_use(ff, _st1, _stack, rets, tid);
             _analyse_var_signal_use(ff, _st, ss, rets, tid)
         }
@@ -242,9 +242,9 @@ pub fn _analyse_var_signal_use(
         Stmt::Abort(_expr, _, _body, _pos) | Stmt::Suspend(_expr, _, _body, _pos) => {
             _check_sym_in_expr(ff, _expr, &_stack, *_pos, rets, tid);
             // XXX: Check the body
-            _analyse_var_signal_use(ff, &_body, _stack, rets, tid)
+            _analyse_var_signal_use(ff, _body, _stack, rets, tid)
         }
-        Stmt::Loop(_body, _pos) => _analyse_var_signal_use(ff, &_body, _stack, rets, tid),
+        Stmt::Loop(_body, _pos) => _analyse_var_signal_use(ff, _body, _stack, rets, tid),
         Stmt::Spar(_bodies, _pos) => {
             let mut ss = _stack;
             for (k, i) in _bodies.iter().enumerate() {
@@ -254,7 +254,7 @@ pub fn _analyse_var_signal_use(
         }
         Stmt::Noop(_) => _stack,
         Stmt::Assign(_sy, _expr, _pos) => {
-            _check_sym_in_simple_expr(ff, &_expr, &_stack, *_pos, rets, tid);
+            _check_sym_in_simple_expr(ff, _expr, &_stack, *_pos, rets, tid);
             _check_sym_in_map(
                 ff,
                 _sy,

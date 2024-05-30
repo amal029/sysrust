@@ -10,9 +10,9 @@ use crate::error::print_bytes;
 
 #[derive(Debug, Clone)]
 enum NodeT {
-    SPAR,
-    SEQ,
-    BRANCH,
+    Spar,
+    Seq,
+    Branch,
 }
 
 #[derive(Debug)]
@@ -38,7 +38,7 @@ impl GraphNode {
             tag: false,
             label: String::from("Initial"),
             idx: 0,
-            tt: NodeT::SEQ,
+            tt: NodeT::Seq,
             tid: t,
         }
     }
@@ -63,8 +63,8 @@ fn rewrite_stmt_to_graph_fsm(
             let mut i = GraphNode::default(tid);
             i.label = String::from("EmitStart");
             i.actions
-                .push(Stmt::Emit(a.clone(), expr.clone(), pos.clone()));
-            i.guards.push(Expr::True(pos.clone()));
+                .push(Stmt::Emit(a.clone(), expr.clone(), *pos));
+            i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("EmitEnd");
             // XXX: Put these in the _nodes
@@ -82,9 +82,9 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Pause(la, pos) => {
             let mut s0 = GraphNode::default(tid);
-            s0.label = String::from(symbol_string(&la));
+            s0.label = symbol_string(la);
             s0.tag = true;
-            s0.guards.push(Expr::True(pos.clone()));
+            s0.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("PauseEnd");
             // XXX: Add the doubly linked list annotations
@@ -103,8 +103,8 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Assign(a, expr, pos) => {
             let mut i = GraphNode::default(tid);
             i.actions
-                .push(Stmt::Assign(a.clone(), expr.clone(), pos.clone()));
-            i.guards.push(Expr::True(pos.clone()));
+                .push(Stmt::Assign(a.clone(), expr.clone(), *pos));
+            i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("End");
             // XXX: Add the doubly linked list annotations
@@ -127,9 +127,9 @@ fn rewrite_stmt_to_graph_fsm(
                 a.clone(),
                 vtype.clone(),
                 _val.clone(),
-                pos.clone(),
+                *pos,
             ));
-            i.guards.push(Expr::True(pos.clone()));
+            i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("VariableEnd");
             // XXX: Add the doubly linked list annotations
@@ -154,9 +154,9 @@ fn rewrite_stmt_to_graph_fsm(
                 stype.clone(),
                 sval.clone(),
                 sop.clone(),
-                pos.clone(),
+                *pos,
             ));
-            i.guards.push(Expr::True(pos.clone()));
+            i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("DataSignalEnd");
             // XXX: Add the doubly linked list annotations
@@ -176,8 +176,8 @@ fn rewrite_stmt_to_graph_fsm(
             let mut i = GraphNode::default(tid);
             i.label = String::from("SignalStart");
             i.actions
-                .push(Stmt::Signal(a.clone(), io.clone(), pos.clone()));
-            i.guards.push(Expr::True(pos.clone()));
+                .push(Stmt::Signal(a.clone(), io.clone(), *pos));
+            i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("SignalEnd");
             // XXX: Add the doubly linked list annotations
@@ -196,7 +196,7 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Noop(pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("NoopStart");
-            i.guards.push(Expr::True(pos.clone()));
+            i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("NoopEnd");
             // XXX: Put these in the _nodes
@@ -212,23 +212,23 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
             (r1, r2)
         }
-        Stmt::Block(_stmts, _pos) => rewrite_to_graph_fsm(ff, &_stmts, tid, idx, _nodes),
+        Stmt::Block(_stmts, _pos) => rewrite_to_graph_fsm(ff, _stmts, tid, idx, _nodes),
         // XXX: With no else branch
         Stmt::Present(_expr, _tb, None, _pos) => {
             // XXX: First make the body
             let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _tb);
             let (_er1, _er2) =
-                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, &Stmt::Noop(_pos.clone()));
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, &Stmt::Noop(*_pos));
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
             let mut i = GraphNode::default(tid);
-            i.tt = NodeT::BRANCH;
+            i.tt = NodeT::Branch;
             i.idx = ii;
             // XXX: Add the then and else branch guards
             i.guards.push(_expr.clone());
             i.guards
-                .push(Expr::Not(Box::new(_expr.clone()), _pos.clone()));
+                .push(Expr::Not(Box::new(_expr.clone()), *_pos));
             i.label = String::from("PresentStart");
 
             // XXX: Add the edges between i and nodes in _tr1 and _er1
@@ -246,15 +246,15 @@ fn rewrite_stmt_to_graph_fsm(
             let mut e = GraphNode::default(tid);
             e.idx = *idx;
             e.label = String::from("PresentEnd");
-            e.tt = NodeT::BRANCH;
+            e.tt = NodeT::Branch;
 
             // XXX: Add edges between e and _tr2 and _er2
             e.parents.push(_tr2);
             _nodes[_tr2].children.push(e.idx);
-            _nodes[_tr2].guards.push(Expr::True(_pos.clone()));
+            _nodes[_tr2].guards.push(Expr::True(*_pos));
             e.parents.push(_er2);
             _nodes[_er2].children.push(e.idx);
-            _nodes[_er2].guards.push(Expr::True(_pos.clone()));
+            _nodes[_er2].guards.push(Expr::True(*_pos));
 
             _nodes.push(e);
             let r2 = _nodes[*idx].idx;
@@ -272,12 +272,12 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
             let mut i = GraphNode::default(tid);
-            i.tt = NodeT::BRANCH;
+            i.tt = NodeT::Branch;
             i.idx = ii;
             // XXX: Add the then and else branch guards
             i.guards.push(_expr.clone());
             i.guards
-                .push(Expr::Not(Box::new(_expr.clone()), _pos.clone()));
+                .push(Expr::Not(Box::new(_expr.clone()), *_pos));
             i.label = String::from("PresentStart");
 
             // XXX: Add the edges between i and nodes in _tr1 and _er1
@@ -295,15 +295,15 @@ fn rewrite_stmt_to_graph_fsm(
             let mut e = GraphNode::default(tid);
             e.idx = *idx;
             e.label = String::from("PresentEnd");
-            e.tt = NodeT::BRANCH;
+            e.tt = NodeT::Branch;
 
             // XXX: Add edges between e and _tr2 and _er2
             e.parents.push(_tr2);
             _nodes[_tr2].children.push(e.idx);
-            _nodes[_tr2].guards.push(Expr::True(_pos.clone()));
+            _nodes[_tr2].guards.push(Expr::True(*_pos));
             e.parents.push(_er2);
             _nodes[_er2].children.push(e.idx);
-            _nodes[_er2].guards.push(Expr::True(_pos.clone()));
+            _nodes[_er2].guards.push(Expr::True(*_pos));
 
             _nodes.push(e);
             let r2 = _nodes[*idx].idx;
@@ -316,7 +316,7 @@ fn rewrite_stmt_to_graph_fsm(
             let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _body);
             // XXX: Attach an edge from end node to the initial node
             _nodes[_be].children.push(_bi);
-            _nodes[_be].guards.push(Expr::True(_pos.clone()));
+            _nodes[_be].guards.push(Expr::True(*_pos));
             _nodes[_bi].parents.push(_be);
             // XXX: Perform loop causality analysis
             let mut vis: Vec<bool> = vec![false; _nodes.len()];
@@ -350,12 +350,13 @@ fn rewrite_stmt_to_graph_fsm(
 
             // XXX: Now add an edge from every real node in body to "e"
             vis = vec![false; _nodes.len()];
-            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
+            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, _a);
 
             // XXX: Now attach the last case -- iff the last does not
             // have children already. If it has children it would be a
             // loop!
-            if _nodes[_be].children.len() == 0 {
+            // if _nodes[_be].children.len() == 0 {
+            if _nodes[_be].children.is_empty()  {
                 _nodes[_be].children.push(r2);
                 _nodes[_be].guards.push(Expr::True(*_pos));
                 _nodes[r2].parents.push(_be);
@@ -395,12 +396,12 @@ fn rewrite_stmt_to_graph_fsm(
 
             // XXX: Now add an edge from every real node in body to "e"
             vis = vec![false; _nodes.len()];
-            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, &_a);
+            attach_abort_end(_nodes, _bi, _be, r2, &mut vis, _a);
 
             // XXX: Now attach the last case -- iff the last does not
             // have children already. If it has children it would be a
             // loop!
-            if _nodes[_be].children.len() == 0 {
+            if _nodes[_be].children.is_empty() {
                 _nodes[_be].children.push(r2);
                 _nodes[_be].guards.push(Expr::True(*_pos));
                 _nodes[r2].parents.push(_be);
@@ -451,7 +452,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the fork node (initial)
             let mut _fi = GraphNode::default(tid);
             _fi.label = String::from("SPARFork");
-            _fi.tt = NodeT::SPAR;
+            _fi.tt = NodeT::Spar;
 
             // XXX: Attach from _fi to _bis
             _bi.iter().for_each(|&x| {
@@ -469,7 +470,7 @@ fn rewrite_stmt_to_graph_fsm(
             je.tag = true; //this is a real node
             je.idx = *idx;
             je.label = String::from("SPARJoin");
-            je.tt = NodeT::SPAR;
+            je.tt = NodeT::Spar;
             let rm = je.idx;
 
             // XXX: Attach _eis to je.
@@ -610,10 +611,10 @@ pub fn rewrite_to_graph_fsm(
     for (ii, i) in _v.iter().enumerate() {
         let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _idx, i);
         if ii == 0 {
-            r1 = si.clone();
+            r1 = si;
         }
         if ii == _v.len() - 1 {
-            r2 = ei.clone();
+            r2 = ei;
         }
         // XXX: Now you need to merge the nodes one after the other
         if ii > 0 {
@@ -647,5 +648,5 @@ fn loop_causality_analysis(_nodes: &[GraphNode], vis: &mut [bool], _s: Index, d:
             break;
         }
     }
-    return toret;
+    toret
 }

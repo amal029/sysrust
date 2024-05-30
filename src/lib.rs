@@ -12,6 +12,5 @@ pub fn parse(s: &str) -> Vec<ast::Stmt> {
     // println!("source code: {} {}", source_code, source_code.len());
     let lexer = lexer::Lexer::new(&source_code);
     let parser = ScriptParser::new();
-    let ast = parser.parse(lexer).unwrap();
-    return ast;
+    parser.parse(lexer).unwrap()
 }
