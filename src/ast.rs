@@ -80,7 +80,7 @@ pub enum Stmt {
     Present(Expr, Box<Stmt>, Option<Box<Stmt>>, Pos),
     Signal(Symbol, Option<IO>, Pos),
     DataSignal(Symbol, Option<IO>, Type, Val, ExprOp, Pos),
-    Variable(Symbol, Type, Pos),
+    Variable(Symbol, Type, Val, Pos),
     Abort(Expr, Option<ASQual>, Box<Stmt>, Pos),
     Suspend(Expr, Option<ASQual>, Box<Stmt>, Pos),
     Loop(Box<Stmt>, Pos),

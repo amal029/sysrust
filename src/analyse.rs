@@ -225,7 +225,7 @@ pub fn _analyse_var_signal_use(
             ss[idx].insert(symbol_string(_sy), (Type::None, SignalVarType::Signal));
             ss
         }
-        Stmt::Variable(_sy, _type, _pos) => {
+        Stmt::Variable(_sy, _type, _val, _pos) => {
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;

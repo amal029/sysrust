@@ -120,11 +120,15 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
             (r1, r2)
         }
-        Stmt::Variable(a, vtype, pos) => {
+        Stmt::Variable(a, vtype, _val, pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("VariableStart");
-            i.actions
-                .push(Stmt::Variable(a.clone(), vtype.clone(), pos.clone()));
+            i.actions.push(Stmt::Variable(
+                a.clone(),
+                vtype.clone(),
+                _val.clone(),
+                pos.clone(),
+            ));
             i.guards.push(Expr::True(pos.clone()));
             let mut e = GraphNode::default(tid);
             e.label = String::from("VariableEnd");
@@ -149,7 +153,7 @@ fn rewrite_stmt_to_graph_fsm(
                 io.clone(),
                 stype.clone(),
                 sval.clone(),
-		sop.clone(),
+                sop.clone(),
                 pos.clone(),
             ));
             i.guards.push(Expr::True(pos.clone()));

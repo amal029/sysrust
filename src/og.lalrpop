@@ -86,10 +86,6 @@ pub IOSignal: ast::Stmt = {
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
 
-   // <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "+" <r:@R> =>
-   // 	  ast::Stmt::DataSignal(s, None, ast::Type::Int,
-   // 	  ast::Val::VInt(iv), ast::ExprOp::Plus, (l, r)),
-
    <l:@L> <i:"input"> "i64" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Int,
 	  ast::Val::VInt(0_i64), ast::ExprOp::Plus, (l, r)),
@@ -130,8 +126,10 @@ pub Statement: ast::Stmt = {
    <a:Sustain> ";" => a,
    <a:Halt> ";" => a,
    <a:IOSignal> ";" => a,
-   <l:@L> "i64" <s:Symbol> <r:@R> ";" => ast::Stmt::Variable(s, ast::Type::Int, (l, r)),
-   <l:@L> "f64" <s:Symbol> <r:@R> ";" => ast::Stmt::Variable(s, ast::Type::Float, (l, r)),
+   <l:@L> "i64" <s:Symbol> <r:@R> "=" <iv:"int"> ";" =>
+   ast::Stmt::Variable(s, ast::Type::Int, ast::Val::VInt(iv), (l, r)),
+   <l:@L> "f64" <s:Symbol> <r:@R> "=" <iv:"float"> ";" =>
+   ast::Stmt::Variable(s, ast::Type::Float, ast::Val::VFloat(iv), (l, r)),
    <l:@L> <ss:Spar> ";" <r:@R> => ast::Stmt::Spar(ss, (l, r)),
 }
 
@@ -156,7 +154,7 @@ pub Expr: ast::Expr = {
     	   ast::Expr::DataExpr(le, (l, r)),
     <l:@L> "(" <le:Expr> ")" <r:@R> =>
     	   ast::Expr::Brackets(Box::new(le), (l, r)),
-   #[precedence(level="3")] #[assoc(side="left")]
+   #[precedence(level="1")] #[assoc(side="left")]
     <l:@L> <le:Expr> "and" <re:Expr> <r:@R> =>
     	    ast::Expr::And(Box::new(le), Box::new(re), (l, r)),
     <l:@L> <le:Expr> "or" <re:Expr> <r:@R> =>
