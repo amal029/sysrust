@@ -5,7 +5,7 @@ use std::env;
 use std::process::exit;
 use sysrust::{ast, parse};
 
-use crate::analyse::{_analyse_var_signal_uses, get_signals, get_vars};
+use crate::analyse::{_analyse_var_signal_uses, get_s_v_ref, get_signals, get_vars, symbol_string};
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
 mod error;
@@ -44,17 +44,28 @@ fn main() {
     // println!("Num of threads in the program: {}", num_threads);
 
     // XXX: Get all the states in each thread
-    let mut _states : Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
+    let mut _states: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
     get_states(&mut _states, &_ast, 0);
     println!("{:?}", _states);
 
-    let mut _signals : Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
+    // XXX: Get all the signals in each thread
+    let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_signals(&mut _signals, &_ast, 0);
     println!("{:?}", _signals);
 
-    let mut _vars : Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
+    // XXX: Get all the vars in each thread
+    let mut _vars: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_vars(&mut _vars, &_ast, 0);
     println!("{:?}", _vars);
+
+    // XXX: Get all the signal and var reference in each thread
+    let mut _sref: Vec<Vec<ast::SimpleDataExpr>> = vec![vec![]; num_threads];
+    let mut _vref: Vec<Vec<ast::SimpleDataExpr>> = vec![vec![]; num_threads];
+    let mut _syref: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
+    let mut _vyref: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
+    get_s_v_ref(&mut _sref, &mut _syref, &mut _vref, &mut _vyref, &_ast, 0);
+    // TODO: Remove duplicate elements from the vec of vecs.
+    println!("{:?} {:?} {:?} {:?}", _syref, _sref, _vyref, _vref);
 
     // XXX: Make the FSM graph
     let mut _nodes: Vec<GraphNode> = Vec::with_capacity(1000);

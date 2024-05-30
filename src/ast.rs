@@ -45,6 +45,7 @@ pub enum RelDataExpr {
 pub enum Expr {
     True(Pos),
     False(Pos),
+    // XXX: This symbol has to be a signal
     Esymbol(Symbol, Pos),
     And(Box<Expr>, Box<Expr>, Pos),
     Or(Box<Expr>, Box<Expr>, Pos),

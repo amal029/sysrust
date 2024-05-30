@@ -18,7 +18,7 @@ type HT = HashMap<String, (Type, SignalVarType)>;
 type Pos = (usize, usize);
 type Pos1 = (usize, usize, String);
 
-fn symbol_string(s: &Symbol) -> String {
+pub fn symbol_string(s: &Symbol) -> String {
     match s {
         Symbol::Symbol(ss, _) => ss.clone(),
     }
@@ -370,6 +370,125 @@ fn _get_vars(vars: &mut [Vec<Stmt>], st: &Stmt, tid: usize) {
     }
 }
 
-// TODO: Get all the signals "used" in each thread
+// XXX: Get all the signals "used" in each thread
+// XXX: Get all the vars "used" in each thread
+pub fn get_s_v_ref(
+    _sref: &mut [Vec<SimpleDataExpr>],
+    _syref: &mut [Vec<Symbol>],
+    _vref: &mut [Vec<SimpleDataExpr>],
+    _vyref: &mut [Vec<Symbol>],
+    _ast: &[Stmt],
+    tid: usize,
+) {
+    _ast.iter()
+        .for_each(|x| _get_s_v_ref(_sref, _syref, _vref, _vyref, x, tid))
+}
 
-// TODO: Get all the vars "used" in each thread
+fn _get_s_v_ref(
+    _sref: &mut [Vec<SimpleDataExpr>],
+    _syref: &mut [Vec<Symbol>],
+    _vref: &mut [Vec<SimpleDataExpr>],
+    _vyref: &mut [Vec<Symbol>],
+    _st: &Stmt,
+    _tid: usize,
+) {
+    match _st {
+        Stmt::Block(_sts, _) => get_s_v_ref(_sref, _syref, _vref, _vyref, _sts, _tid),
+        Stmt::Emit(_sy, Some(_expr), _) => {
+            _syref[_tid].push(_sy.clone());
+            _get_s_v_ref_expr(_sref, _vref, _expr, _tid)
+        }
+        Stmt::Emit(_sy, None, _) => {
+            _syref[_tid].push(_sy.clone());
+        }
+        Stmt::Present(_expr, _t, Some(_r), _) => {
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _t, _tid);
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _r, _tid);
+            get_s_v_ref_expr(_sref, _syref, _vref, _expr, _tid)
+        }
+        Stmt::Present(_expr, _t, None, _) => {
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _t, _tid);
+            get_s_v_ref_expr(_sref, _syref, _vref, _expr, _tid)
+        }
+        Stmt::Abort(_expr, _, _st, _) | Stmt::Suspend(_expr, _, _st, _) => {
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid);
+            get_s_v_ref_expr(_sref, _syref, _vref, _expr, _tid)
+        }
+        Stmt::Loop(_st, _) => _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid),
+        Stmt::Assign(_sy, _expr, _) => {
+            _vyref[_tid].push(_sy.clone());
+            _get_s_v_ref_expr(_sref, _vref, _expr, _tid)
+        }
+        Stmt::Spar(_sts, _) => _sts
+            .iter()
+            .enumerate()
+            .for_each(|(j, x)| _get_s_v_ref(_sref, _syref, _vref, _vyref, x, _tid + j + 1)),
+        _ => (),
+    }
+}
+
+fn _get_s_v_ref_expr(
+    _sref: &mut [Vec<SimpleDataExpr>],
+    _vref: &mut [Vec<SimpleDataExpr>],
+    _expr: &SimpleDataExpr,
+    _tid: usize,
+) {
+    match _expr {
+        SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _) => {
+            _get_s_v_ref_expr(_sref, _vref, _l, _tid);
+            _get_s_v_ref_expr(_sref, _vref, _r, _tid)
+        }
+        SimpleDataExpr::VarRef(_, _) => _vref[_tid].push(_expr.clone()),
+        SimpleDataExpr::SignalRef(_, _) => _sref[_tid].push(_expr.clone()),
+        SimpleDataExpr::Call(_s, _refs, _) => _refs
+            .iter()
+            .for_each(|x| _get_s_v_ref_expr(_sref, _vref, x, _tid)),
+        _ => (),
+    }
+}
+
+fn get_s_v_rel_expr(
+    _sref: &mut [Vec<SimpleDataExpr>],
+    _vref: &mut [Vec<SimpleDataExpr>],
+    _expr: &RelDataExpr,
+    _tid: usize,
+) {
+    match _expr {
+        RelDataExpr::LessThan(_l, _r, _)
+        | RelDataExpr::GreaterThan(_l, _r, _)
+        | RelDataExpr::LessThanEqual(_l, _r, _)
+        | RelDataExpr::GreaterThanEqual(_l, _r, _)
+        | RelDataExpr::EqualTo(_l, _r, _) => {
+            _get_s_v_ref_expr(_sref, _vref, _l, _tid);
+            _get_s_v_ref_expr(_sref, _vref, _r, _tid)
+        }
+    }
+}
+
+fn get_s_v_ref_expr(
+    _sref: &mut [Vec<SimpleDataExpr>],
+    _syref: &mut [Vec<Symbol>],
+    _vref: &mut [Vec<SimpleDataExpr>],
+    _expr: &Expr,
+    _tid: usize,
+) {
+    match _expr {
+        Expr::Esymbol(_sy, _) => _syref[_tid].push(_sy.clone()),
+        Expr::And(_l, _r, _) => {
+            get_s_v_ref_expr(_sref, _syref, _vref, _l, _tid);
+            get_s_v_ref_expr(_sref, _syref, _vref, _r, _tid)
+        }
+        Expr::Or(_l, _r, _) => {
+            get_s_v_ref_expr(_sref, _syref, _vref, _l, _tid);
+            get_s_v_ref_expr(_sref, _syref, _vref, _r, _tid)
+        }
+        Expr::Not(_l, _) => {
+            get_s_v_ref_expr(_sref, _syref, _vref, _l, _tid);
+        }
+        Expr::Brackets(_l, _) => {
+            get_s_v_ref_expr(_sref, _syref, _vref, _l, _tid);
+        }
+        Expr::DataExpr(_rexpr, _) => get_s_v_rel_expr(_sref, _vref, _rexpr, _tid),
+        _ => (),
+    }
+}

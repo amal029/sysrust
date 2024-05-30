@@ -25,7 +25,7 @@ pub struct GraphNode {
     label: String,
     idx: Index,
     tt: NodeT,
-    tid: Index,
+    _tid: Index,
 }
 
 impl GraphNode {
@@ -39,7 +39,7 @@ impl GraphNode {
             label: String::from("Initial"),
             idx: 0,
             tt: NodeT::Seq,
-            tid: t,
+            _tid: t,
         }
     }
 }
