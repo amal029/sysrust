@@ -45,17 +45,23 @@ fn main() {
 
     // XXX: Get all the states in each thread
     let mut _states: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
-    get_states(&mut _states, &_ast, 0);
+    let mut tid = 0;
+    let mut tot = 1;
+    get_states(&mut _states, &_ast, &mut tid, &mut tot);
     println!("{:?}", _states);
 
     // XXX: Get all the signals in each thread
+    let mut tid = 0;
+    let mut tot = 1;
     let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
-    get_signals(&mut _signals, &_ast, 0);
+    get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
     println!("{:?}", _signals);
 
     // XXX: Get all the vars in each thread
+    let mut tid = 0;
+    let mut tot = 1;
     let mut _vars: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
-    get_vars(&mut _vars, &_ast, 0);
+    get_vars(&mut _vars, &_ast, &mut tid, &mut tot);
     println!("{:?}", _vars);
 
     // XXX: Get all the signal and var reference in each thread
@@ -63,7 +69,9 @@ fn main() {
     let mut _vref: Vec<Vec<ast::SimpleDataExpr>> = vec![vec![]; num_threads];
     let mut _syref: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
     let mut _vyref: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
-    get_s_v_ref(&mut _sref, &mut _syref, &mut _vref, &mut _vyref, &_ast, 0);
+    let mut tid = 0;
+    let mut tot = 1;
+    get_s_v_ref(&mut _sref, &mut _syref, &mut _vref, &mut _vyref, &_ast, &mut tid, &mut tot);
     // TODO: Remove duplicate elements from the vec of vecs.
     println!("{:?} {:?} {:?} {:?}", _syref, _sref, _vyref, _vref);
 

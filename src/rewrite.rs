@@ -446,6 +446,9 @@ fn rewrite_stmt_to_graph_fsm(
             let (_bi, _ei): (Vec<Index>, Vec<Index>) = _stmts
                 .iter()
                 .enumerate()
+		// FIXME: Maybe this is good enough, because we only
+		// want to check if the outgoing edge is not the same
+		// tid as this thread.
                 .map(|(ii, x)| rewrite_stmt_to_graph_fsm(ff, _nodes, tid + ii + 1, idx, x))
                 .unzip();
 

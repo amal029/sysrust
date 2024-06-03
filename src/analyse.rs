@@ -295,77 +295,93 @@ fn _get_num_threads(_num_threads: &mut usize, _ast: &Stmt) {
 }
 
 // XXX: Get all the states in each thread
-pub fn get_states(_state: &mut [Vec<Symbol>], _ast: &[Stmt], tid: usize) {
-    _ast.iter().for_each(|x| _get_states(_state, x, tid));
+pub fn get_states(_state: &mut [Vec<Symbol>], _ast: &[Stmt], tid: &mut usize, tot: &mut usize) {
+    _ast.iter().for_each(|x| _get_states(_state, x, tid, tot));
 }
 
-fn _get_states(_state: &mut [Vec<Symbol>], stmt: &Stmt, tid: usize) {
+fn _get_states(_state: &mut [Vec<Symbol>], stmt: &Stmt, tid: &mut usize, tot: &mut usize) {
     match stmt {
-        Stmt::Pause(_sy, _) => _state[tid].push(_sy.clone()),
-        Stmt::Block(_sts, _) => get_states(_state, _sts, tid),
+        Stmt::Pause(_sy, _) => _state[*tid].push(_sy.clone()),
+        Stmt::Block(_sts, _) => get_states(_state, _sts, tid, tot),
         Stmt::Present(_, _t, Some(_r), _) => {
-            _get_states(_state, _t, tid);
-            _get_states(_state, _r, tid)
+            _get_states(_state, _t, tid, tot);
+            _get_states(_state, _r, tid, tot)
         }
-        Stmt::Present(_, _t, None, _) => _get_states(_state, _t, tid),
-        Stmt::Abort(_, _, _st, _) => _get_states(_state, _st, tid),
-        Stmt::Suspend(_, _, _st, _) => _get_states(_state, _st, tid),
-        Stmt::Loop(_st, _) => _get_states(_state, _st, tid),
-        Stmt::Spar(_sts, _) => _sts
-            .iter()
-            .enumerate()
-            .for_each(|(j, x)| _get_states(_state, x, tid + j + 1)),
+        Stmt::Present(_, _t, None, _) => _get_states(_state, _t, tid, tot),
+        Stmt::Abort(_, _, _st, _) => _get_states(_state, _st, tid, tot),
+        Stmt::Suspend(_, _, _st, _) => _get_states(_state, _st, tid, tot),
+        Stmt::Loop(_st, _) => _get_states(_state, _st, tid, tot),
+        Stmt::Spar(_sts, _) => {
+            let mtid = *tid;
+            _sts.iter().for_each(|x| {
+                *tid = *tot;
+                *tot += 1;
+                _get_states(_state, x, tid, tot);
+            });
+            *tid = mtid;
+        }
         _ => (),
     }
 }
 
 // XXX: Get all the signals declared in the program and in each thread
-pub fn get_signals(_signals: &mut [Vec<Stmt>], _ast: &[Stmt], tid: usize) {
-    _ast.iter().for_each(|x| _get_signals(_signals, x, tid))
+pub fn get_signals(_signals: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize, tot: &mut usize) {
+    _ast.iter()
+        .for_each(|x| _get_signals(_signals, x, tid, tot))
 }
 
-fn _get_signals(signals: &mut [Vec<Stmt>], st: &Stmt, tid: usize) {
+fn _get_signals(signals: &mut [Vec<Stmt>], st: &Stmt, tid: &mut usize, tot: &mut usize) {
     match st {
-        Stmt::Block(_sts, _) => get_signals(signals, _sts, tid),
+        Stmt::Block(_sts, _) => get_signals(signals, _sts, tid, tot),
         Stmt::Present(_, _t, Some(_r), _) => {
-            _get_signals(signals, _t, tid);
-            _get_signals(signals, _r, tid)
+            _get_signals(signals, _t, tid, tot);
+            _get_signals(signals, _r, tid, tot)
         }
-        Stmt::Present(_, _t, None, _) => _get_signals(signals, _t, tid),
-        Stmt::Abort(_, _, _st, _) => _get_signals(signals, _st, tid),
-        Stmt::Suspend(_, _, _st, _) => _get_signals(signals, _st, tid),
-        Stmt::Loop(_st, _) => _get_signals(signals, _st, tid),
-        Stmt::Spar(_sts, _) => _sts
-            .iter()
-            .enumerate()
-            .for_each(|(j, x)| _get_signals(signals, x, tid + j + 1)),
-        Stmt::Signal(_, _, _) => signals[tid].push(st.clone()),
-        Stmt::DataSignal(_, _, _, _, _, _) => signals[tid].push(st.clone()),
+        Stmt::Present(_, _t, None, _) => _get_signals(signals, _t, tid, tot),
+        Stmt::Abort(_, _, _st, _) => _get_signals(signals, _st, tid, tot),
+        Stmt::Suspend(_, _, _st, _) => _get_signals(signals, _st, tid, tot),
+        Stmt::Loop(_st, _) => _get_signals(signals, _st, tid, tot),
+        Stmt::Spar(_sts, _) => {
+            let mtid = *tid;
+            _sts.iter().for_each(|x| {
+                *tid = *tot;
+                *tot += 1;
+                _get_signals(signals, x, tid, tot)
+            });
+            *tid = mtid;
+        }
+        Stmt::Signal(_, _, _) => signals[*tid].push(st.clone()),
+        Stmt::DataSignal(_, _, _, _, _, _) => signals[*tid].push(st.clone()),
         _ => (),
     }
 }
 
 // XXX: Get all the variables declared in the program and in each thread
-pub fn get_vars(_vars: &mut [Vec<Stmt>], _ast: &[Stmt], tid: usize) {
-    _ast.iter().for_each(|x| _get_vars(_vars, x, tid))
+pub fn get_vars(_vars: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize, tot: &mut usize) {
+    _ast.iter().for_each(|x| _get_vars(_vars, x, tid, tot))
 }
 
-fn _get_vars(vars: &mut [Vec<Stmt>], st: &Stmt, tid: usize) {
+fn _get_vars(vars: &mut [Vec<Stmt>], st: &Stmt, tid: &mut usize, tot: &mut usize) {
     match st {
-        Stmt::Block(_sts, _) => get_vars(vars, _sts, tid),
+        Stmt::Block(_sts, _) => get_vars(vars, _sts, tid, tot),
         Stmt::Present(_, _t, Some(_r), _) => {
-            _get_vars(vars, _t, tid);
-            _get_vars(vars, _r, tid)
+            _get_vars(vars, _t, tid, tot);
+            _get_vars(vars, _r, tid, tot)
         }
-        Stmt::Present(_, _t, None, _) => _get_vars(vars, _t, tid),
-        Stmt::Abort(_, _, _st, _) => _get_vars(vars, _st, tid),
-        Stmt::Suspend(_, _, _st, _) => _get_vars(vars, _st, tid),
-        Stmt::Loop(_st, _) => _get_vars(vars, _st, tid),
-        Stmt::Spar(_sts, _) => _sts
-            .iter()
-            .enumerate()
-            .for_each(|(j, x)| _get_vars(vars, x, tid + j + 1)),
-        Stmt::Variable(_, _, _, _) => vars[tid].push(st.clone()),
+        Stmt::Present(_, _t, None, _) => _get_vars(vars, _t, tid, tot),
+        Stmt::Abort(_, _, _st, _) => _get_vars(vars, _st, tid, tot),
+        Stmt::Suspend(_, _, _st, _) => _get_vars(vars, _st, tid, tot),
+        Stmt::Loop(_st, _) => _get_vars(vars, _st, tid, tot),
+        Stmt::Spar(_sts, _) => {
+            let mtid = *tid;
+            _sts.iter().for_each(|x| {
+                *tid = *tot;
+                *tot += 1;
+                _get_vars(vars, x, tid, tot)
+            });
+            *tid = mtid;
+        }
+        Stmt::Variable(_, _, _, _) => vars[*tid].push(st.clone()),
         _ => (),
     }
 }
@@ -378,10 +394,11 @@ pub fn get_s_v_ref(
     _vref: &mut [Vec<SimpleDataExpr>],
     _vyref: &mut [Vec<Symbol>],
     _ast: &[Stmt],
-    tid: usize,
+    tid: &mut usize,
+    tot: &mut usize,
 ) {
     _ast.iter()
-        .for_each(|x| _get_s_v_ref(_sref, _syref, _vref, _vyref, x, tid))
+        .for_each(|x| _get_s_v_ref(_sref, _syref, _vref, _vyref, x, tid, tot))
 }
 
 fn _get_s_v_ref(
@@ -390,39 +407,45 @@ fn _get_s_v_ref(
     _vref: &mut [Vec<SimpleDataExpr>],
     _vyref: &mut [Vec<Symbol>],
     _st: &Stmt,
-    _tid: usize,
+    _tid: &mut usize,
+    _tot: &mut usize,
 ) {
     match _st {
-        Stmt::Block(_sts, _) => get_s_v_ref(_sref, _syref, _vref, _vyref, _sts, _tid),
+        Stmt::Block(_sts, _) => get_s_v_ref(_sref, _syref, _vref, _vyref, _sts, _tid, _tot),
         Stmt::Emit(_sy, Some(_expr), _) => {
-            _syref[_tid].push(_sy.clone());
-            _get_s_v_ref_expr(_sref, _vref, _expr, _tid)
+            _syref[*_tid].push(_sy.clone());
+            _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
         }
         Stmt::Emit(_sy, None, _) => {
-            _syref[_tid].push(_sy.clone());
+            _syref[*_tid].push(_sy.clone());
         }
         Stmt::Present(_expr, _t, Some(_r), _) => {
-            _get_s_v_ref(_sref, _syref, _vref, _vyref, _t, _tid);
-            _get_s_v_ref(_sref, _syref, _vref, _vyref, _r, _tid);
-            get_s_v_ref_expr(_sref, _syref, _vref, _expr, _tid)
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _t, _tid, _tot);
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _r, _tid, _tot);
+            get_s_v_ref_expr(_sref, _syref, _vref, _expr, *_tid)
         }
         Stmt::Present(_expr, _t, None, _) => {
-            _get_s_v_ref(_sref, _syref, _vref, _vyref, _t, _tid);
-            get_s_v_ref_expr(_sref, _syref, _vref, _expr, _tid)
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _t, _tid, _tot);
+            get_s_v_ref_expr(_sref, _syref, _vref, _expr, *_tid)
         }
         Stmt::Abort(_expr, _, _st, _) | Stmt::Suspend(_expr, _, _st, _) => {
-            _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid);
-            get_s_v_ref_expr(_sref, _syref, _vref, _expr, _tid)
+            _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid, _tot);
+            get_s_v_ref_expr(_sref, _syref, _vref, _expr, *_tid)
         }
-        Stmt::Loop(_st, _) => _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid),
+        Stmt::Loop(_st, _) => _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid, _tot),
         Stmt::Assign(_sy, _expr, _) => {
-            _vyref[_tid].push(_sy.clone());
-            _get_s_v_ref_expr(_sref, _vref, _expr, _tid)
+            _vyref[*_tid].push(_sy.clone());
+            _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
         }
-        Stmt::Spar(_sts, _) => _sts
-            .iter()
-            .enumerate()
-            .for_each(|(j, x)| _get_s_v_ref(_sref, _syref, _vref, _vyref, x, _tid + j + 1)),
+        Stmt::Spar(_sts, _) => {
+            let mtid = *_tid;
+            _sts.iter().for_each(|x| {
+                *_tid = *_tot;
+                *_tot += 1;
+                _get_s_v_ref(_sref, _syref, _vref, _vyref, x, _tid, _tot)
+            });
+            *_tid = mtid;
+        }
         _ => (),
     }
 }
