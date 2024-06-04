@@ -2,12 +2,15 @@ use analyse::{get_num_threads, get_states};
 use error::print_bytes;
 use std::collections::HashMap;
 use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::process::exit;
 use sysrust::{ast, parse};
 
-use crate::analyse::{_analyse_var_signal_uses, get_s_v_ref, get_signals, get_vars, symbol_string};
+use crate::analyse::{_analyse_var_signal_uses, get_s_v_ref, get_signals, get_vars};
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
+mod backend;
 mod error;
 mod rewrite;
 
@@ -71,7 +74,15 @@ fn main() {
     let mut _vyref: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
     let mut tid = 0;
     let mut tot = 1;
-    get_s_v_ref(&mut _sref, &mut _syref, &mut _vref, &mut _vyref, &_ast, &mut tid, &mut tot);
+    get_s_v_ref(
+        &mut _sref,
+        &mut _syref,
+        &mut _vref,
+        &mut _vyref,
+        &_ast,
+        &mut tid,
+        &mut tot,
+    );
     // TODO: Remove duplicate elements from the vec of vecs.
     println!("{:?} {:?} {:?} {:?}", _syref, _sref, _vyref, _vref);
 
@@ -81,4 +92,16 @@ fn main() {
     let tid = 0usize;
     let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, tid, &mut idx, &mut _nodes);
     // println!("{:?} {:?} {:?}", _nodes, _i, _e);
+
+    // XXX: Now start making the backend
+    let ff = args[1].split(".").collect::<Vec<&str>>()[0];
+    let _fname = format!("{}.{}", ff, "cpp");
+    let mut _file = File::create(_fname).expect("Cannot create the cpp file");
+
+    // XXX: First make the prolouge -- includes, threads, states,
+    // signals, and vars
+    _file
+        .write_all(&backend::_prolouge(&_signals, &_vars, &num_threads, &_states))
+        .expect("Cannot write to cpp file");
+    // println!("{:?}", backend::_prolouge());
 }
