@@ -1,5 +1,5 @@
 use pretty::RcDoc;
-use sysrust::ast::{ExprOp, Stmt, Symbol, Type, Val};
+use sysrust::ast::{ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
 
 fn _symbol_string(_sy: &Symbol) -> &String {
     match _sy {
@@ -89,6 +89,10 @@ pub fn _prolouge(
     _vars: &[Vec<Stmt>],
     _nthreads: &usize,
     _states: &[Vec<Symbol>],
+    _syref: &[Vec<Symbol>],
+    _sref: &[Vec<SimpleDataExpr>],
+    _vyref: &[Vec<Symbol>],
+    _vref: &[Vec<SimpleDataExpr>],
 ) -> Vec<u8> {
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
@@ -200,18 +204,26 @@ pub fn _prolouge(
 
     // XXX: Make the overloaded template metaprogramming
     let _o =
+<<<<<<< HEAD
         "template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};".to_string();
+=======
+        format!("template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};");
+>>>>>>> 50278cd (Updated to start adding templates + code.)
     _n = _n
         .append(RcDoc::hardline())
         .append(_o)
         .append(RcDoc::hardline());
+<<<<<<< HEAD
 
     let _ = _n.render(8, &mut w);
+=======
+>>>>>>> 50278cd (Updated to start adding templates + code.)
 
     // TODO: All thread prototypes
     // TODO: All the visits
     // TODO: The real code from the FSM
 
+    let _ = _n.render(8, &mut w);
     // String::from_utf8(w).expect("Could not generate the prolouge")
     w
 }

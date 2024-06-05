@@ -106,6 +106,13 @@ fn main() {
             &_vars,
             &num_threads,
             &_states,
+<<<<<<< HEAD
+=======
+            &_syref,
+            &_sref,
+            &_vyref,
+            &_vref,
+>>>>>>> 50278cd (Updated to start adding templates + code.)
         ))
         .expect("Cannot write to cpp file");
     // println!("{:?}", backend::_prolouge());
