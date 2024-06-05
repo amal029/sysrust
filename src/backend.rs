@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use pretty::RcDoc;
 use sysrust::ast::{ExprOp, Stmt, Symbol, Type, Val};
 
@@ -179,7 +177,6 @@ pub fn _prolouge(
         _n = _n.append(RcDoc::as_string(_vv)).append(RcDoc::hardline());
     }
     let _threadvar: Vec<_> = (0..*_nthreads)
-        .into_iter()
         .map(|x| format!("static Thread{}State st{};", x, x))
         .collect();
     let _threadvar = _threadvar.join("\n");
@@ -187,7 +184,6 @@ pub fn _prolouge(
 
     // XXX: Make the initial functions
     let _inits: Vec<_> = (0..*_nthreads)
-        .into_iter()
         .map(|x| {
             format!(
                 "constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
@@ -199,12 +195,16 @@ pub fn _prolouge(
     _n = _n
         .append(RcDoc::hardline())
         .append(RcDoc::hardline())
-        .append(_inits).append(RcDoc::hardline());
+        .append(_inits)
+        .append(RcDoc::hardline());
 
     // XXX: Make the overloaded template metaprogramming
     let _o =
-        format!("template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};");
-    _n = _n.append(RcDoc::hardline()).append(_o).append(RcDoc::hardline());
+        "template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};".to_string();
+    _n = _n
+        .append(RcDoc::hardline())
+        .append(_o)
+        .append(RcDoc::hardline());
 
     let _ = _n.render(8, &mut w);
 

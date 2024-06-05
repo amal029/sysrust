@@ -94,7 +94,7 @@ fn main() {
     // println!("{:?} {:?} {:?}", _nodes, _i, _e);
 
     // XXX: Now start making the backend
-    let ff = args[1].split(".").collect::<Vec<&str>>()[0];
+    let ff = args[1].split('.').collect::<Vec<&str>>()[0];
     let _fname = format!("{}.{}", ff, "cpp");
     let mut _file = File::create(_fname).expect("Cannot create the cpp file");
 
