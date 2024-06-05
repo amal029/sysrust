@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use sysrust::ast::*;
 
+// FIXME: Check that only one signal is declared with a given name
+
 pub enum SignalVarType {
     Signal,
     Var(usize),

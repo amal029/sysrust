@@ -1,3 +1,5 @@
+use std::{collections::HashSet, iter::zip};
+
 use pretty::RcDoc;
 use sysrust::ast::{ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
 
@@ -36,18 +38,15 @@ fn _expr_op_std_op(_expr: &ExprOp) -> &str {
 fn _sig_decl(_s: &Stmt, _tid: usize) -> RcDoc<()> {
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
-            let _m = format!("struct signal_{}_{}", _symbol_string(_sy), _tid);
+            let _m = format!("struct signal_{}", _symbol_string(_sy));
             let _m = format!("{} {{bool status;}};", _m);
             let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
             let sname = _symbol_string(_sy);
-            let u = format!(
-                "static signal_{}_{} {}_curr, {}_prev;",
-                sname, _tid, sname, sname
-            );
+            let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
             _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
-            let _m = format!("struct signal_{}_{}", _symbol_string(_sy), _tid);
+            let _m = format!("struct signal_{}", _symbol_string(_sy));
             let _m = format!(
                 "{} {{bool status; {} value = {}; {}<{}> op {{}};}};",
                 _m,
@@ -58,10 +57,7 @@ fn _sig_decl(_s: &Stmt, _tid: usize) -> RcDoc<()> {
             );
             let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
             let sname = _symbol_string(_sy);
-            let u = format!(
-                "static signal_{}_{} {}_curr, {}_prev;",
-                sname, _tid, sname, sname
-            );
+            let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
             a.append(u).append(RcDoc::hardline())
         }
         _ => panic!("Got a non signal when generating backend"),
@@ -82,6 +78,26 @@ fn _var_decl(_var: &Stmt, _tid: usize) -> RcDoc<()> {
         }
         _ => panic!("Got a non variable when generating backend"),
     }
+}
+
+fn _get_unique_set(st: &[Vec<Symbol>]) -> Vec<HashSet<&String>> {
+    st.iter()
+        .map(|x| x.iter().map(|y| _symbol_string(y)).collect::<HashSet<_>>())
+        .collect()
+}
+
+fn _get_unique_set_sexpr(st: &[Vec<SimpleDataExpr>]) -> Vec<HashSet<&String>> {
+    st.iter()
+        .map(|i| {
+            i.iter()
+                .map(|j| match j {
+                    SimpleDataExpr::SignalRef(_sy, _) => _symbol_string(_sy),
+                    SimpleDataExpr::VarRef(_sy, _) => _symbol_string(_sy),
+                    _ => panic!("Got a non signal and variable when making unique names"),
+                })
+                .collect::<HashSet<_>>()
+        })
+        .collect()
 }
 
 pub fn _prolouge(
@@ -180,11 +196,102 @@ pub fn _prolouge(
         let _vv = format!("using Thread{}State = std::variant<{}>;", _k, _vv);
         _n = _n.append(RcDoc::as_string(_vv)).append(RcDoc::hardline());
     }
+    // XXX: The unique names of signals used in each thread
+    let _syref = _get_unique_set(_syref);
+    let _sref = _get_unique_set_sexpr(_sref);
+
+    // XXX: Make the string with all the used signals in each thread
+    let mut _used_sigs: Vec<String> = Vec::new();
+    let mut _used_sigs_vec: Vec<String> = Vec::new();
+    let mut _used_sigs_cap: Vec<String> = Vec::new();
+    let mut _used_sigs_tick: Vec<String> = Vec::new();
+    for i in zip(_syref, _sref) {
+        let vv = i.0.union(&i.1).collect::<Vec<_>>();
+        let v1 = vv
+            .iter()
+            .enumerate()
+            .map(|(j, x)| format!("signal_{} &_{}", x, j))
+            .collect::<Vec<_>>()
+            .join(", ");
+        _used_sigs_vec.push(v1);
+
+        let v2 = vv
+            .iter()
+            .enumerate()
+            .map(|(j, _)| format!("&_{}", j))
+            .collect::<Vec<_>>()
+            .join(", ");
+        _used_sigs_cap.push(v2);
+
+        let v2 = vv
+            .iter()
+            .enumerate()
+            .map(|(j, _)| format!("_{}", j))
+            .collect::<Vec<_>>()
+            .join(", ");
+        _used_sigs_tick.push(v2);
+
+        let vv = vv
+            .iter()
+            .map(|x| format!("signal_{} &", x))
+            .collect::<Vec<_>>()
+            .join(", ");
+        _used_sigs.push(vv);
+    }
+
+    // XXX: All thread prototypes
+    let mut thread_prototypes: Vec<String> = Vec::with_capacity(_states.len() + 100);
+    assert!(_used_sigs.len() == _states.len());
+    for (i, (k1, k2)) in zip(_used_sigs, _states).enumerate() {
+        // XXX: First make I, ND, and D states
+        let _ss = format!(
+            "template <> struct Thread{}<E>{{\nconstexpr void tick \
+			  ({});}};",
+            i, k1
+        );
+        thread_prototypes.push(_ss);
+        let _ss = format!(
+            "template <> struct Thread{}<I>{{\nconstexpr void tick \
+			  ({});}};",
+            i, k1
+        );
+        thread_prototypes.push(_ss);
+        let _ss = format!(
+            "template <> struct Thread{}<ND>{{\nconstexpr void tick \
+			  ({});}};",
+            i, k1
+        );
+        thread_prototypes.push(_ss);
+        let _ss = format!(
+            "template <> struct Thread{}<D>{{\nconstexpr void tick \
+			  ({});}};",
+            i, k1
+        );
+        thread_prototypes.push(_ss);
+        for j in k2 {
+            let mm = _symbol_string(j);
+            let _ss = format!(
+                "template <> struct Thread{}<{}>{{\nconstexpr void tick \
+			  ({});}};",
+                i, mm, k1
+            );
+            thread_prototypes.push(_ss);
+        }
+    }
+    let _prototypes = thread_prototypes.join("\n");
+    _n = _n
+        .append(RcDoc::hardline())
+        .append(RcDoc::as_string(_prototypes))
+        .append(RcDoc::hardline());
+
     let _threadvar: Vec<_> = (0..*_nthreads)
         .map(|x| format!("static Thread{}State st{};", x, x))
         .collect();
     let _threadvar = _threadvar.join("\n");
-    _n = _n.append(RcDoc::hardline()).append(_threadvar);
+    _n = _n
+        .append(RcDoc::hardline())
+        .append(_threadvar)
+        .append(RcDoc::hardline());
 
     // XXX: Make the initial functions
     let _inits: Vec<_> = (0..*_nthreads)
@@ -203,15 +310,38 @@ pub fn _prolouge(
         .append(RcDoc::hardline());
 
     // XXX: Make the overloaded template metaprogramming
-    let _o =
-        "template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};".to_string();
+    let _o = "template <class... Ts> struct overloaded: \
+	 Ts... {using Ts::operator()...;};"
+        .to_string();
+    _n = _n.append(RcDoc::hardline()).append(_o);
+
+    // XXX: All the visits
+    assert!(*_nthreads == _used_sigs_vec.len());
+    assert!(*_nthreads == _used_sigs_cap.len());
+    let _hh = (0..*_nthreads)
+        .map(|i| {
+            let _f1 = if _used_sigs_vec[i] != "" {
+                format!(
+                    "constexpr void visit{}(Thread{}State &ts, {}){{\
+		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
+                    i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
+                )
+            } else {
+                format!(
+                    "constexpr void visit{}(Thread{}State &ts{}){{\
+		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
+                    i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
+                )
+            };
+            _f1
+        })
+        .collect::<Vec<_>>();
+    let _hh = _hh.join("\n");
     _n = _n
         .append(RcDoc::hardline())
-        .append(_o)
+        .append(RcDoc::as_string(_hh))
         .append(RcDoc::hardline());
 
-    // TODO: All thread prototypes
-    // TODO: All the visits
     // TODO: The real code from the FSM
 
     let _ = _n.render(8, &mut w);
