@@ -19,7 +19,7 @@ fn main() {
     let _ast = parse(&args[1]);
 
     // XXX: Analyse signa/var declaration and their uses
-    let mut stack: Vec<HashMap<String, (ast::Type, analyse::SignalVarType)>> =
+    let mut stack: Vec<HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>> =
         Vec::with_capacity(1000);
 
     // XXX: The errors in the program are collected here.

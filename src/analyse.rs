@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, process::exit};
 
 use sysrust::ast::*;
 
-// FIXME: Check that only one signal is declared with a given name
+use crate::error::print_bytes;
 
 pub enum SignalVarType {
     Signal,
@@ -15,7 +15,7 @@ enum ValuedSignalDataCheck {
 }
 
 #[allow(dead_code)]
-type HT = HashMap<String, (Type, SignalVarType)>;
+type HT = HashMap<String, (Type, SignalVarType, Option<IO>)>;
 #[allow(dead_code)]
 type Pos = (usize, usize);
 type Pos1 = (usize, usize, String);
@@ -48,6 +48,7 @@ fn _check_sym_in_map(
     rets: &mut Vec<Pos1>,
     _svt: SignalVarType,
     _dvt: ValuedSignalDataCheck,
+    _io: Option<IO>,
 ) {
     fn match_signal_var_type(_svt1: &SignalVarType, _svt2: &SignalVarType) -> bool {
         match (_svt1, _svt2) {
@@ -56,12 +57,25 @@ fn _check_sym_in_map(
             (_, _) => false,
         }
     }
+
+    // XXX: Check of the given _io matches with declared signal type
+    fn match_signal_io_type(_io1: &Option<IO>, _io2: &Option<IO>) -> bool {
+        match (_io1, _io2) {
+            (Some(IO::Output), Some(IO::Output)) => true,
+            (Some(IO::Input), Some(IO::Input)) => true,
+            (Some(IO::Output), Some(IO::Input)) => false,
+            (Some(IO::Input), Some(IO::Output)) => false,
+            _ => true,
+        }
+    }
+
     let mut there = false;
     let mut _dcheck = false;
     for map in vmap.iter() {
         if map.contains_key(&symbol_string(s)) {
             let _svt2 = &map.get(&symbol_string(s)).unwrap().1;
-            if match_signal_var_type(&_svt, _svt2) {
+            let _svt3 = &map.get(&symbol_string(s)).unwrap().2;
+            if match_signal_var_type(&_svt, _svt2) && match_signal_io_type(&_io, _svt3) {
                 // XXX: Check if the signal ref being used is a valued signal.
                 _dcheck = match _dvt {
                     ValuedSignalDataCheck::Check => {
@@ -80,8 +94,10 @@ fn _check_sym_in_map(
     }
     if !there {
         let ss = format!(
-            "Signal/Var {} not declared.\nSignal and variable \
-	     declarations can shadow each other.\nVariables cannot be shared between threads.",
+            "Signal/Var {} either not declared, or input signal(s) being emmited.\nSignal \
+	     and variable \
+	     declarations can shadow each other.\nVariables cannot be \
+	     shared between threads.",
             symbol_string(s)
         );
         rets.push((pos.0, pos.1, ss));
@@ -114,6 +130,7 @@ fn _check_sym_in_simple_expr(
             rets,
             SignalVarType::Var(tid),
             ValuedSignalDataCheck::NoCheck,
+            None,
         ),
         SimpleDataExpr::SignalRef(_sy, _) => _check_sym_in_map(
             _ff,
@@ -123,6 +140,7 @@ fn _check_sym_in_simple_expr(
             rets,
             SignalVarType::Signal,
             ValuedSignalDataCheck::Check,
+            None,
         ),
         SimpleDataExpr::Call(_sy, _vexp, _) => _vexp
             .iter()
@@ -169,6 +187,7 @@ fn _check_sym_in_expr(
             rets,
             SignalVarType::Signal,
             ValuedSignalDataCheck::NoCheck,
+            None,
         ),
         Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
             _check_sym_in_expr(_ff, _l, _vmap, _pos, rets, tid);
@@ -187,6 +206,15 @@ pub fn _analyse_var_signal_use(
     rets: &mut Vec<Pos1>,
     tid: usize,
 ) -> Vec<HT> {
+    fn _signal_rep(_vmap: &[HT], _sy: &Symbol, start: usize, end: usize, ff: &str) {
+        for m in _vmap.iter() {
+            if m.contains_key(&symbol_string(_sy)) {
+                let _ = print_bytes(ff, start, end);
+		println!("Signal names have to be unique throughout program");
+		exit(1);
+            }
+        }
+    }
     match stmt {
         Stmt::Block(_stmts, _pos) => {
             // XXX: Push a new hashmap on the stack
@@ -208,6 +236,7 @@ pub fn _analyse_var_signal_use(
                 rets,
                 SignalVarType::Signal,
                 ValuedSignalDataCheck::NoCheck,
+                Some(IO::Output),
             );
             _stack
         }
@@ -221,24 +250,37 @@ pub fn _analyse_var_signal_use(
             _analyse_var_signal_use(ff, _st, ss, rets, tid)
         }
         Stmt::Signal(_sy, _io, _pos) => {
+	    // XXX: Check if the signal is already declared in the stack
+	    _signal_rep(&_stack, _sy, _pos.0, _pos.1, ff);
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            ss[idx].insert(symbol_string(_sy), (Type::None, SignalVarType::Signal));
+            ss[idx].insert(
+                symbol_string(_sy),
+                (Type::None, SignalVarType::Signal, _io.clone()),
+            );
             ss
         }
         Stmt::Variable(_sy, _type, _val, _pos) => {
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            ss[idx].insert(symbol_string(_sy), (_type.clone(), SignalVarType::Var(tid)));
+            ss[idx].insert(
+                symbol_string(_sy),
+                (_type.clone(), SignalVarType::Var(tid), None),
+            );
             ss
         }
         Stmt::DataSignal(_sy, _io, _stype, _sval, _sop, _pos) => {
+	    // XXX: Check if signal is already declared
+	    _signal_rep(&_stack, _sy, _pos.0, _pos.1, ff);
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
-            ss[idx].insert(symbol_string(_sy), (_stype.clone(), SignalVarType::Signal));
+            ss[idx].insert(
+                symbol_string(_sy),
+                (_stype.clone(), SignalVarType::Signal, _io.clone()),
+            );
             ss
         }
         Stmt::Abort(_expr, _, _body, _pos) | Stmt::Suspend(_expr, _, _body, _pos) => {
@@ -265,6 +307,7 @@ pub fn _analyse_var_signal_use(
                 rets,
                 SignalVarType::Var(tid),
                 ValuedSignalDataCheck::NoCheck,
+                None,
             );
             _stack
         }
