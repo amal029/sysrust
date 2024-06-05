@@ -204,20 +204,11 @@ pub fn _prolouge(
 
     // XXX: Make the overloaded template metaprogramming
     let _o =
-<<<<<<< HEAD
         "template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};".to_string();
-=======
-        format!("template <class... Ts> struct overloaded: Ts... {{using Ts::operator()...;}};");
->>>>>>> 50278cd (Updated to start adding templates + code.)
     _n = _n
         .append(RcDoc::hardline())
         .append(_o)
         .append(RcDoc::hardline());
-<<<<<<< HEAD
-
-    let _ = _n.render(8, &mut w);
-=======
->>>>>>> 50278cd (Updated to start adding templates + code.)
 
     // TODO: All thread prototypes
     // TODO: All the visits
