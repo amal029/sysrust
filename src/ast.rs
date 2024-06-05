@@ -6,7 +6,7 @@ pub enum Symbol {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Type{
+pub enum Type {
     Int,
     Float,
     None,
@@ -72,7 +72,6 @@ pub enum Val {
     VFloat(f64),
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>, Pos),
@@ -87,5 +86,5 @@ pub enum Stmt {
     Loop(Box<Stmt>, Pos),
     Assign(Symbol, SimpleDataExpr, Pos),
     Spar(Vec<Stmt>, Pos),
-    Noop(Pos)
+    Noop(Pos),
 }

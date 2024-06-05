@@ -101,7 +101,12 @@ fn main() {
     // XXX: First make the prolouge -- includes, threads, states,
     // signals, and vars
     _file
-        .write_all(&backend::_prolouge(&_signals, &_vars, &num_threads, &_states))
+        .write_all(&backend::_prolouge(
+            &_signals,
+            &_vars,
+            &num_threads,
+            &_states,
+        ))
         .expect("Cannot write to cpp file");
     // println!("{:?}", backend::_prolouge());
 }

@@ -62,8 +62,7 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Emit(a, expr, pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("EmitStart");
-            i.actions
-                .push(Stmt::Emit(a.clone(), expr.clone(), *pos));
+            i.actions.push(Stmt::Emit(a.clone(), expr.clone(), *pos));
             i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("EmitEnd");
@@ -102,8 +101,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Assign(a, expr, pos) => {
             let mut i = GraphNode::default(tid);
-            i.actions
-                .push(Stmt::Assign(a.clone(), expr.clone(), *pos));
+            i.actions.push(Stmt::Assign(a.clone(), expr.clone(), *pos));
             i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("End");
@@ -123,12 +121,8 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Variable(a, vtype, _val, pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("VariableStart");
-            i.actions.push(Stmt::Variable(
-                a.clone(),
-                vtype.clone(),
-                _val.clone(),
-                *pos,
-            ));
+            i.actions
+                .push(Stmt::Variable(a.clone(), vtype.clone(), _val.clone(), *pos));
             i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("VariableEnd");
@@ -175,8 +169,7 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Signal(a, io, pos) => {
             let mut i = GraphNode::default(tid);
             i.label = String::from("SignalStart");
-            i.actions
-                .push(Stmt::Signal(a.clone(), io.clone(), *pos));
+            i.actions.push(Stmt::Signal(a.clone(), io.clone(), *pos));
             i.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
             e.label = String::from("SignalEnd");
@@ -217,8 +210,7 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Present(_expr, _tb, None, _pos) => {
             // XXX: First make the body
             let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _tb);
-            let (_er1, _er2) =
-                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, &Stmt::Noop(*_pos));
+            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, &Stmt::Noop(*_pos));
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
@@ -227,8 +219,7 @@ fn rewrite_stmt_to_graph_fsm(
             i.idx = ii;
             // XXX: Add the then and else branch guards
             i.guards.push(_expr.clone());
-            i.guards
-                .push(Expr::Not(Box::new(_expr.clone()), *_pos));
+            i.guards.push(Expr::Not(Box::new(_expr.clone()), *_pos));
             i.label = String::from("PresentStart");
 
             // XXX: Add the edges between i and nodes in _tr1 and _er1
@@ -276,8 +267,7 @@ fn rewrite_stmt_to_graph_fsm(
             i.idx = ii;
             // XXX: Add the then and else branch guards
             i.guards.push(_expr.clone());
-            i.guards
-                .push(Expr::Not(Box::new(_expr.clone()), *_pos));
+            i.guards.push(Expr::Not(Box::new(_expr.clone()), *_pos));
             i.label = String::from("PresentStart");
 
             // XXX: Add the edges between i and nodes in _tr1 and _er1
@@ -356,7 +346,7 @@ fn rewrite_stmt_to_graph_fsm(
             // have children already. If it has children it would be a
             // loop!
             // if _nodes[_be].children.len() == 0 {
-            if _nodes[_be].children.is_empty()  {
+            if _nodes[_be].children.is_empty() {
                 _nodes[_be].children.push(r2);
                 _nodes[_be].guards.push(Expr::True(*_pos));
                 _nodes[r2].parents.push(_be);
@@ -446,9 +436,9 @@ fn rewrite_stmt_to_graph_fsm(
             let (_bi, _ei): (Vec<Index>, Vec<Index>) = _stmts
                 .iter()
                 .enumerate()
-		// FIXME: Maybe this is good enough, because we only
-		// want to check if the outgoing edge is not the same
-		// tid as this thread.
+                // FIXME: Maybe this is good enough, because we only
+                // want to check if the outgoing edge is not the same
+                // tid as this thread.
                 .map(|(ii, x)| rewrite_stmt_to_graph_fsm(ff, _nodes, tid + ii + 1, idx, x))
                 .unzip();
 

@@ -1,5 +1,5 @@
-use logos::{Logos, SpannedIter};
-use crate::tokens::{LexicalError, Token}; // your Token enum, as above
+use crate::tokens::{LexicalError, Token};
+use logos::{Logos, SpannedIter}; // your Token enum, as above
 
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 
