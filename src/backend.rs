@@ -3,17 +3,22 @@ use std::{collections::HashSet, iter::zip};
 use pretty::RcDoc;
 use sysrust::ast::{ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
 
+use crate::error::print_bytes;
+
 fn _symbol_string(_sy: &Symbol) -> &String {
     match _sy {
         Symbol::Symbol(_sy, _) => _sy,
     }
 }
 
-fn _type_string(_ty: &Type) -> &str {
+fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str {
     match _ty {
         Type::Int => "int",
         Type::Float => "float",
-        Type::None => panic!("Cannot write an empty type"),
+        Type::None => {
+            let _ = print_bytes(ff, _pos.0, _pos.1);
+            panic!("Cannot write an empty type")
+        }
     }
 }
 
@@ -24,18 +29,21 @@ fn _val_string(_val: &Val) -> String {
     }
 }
 
-fn _expr_op_std_op(_expr: &ExprOp) -> &str {
+fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) -> &'a str {
     match _expr {
         ExprOp::Plus => "std::plus",
         ExprOp::Minus => "std::minus",
         ExprOp::Mul => "std::multiplies",
         ExprOp::Div => "std::divides",
         ExprOp::Mod => "std::modulus",
-        ExprOp::Pow => panic!("Power operator not yet supported in C++ backend"),
+        ExprOp::Pow => {
+            let _ = print_bytes(_ff, _pos.0, _pos.1);
+            panic!("Power operator not yet supported in C++ backend")
+        }
     }
 }
 
-fn _sig_decl(_s: &Stmt, _tid: usize) -> RcDoc<()> {
+fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
             let _m = format!("struct signal_{}", _symbol_string(_sy));
@@ -50,33 +58,33 @@ fn _sig_decl(_s: &Stmt, _tid: usize) -> RcDoc<()> {
             let _m = format!(
                 "{} {{bool status; {} value = {}; {}<{}> op {{}};}};",
                 _m,
-                _type_string(_ty),
+                _type_string(_ty, *_pos, _ff),
                 _val_string(_iv),
-                _expr_op_std_op(_op),
-                _type_string(_ty)
+                _expr_op_std_op(_op, *_pos, _ff),
+                _type_string(_ty, *_pos, _ff)
             );
             let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
             let sname = _symbol_string(_sy);
             let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
             a.append(u).append(RcDoc::hardline())
         }
-        _ => panic!("Got a non signal when generating backend"),
+        _ => panic!("Got a non signal when generating C++ backend"),
     }
 }
 
-fn _var_decl(_var: &Stmt, _tid: usize) -> RcDoc<()> {
+fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _var {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
             let _m = format!(
                 "{} {}_{} = {};",
-                _type_string(_ty),
+                _type_string(_ty, *_pos, _ff),
                 _symbol_string(_sy),
                 _tid,
                 _val_string(_iv)
             );
             RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
         }
-        _ => panic!("Got a non variable when generating backend"),
+        _ => panic!("Got a non variable when generating C++ backend"),
     }
 }
 
@@ -109,6 +117,7 @@ pub fn _prolouge(
     _sref: &[Vec<SimpleDataExpr>],
     _vyref: &[Vec<Symbol>],
     _vref: &[Vec<SimpleDataExpr>],
+    _ff: &str,
 ) -> Vec<u8> {
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
@@ -122,7 +131,7 @@ pub fn _prolouge(
     _m_header.render(8, &mut w).expect("Cannot write variables");
     for (_i, _s) in _sigs.iter().enumerate() {
         for _ss in _s {
-            let _m = _sig_decl(_ss, _i).append(RcDoc::hardline());
+            let _m = _sig_decl(_ss, _i, _ff).append(RcDoc::hardline());
             _m.render(8, &mut w).expect("Cannot declare varaibles");
         }
     }
@@ -132,7 +141,7 @@ pub fn _prolouge(
     _m_header.render(8, &mut w).expect("Cannot write signals");
     for (_i, _s) in _vars.iter().enumerate() {
         for _ss in _s {
-            let _m = _var_decl(_ss, _i);
+            let _m = _var_decl(_ss, _i, _ff);
             _m.render(8, &mut w).expect("Cannot declare signal");
         }
     }

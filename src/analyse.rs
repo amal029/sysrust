@@ -14,9 +14,7 @@ enum ValuedSignalDataCheck {
     NoCheck,
 }
 
-#[allow(dead_code)]
 type HT = HashMap<String, (Type, SignalVarType, Option<IO>)>;
-#[allow(dead_code)]
 type Pos = (usize, usize);
 type Pos1 = (usize, usize, String);
 

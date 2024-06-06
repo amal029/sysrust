@@ -51,21 +51,21 @@ fn main() {
     let mut tid = 0;
     let mut tot = 1;
     get_states(&mut _states, &_ast, &mut tid, &mut tot);
-    println!("{:?}", _states);
+    // println!("{:?}", _states);
 
     // XXX: Get all the signals in each thread
     let mut tid = 0;
     let mut tot = 1;
     let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
-    println!("{:?}", _signals);
+    // println!("{:?}", _signals);
 
     // XXX: Get all the vars in each thread
     let mut tid = 0;
     let mut tot = 1;
     let mut _vars: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_vars(&mut _vars, &_ast, &mut tid, &mut tot);
-    println!("{:?}", _vars);
+    // println!("{:?}", _vars);
 
     // XXX: Get all the signal and var reference in each thread
     let mut _sref: Vec<Vec<ast::SimpleDataExpr>> = vec![vec![]; num_threads];
@@ -84,7 +84,7 @@ fn main() {
         &mut tot,
     );
     // TODO: Remove duplicate elements from the vec of vecs.
-    println!("{:?} {:?} {:?} {:?}", _syref, _sref, _vyref, _vref);
+    // println!("{:?} {:?} {:?} {:?}", _syref, _sref, _vyref, _vref);
 
     // XXX: Make the FSM graph
     let mut _nodes: Vec<GraphNode> = Vec::with_capacity(1000);
@@ -110,6 +110,7 @@ fn main() {
             &_sref,
             &_vyref,
             &_vref,
+	    &args[1],
         ))
         .expect("Cannot write to cpp file");
     // println!("{:?}", backend::_prolouge());
