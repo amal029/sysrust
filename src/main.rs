@@ -101,7 +101,7 @@ fn main() {
     // XXX: First make the prolouge -- includes, threads, states,
     // signals, and vars
     _file
-        .write_all(&backend::_prolouge(
+        .write_all(&backend::_codegen(
             &_signals,
             &_vars,
             &num_threads,
@@ -110,7 +110,11 @@ fn main() {
             &_sref,
             &_vyref,
             &_vref,
-	    &args[1],
+            &args[1],
+	    // XXX: These are generating the actual code
+            _i,
+            _e,
+            &_nodes,
         ))
         .expect("Cannot write to cpp file");
     // println!("{:?}", backend::_prolouge());

@@ -1,9 +1,15 @@
-use std::{collections::HashSet, iter::zip};
+use std::{
+    collections::{HashSet, VecDeque},
+    iter::zip,
+};
 
 use pretty::RcDoc;
-use sysrust::ast::{ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
+use sysrust::ast::{Expr, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
 
-use crate::error::print_bytes;
+use crate::{
+    error::print_bytes,
+    rewrite::{GraphNode, NodeT},
+};
 
 fn _symbol_string(_sy: &Symbol) -> &String {
     match _sy {
@@ -108,7 +114,7 @@ fn _get_unique_set_sexpr(st: &[Vec<SimpleDataExpr>]) -> Vec<HashSet<&String>> {
         .collect()
 }
 
-pub fn _prolouge(
+pub fn _codegen(
     _sigs: &[Vec<Stmt>],
     _vars: &[Vec<Stmt>],
     _nthreads: &usize,
@@ -118,6 +124,10 @@ pub fn _prolouge(
     _vyref: &[Vec<Symbol>],
     _vref: &[Vec<SimpleDataExpr>],
     _ff: &str,
+    // XXX: The nodes and the graph adj-list of the graph FSM
+    _ginode: usize,
+    _genode: usize,
+    _gnodes: &[GraphNode],
 ) -> Vec<u8> {
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
@@ -351,9 +361,101 @@ pub fn _prolouge(
         .append(RcDoc::as_string(_hh))
         .append(RcDoc::hardline());
 
-    // TODO: The real code from the FSM
+    // XXX: The real code from the FSM
+    let _nn = _make_fsm_code(_ginode, _genode, _gnodes, *_nthreads);
+    // TODO: Make the initial node code and then we are done!
 
     let _ = _n.render(8, &mut w);
     // String::from_utf8(w).expect("Could not generate the prolouge")
     w
+}
+
+fn _walk_graph_code_gen<'a>(
+    _f: usize,
+    _l: usize,
+    _rets: VecDeque<usize>,
+    _nodes: &'a [GraphNode],
+    _n: RcDoc<'a>,
+) -> (RcDoc<'a>, VecDeque<usize>) {
+    fn _gen_code<'a>(
+        _f: usize,
+        _l: usize,
+        _rets: VecDeque<usize>,
+        _nodes: &'a [GraphNode],
+        _n: RcDoc<'a>,
+        _i: usize,
+    ) -> (RcDoc<'a>, VecDeque<usize>) {
+        if _nodes[_i].tag {
+            // XXX: We have already found where to stop
+            if _i != _l {
+                // XXX: This must be a pause
+                match _nodes[_i].tt {
+                    NodeT::PauseStart => (),
+                    _ => panic!("Got a non pause stop state: {:?}", _nodes[_i]),
+                }
+                let mut _rets = _rets;
+                // XXX: Push yourself into the queue for codegen later
+                _rets.push_back(_i);
+                let s = format!(
+                    "st{} = Thread{}<S{}>{{}};",
+                    _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i]._tid
+                );
+                let mut _n = _n;
+                _n = _n.append(RcDoc::as_string(s));
+                return (_n, _rets);
+            } else if _i == _l {
+                // XXX: Just make the end node code
+                let s = format!("st{} = Thread{}<E>{{}};", _nodes[_i]._tid, _nodes[_i]._tid,);
+                let mut _n = _n;
+                _n = _n.append(RcDoc::as_string(s));
+                return (_n, _rets);
+            } else {
+                panic!("Reached a deadend: {:?}", _nodes[_i])
+            }
+            // XXX: Now make the code for this node and return
+        }
+        let mut _rets = _rets;
+        let mut _n = _n;
+        for (_k, &_j) in _nodes[_i].children.iter().enumerate() {
+            (_n, _rets) = _gen_code(_f, _l, _rets, _nodes, _n, _j);
+            // XXX: Generate code here for the current node post-order.
+            // If there is only 1 child then it will do just 1
+            // iteration. Else it will have outgoing guards and we need
+            // to build a bunch of if statements.
+
+            // XXX: First get the guard for this enumeration
+            let _gm = _nodes[_i].guards[_k].codegen(_nodes[_i]._tid);
+            let _ife = RcDoc::as_string("if(")
+                .append(_gm)
+                .append(RcDoc::as_string(")"));
+            // XXX: Now make the action for this node
+            let _m = _nodes[_i].actions[_k].codegen(_nodes[_i]._tid);
+            // XXX: Now make the block
+            _n = RcDoc::as_string("{")
+                .append(RcDoc::hardline())
+                .append(_m)
+                .append(_n)
+                .append(RcDoc::as_string("}"))
+                .append(RcDoc::hardline());
+        }
+        return (_n, _rets);
+    }
+
+    let mut _rets = _rets;
+    let inode = _rets.pop_front().unwrap();
+    // XXX: Here we need to put it inside the method!
+    let (_n, _rets) = _gen_code(_f, _l, _rets, _nodes, _n, inode);
+    // XXX: Here we close the method
+    return (_n, _rets);
+}
+
+fn _make_fsm_code(_i: usize, _e: usize, _nodes: &[GraphNode], _nthreads: usize) -> RcDoc {
+    // XXX: Walk graph
+    let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
+    let mut _n = RcDoc::<()>::hardline();
+    rets.push_back(_i);
+    while !rets.is_empty() {
+        (_n, rets) = _walk_graph_code_gen(_i, _e, rets, _nodes, _n);
+    }
+    return _n;
 }

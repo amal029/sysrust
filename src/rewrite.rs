@@ -4,28 +4,31 @@ use sysrust::ast::*;
 
 use crate::error::print_bytes;
 
-// XXX: Consume the ast and give back a new ast with weak and immediate
-// aborts rewritten.
-// XXX: Write the function to rewrite statements to the fsm graph
+// FIXME: Update thread ids correctly, because they are being used for
+// codegen. See analyses.rs to see how the thread ids should be updated.
 
 #[derive(Debug, Clone)]
-enum NodeT {
-    Spar,
+pub enum NodeT {
+    PauseStart,
+    PauseEnd,
+    SparFork,
+    SparJoin,
     Seq,
-    Branch,
+    BranchFork,
+    BranchJoin,
 }
 
 #[derive(Debug)]
 pub struct GraphNode {
-    children: Vec<usize>, // this is the destination state
+    pub children: Vec<usize>, // this is the destination state
     parents: Vec<usize>,  // this is the parent state
-    actions: Vec<Stmt>,   // these are the actions on the transitions
-    guards: Vec<Expr>,    // these are the guards on transitions
-    tag: bool,            // this is to tell if this is a real state or dummy
-    label: String,
-    idx: Index,
-    tt: NodeT,
-    _tid: Index,
+    pub actions: Vec<Stmt>,   // these are the actions on the transitions
+    pub guards: Vec<Expr>,    // these are the guards on transitions
+    pub tag: bool,            // this is to tell if this is a real state or dummy
+    pub label: String,
+    pub idx: Index,
+    pub tt: NodeT,
+    pub _tid: Index,
 }
 
 impl GraphNode {
@@ -82,9 +85,12 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Pause(la, pos) => {
             let mut s0 = GraphNode::default(tid);
             s0.label = symbol_string(la);
+	    s0.tt = NodeT::PauseStart;
             s0.tag = true;
             s0.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(tid);
+	    e.tt = NodeT::PauseEnd;
+	    e.label = symbol_string(la);
             e.label = String::from("PauseEnd");
             // XXX: Add the doubly linked list annotations
             _nodes.push(s0);
@@ -215,7 +221,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
             let mut i = GraphNode::default(tid);
-            i.tt = NodeT::Branch;
+            i.tt = NodeT::BranchFork;
             i.idx = ii;
             // XXX: Add the then and else branch guards
             i.guards.push(_expr.clone());
@@ -237,7 +243,7 @@ fn rewrite_stmt_to_graph_fsm(
             let mut e = GraphNode::default(tid);
             e.idx = *idx;
             e.label = String::from("PresentEnd");
-            e.tt = NodeT::Branch;
+            e.tt = NodeT::BranchJoin;
 
             // XXX: Add edges between e and _tr2 and _er2
             e.parents.push(_tr2);
@@ -263,7 +269,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
             let mut i = GraphNode::default(tid);
-            i.tt = NodeT::Branch;
+            i.tt = NodeT::BranchFork;
             i.idx = ii;
             // XXX: Add the then and else branch guards
             i.guards.push(_expr.clone());
@@ -285,7 +291,7 @@ fn rewrite_stmt_to_graph_fsm(
             let mut e = GraphNode::default(tid);
             e.idx = *idx;
             e.label = String::from("PresentEnd");
-            e.tt = NodeT::Branch;
+            e.tt = NodeT::BranchJoin;
 
             // XXX: Add edges between e and _tr2 and _er2
             e.parents.push(_tr2);
@@ -445,7 +451,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the fork node (initial)
             let mut _fi = GraphNode::default(tid);
             _fi.label = String::from("SPARFork");
-            _fi.tt = NodeT::Spar;
+            _fi.tt = NodeT::SparFork;
 
             // XXX: Attach from _fi to _bis
             _bi.iter().for_each(|&x| {
@@ -463,7 +469,7 @@ fn rewrite_stmt_to_graph_fsm(
             je.tag = true; //this is a real node
             je.idx = *idx;
             je.label = String::from("SPARJoin");
-            je.tt = NodeT::Spar;
+            je.tt = NodeT::SparJoin;
             let rm = je.idx;
 
             // XXX: Attach _eis to je.
