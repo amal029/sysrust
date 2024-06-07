@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use pretty::RcDoc;
 
 type Pos = (usize, usize);

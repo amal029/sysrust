@@ -4,7 +4,7 @@ use std::{
 };
 
 use pretty::RcDoc;
-use sysrust::ast::{Expr, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
+use sysrust::ast::{ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
 
 use crate::{
     error::print_bytes,
@@ -397,8 +397,8 @@ fn _walk_graph_code_gen<'a>(
                 // XXX: Push yourself into the queue for codegen later
                 _rets.push_back(_i);
                 let s = format!(
-                    "st{} = Thread{}<S{}>{{}};",
-                    _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i]._tid
+                    "st{} = Thread{}<{}>{{}};",
+                    _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i].label
                 );
                 let mut _n = _n;
                 _n = _n.append(RcDoc::as_string(s));
@@ -414,31 +414,74 @@ fn _walk_graph_code_gen<'a>(
             }
             // XXX: Now make the code for this node and return
         }
-        let mut _rets = _rets;
-        let mut _n = _n;
-        for (_k, &_j) in _nodes[_i].children.iter().enumerate() {
-            (_n, _rets) = _gen_code(_f, _l, _rets, _nodes, _n, _j);
-            // XXX: Generate code here for the current node post-order.
-            // If there is only 1 child then it will do just 1
-            // iteration. Else it will have outgoing guards and we need
-            // to build a bunch of if statements.
 
-            // XXX: First get the guard for this enumeration
-            let _gm = _nodes[_i].guards[_k].codegen(_nodes[_i]._tid);
-            let _ife = RcDoc::as_string("if(")
-                .append(_gm)
-                .append(RcDoc::as_string(")"));
-            // XXX: Now make the action for this node
-            let _m = _nodes[_i].actions[_k].codegen(_nodes[_i]._tid);
-            // XXX: Now make the block
-            _n = RcDoc::as_string("{")
+        // XXX: First do a map of each child branch
+        let _cbm = _nodes[_i]
+            .children
+            .iter()
+            .map(|x| _gen_code(_f, _l, _rets.clone(), _nodes, _n.clone(), *x))
+            .collect::<Vec<_>>();
+        let mut _bn: Vec<RcDoc> = Vec::with_capacity(_cbm.len());
+        let mut _rn: Vec<VecDeque<usize>> = Vec::with_capacity(_cbm.len());
+        for (i, j) in _cbm {
+            _bn.push(i);
+            _rn.push(j);
+        }
+
+        // XXX: Make the guards for each branch
+        let _gm = _nodes[_i]
+            .guards
+            .iter()
+            .map(|x| x.codegen(_nodes[_i]._tid))
+            .collect::<Vec<_>>();
+
+        // XXX: Make the actions for each branch
+        let _am = _nodes[_i]
+            .actions
+            .iter()
+            .map(|x| x.codegen(_nodes[_i]._tid))
+            .collect::<Vec<_>>();
+
+        assert!(_am.len() <= _bn.len());
+        // XXX: First combine the actions with _bn
+        let _bn = _bn
+            .into_iter()
+            .enumerate()
+            .map(|(i, x)| {
+                if _am.len() <= i {
+                    _am[i].clone().append(RcDoc::hardline()).append(x)
+                } else {
+                    x
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // XXX: Confirm we have a guard for each branch
+        assert!(_gm.len() == _bn.len());
+        let _gm = _gm.into_iter().map(|x| {
+            RcDoc::as_string("if(")
+                .append(x)
+                .append(RcDoc::as_string(")"))
+        });
+        let mut __n = RcDoc::nil();
+        for (c, b) in zip(_gm, _bn) {
+            let cb = c
+                .append(RcDoc::as_string("{"))
                 .append(RcDoc::hardline())
-                .append(_m)
-                .append(_n)
+                .append(b)
                 .append(RcDoc::as_string("}"))
                 .append(RcDoc::hardline());
+            __n = __n.append(cb);
         }
-        return (_n, _rets);
+
+        // XXX: Flatten all returns into a VecDeque
+        let _rn = _rn
+            .into_iter()
+            .flatten()
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<VecDeque<_>>();
+        return (__n.append(_n), _rn);
     }
 
     let mut _rets = _rets;
