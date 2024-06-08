@@ -92,6 +92,9 @@ fn main() {
     let tid = 0usize;
     let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, tid, &mut idx, &mut _nodes);
     // println!("{:?} {:?} {:?}", _nodes, _i, _e);
+    // XXX: Make the label for _i and _e
+    _nodes[_i].label = String::from("I");
+    _nodes[_e].label = String::from("E");
 
     // XXX: Now start making the backend
     let ff = args[1].split('.').collect::<Vec<&str>>()[0];

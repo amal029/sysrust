@@ -362,7 +362,7 @@ pub fn _codegen(
         .append(RcDoc::hardline());
 
     // XXX: The real code from the FSM
-    let _nn = _make_fsm_code(_ginode, _genode, _gnodes, *_nthreads);
+    let _nn = _make_fsm_code(_ginode, _genode, _gnodes, *_nthreads, &_used_sigs_vec);
     // TODO: Make the initial node code and then we are done!
 
     let _ = _n.render(8, &mut w);
@@ -376,7 +376,9 @@ fn _walk_graph_code_gen<'a>(
     _rets: VecDeque<usize>,
     _nodes: &'a [GraphNode],
     _n: RcDoc<'a>,
-) -> (RcDoc<'a>, VecDeque<usize>) {
+    _used_sigs_per_thread: &'a [String],
+    _done_nodes: &[usize],
+) -> (RcDoc<'a>, VecDeque<usize>, usize) {
     fn _gen_code<'a>(
         _f: usize,
         _l: usize,
@@ -384,8 +386,13 @@ fn _walk_graph_code_gen<'a>(
         _nodes: &'a [GraphNode],
         _n: RcDoc<'a>,
         _i: usize,
+        _ptid: usize,
+        _used_sigs_per_thread: &'a [String],
     ) -> (RcDoc<'a>, VecDeque<usize>) {
         if _nodes[_i].tag {
+            // FIXME: Handle the case when the _tid of stop is different
+            // from current thread id
+
             // XXX: We have already found where to stop
             if _i != _l {
                 // XXX: This must be a pause
@@ -419,7 +426,18 @@ fn _walk_graph_code_gen<'a>(
         let _cbm = _nodes[_i]
             .children
             .iter()
-            .map(|x| _gen_code(_f, _l, _rets.clone(), _nodes, _n.clone(), *x))
+            .map(|x| {
+                _gen_code(
+                    _f,
+                    _l,
+                    _rets.clone(),
+                    _nodes,
+                    _n.clone(),
+                    *x,
+                    _nodes[_i]._tid,
+                    _used_sigs_per_thread,
+                )
+            })
             .collect::<Vec<_>>();
         let mut _bn: Vec<RcDoc> = Vec::with_capacity(_cbm.len());
         let mut _rn: Vec<VecDeque<usize>> = Vec::with_capacity(_cbm.len());
@@ -486,19 +504,61 @@ fn _walk_graph_code_gen<'a>(
 
     let mut _rets = _rets;
     let inode = _rets.pop_front().unwrap();
+    // XXX: Return if you have already generated code for this node.
+    // Possible in loops.
+    if _done_nodes.iter().find(|&&x| x == inode).is_some() {
+        return (_n, _rets, inode);
+    }
+    // XXX: Continue only of this node has not already been done.
+    let (_n, _rets) = _gen_code(
+        _f,
+        _l,
+        _rets,
+        _nodes,
+        _n,
+        inode,
+        _nodes[inode]._tid,
+        _used_sigs_per_thread,
+    );
     // XXX: Here we need to put it inside the method!
-    let (_n, _rets) = _gen_code(_f, _l, _rets, _nodes, _n, inode);
+    let __n = RcDoc::<()>::as_string(format!(
+        "constexpr void Thread{}<{}>::tick({}) {{",
+        _nodes[inode]._tid, _nodes[inode].label, _used_sigs_per_thread[inode]
+    ));
     // XXX: Here we close the method
-    return (_n, _rets);
+    let __n = __n
+        .append(RcDoc::hardline())
+        .append(_n)
+        .append(RcDoc::hardline())
+        .append(RcDoc::as_string("}"))
+        .append(RcDoc::hardline());
+    return (__n, _rets, inode);
 }
 
-fn _make_fsm_code(_i: usize, _e: usize, _nodes: &[GraphNode], _nthreads: usize) -> RcDoc {
+fn _make_fsm_code<'a>(
+    _i: usize,
+    _e: usize,
+    _nodes: &'a [GraphNode],
+    _nthreads: usize,
+    _used_sigs_per_thread: &'a [String],
+) -> RcDoc<'a> {
     // XXX: Walk graph
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
     let mut _n = RcDoc::<()>::hardline();
+    let mut _done_nodes: Vec<usize> = Vec::with_capacity(_nodes.len());
+    let mut _inode = 0usize;
     rets.push_back(_i);
     while !rets.is_empty() {
-        (_n, rets) = _walk_graph_code_gen(_i, _e, rets, _nodes, _n);
+        (_n, rets, _inode) = _walk_graph_code_gen(
+            _i,
+            _e,
+            rets,
+            _nodes,
+            _n,
+            _used_sigs_per_thread,
+            &_done_nodes,
+        );
+        _done_nodes.push(_inode);
     }
     return _n;
 }
