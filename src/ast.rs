@@ -135,11 +135,7 @@ impl Expr {
                 .append(_e.codegen(_tid, _smpt))
                 .append(RcDoc::as_string(")")),
             Expr::Esymbol(_sy, _pos) => {
-                let _s = format!(
-                    "_{}.status",
-                    _get_string_arg(_sy.get_string(), _smpt)
-                        .expect("Could not find args for: {self}")
-                );
+                let _s = format!("{}_prev.status", _sy.get_string());
                 RcDoc::as_string(_s)
             }
             Expr::DataExpr(_rexpr, _) => _rexpr.codegen(_tid, _smpt),
@@ -211,11 +207,7 @@ impl SimpleDataExpr {
                     .append(RcDoc::as_string(")"))
             }
             SimpleDataExpr::SignalRef(_sy, _) => {
-                let _s = format!(
-                    "_{}.value",
-                    _get_string_arg(_sy.get_string(), _smpt)
-                        .expect("Could not find args for: {self}")
-                );
+                let _s = format!("{}_prev.value", _sy.get_string());
                 RcDoc::as_string(_s)
             }
             SimpleDataExpr::Call(_sy, _v, _pos) => {

@@ -1,7 +1,9 @@
 output int signal O = 0: +;
+output signal K;
 input int signal J;
 input signal M;
 int h = 100;
-S0: await(M and (?J == 100));
-emit O(h*100+?J);
-
+abort(M and J){
+ S0: sustain O(h+?J+100);
+};
+emit K;
