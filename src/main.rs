@@ -94,8 +94,12 @@ fn main() {
     let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, &mut tid, &mut tot, &mut idx, &mut _nodes);
     // XXX: Make the label for _i and _e
     _nodes[_i].label = String::from("I");
-    _nodes[_e].label = String::from("E");
-    _nodes[_e].tag = true;
+    // XXX: Only make the end node if it has no children -- a loop
+    if _nodes[_e].children.is_empty() {
+        _nodes[_e].label = String::from("E");
+        _nodes[_e].tag = true;
+    }
+    // println!("{_i} {_e}");
     println!("{:?} {:?} {:?}", _nodes, _i, _e);
 
     // XXX: Now start making the backend

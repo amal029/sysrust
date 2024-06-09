@@ -1,13 +1,8 @@
-output int signal O = 0: +;
 output signal K;
-input int signal J;
 input signal M;
-float h = 100.8;
-abort(M and J){
- loop{
-  h = extern mcall(h + 100);
-  emit O(h+?J);
-  S0: pause;
+loop{
+ abort(M){
+   S0: halt;
  };
+ emit K;
 };
-emit K;
