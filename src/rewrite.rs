@@ -4,9 +4,6 @@ use sysrust::ast::*;
 
 use crate::error::print_bytes;
 
-// FIXME: Update thread ids correctly, because they are being used for
-// codegen. See analyses.rs to see how the thread ids should be updated.
-
 #[derive(Debug, Clone)]
 pub enum NodeT {
     PauseStart,
