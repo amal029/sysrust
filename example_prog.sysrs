@@ -5,7 +5,7 @@ input signal M;
 float h = 100.8;
 abort(M and J){
  loop{
-  h = h + 1;
+  h = extern mcall(h + 100);
   emit O(h+?J);
   S0: pause;
  };
