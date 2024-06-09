@@ -1,3 +1,7 @@
-output signal O;
-emit O;
+output int signal O = 0: +;
+input int signal J;
+input signal M;
+int h = 100;
+S0: await(M and (?J == 100));
+emit O(h*100+?J);
 

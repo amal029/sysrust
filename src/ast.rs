@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use pretty::RcDoc;
 
 type Pos = (usize, usize);
@@ -100,67 +102,99 @@ impl Symbol {
 }
 
 impl Expr {
-    pub fn codegen(&self, _tid: usize) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
         match self {
             Expr::True(_pos) => RcDoc::as_string("true"),
             Expr::False(_pos) => RcDoc::as_string("false"),
             Expr::And(_l, _r, _pos) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" and ").append(_rm))
+                let _lm = RcDoc::as_string("(")
+                    .append(_l.codegen(_tid, _smpt))
+                    .append(RcDoc::as_string(")"));
+                let _rm = RcDoc::as_string("(")
+                    .append(_r.codegen(_tid, _smpt))
+                    .append(RcDoc::as_string(")"));
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" and ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
             }
             Expr::Or(_l, _r, _pos) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" or ").append(_rm))
+                let _lm = RcDoc::as_string("(")
+                    .append(_l.codegen(_tid, _smpt))
+                    .append(RcDoc::as_string(")"));
+                let _rm = RcDoc::as_string("(")
+                    .append(_r.codegen(_tid, _smpt))
+                    .append(RcDoc::as_string(")"));
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" or ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
             }
             Expr::Brackets(_e, _pos) => RcDoc::as_string("(")
-                .append(_e.codegen(_tid))
+                .append(_e.codegen(_tid, _smpt))
                 .append(RcDoc::as_string(")")),
-            Expr::Not(_e, _pos) => RcDoc::as_string("not ").append(_e.codegen(_tid)),
+            Expr::Not(_e, _pos) => RcDoc::as_string("(not ")
+                .append(_e.codegen(_tid, _smpt))
+                .append(RcDoc::as_string(")")),
             Expr::Esymbol(_sy, _pos) => {
-                let _s = format!("pre_{}.status", _sy.get_string());
+                let _s = format!(
+                    "_{}.status",
+                    _get_string_arg(_sy.get_string(), _smpt)
+                        .expect("Could not find args for: {self}")
+                );
                 RcDoc::as_string(_s)
             }
-            Expr::DataExpr(_rexpr, _) => _rexpr.codegen(_tid),
+            Expr::DataExpr(_rexpr, _) => _rexpr.codegen(_tid, _smpt),
         }
     }
 }
 
 impl RelDataExpr {
-    pub fn codegen(&self, _tid: usize) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
         match self {
             RelDataExpr::EqualTo(_l, _r, _) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" == ").append(_rm))
+                let _lm = _l.codegen(_tid, _smpt);
+                let _rm = _r.codegen(_tid, _smpt);
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" == ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
             }
             RelDataExpr::GreaterThan(_l, _r, _) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" > ").append(_rm))
+                let _lm = _l.codegen(_tid, _smpt);
+                let _rm = _r.codegen(_tid, _smpt);
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" > ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
+                // _lm.append(RcDoc::as_string(" > ").append(_rm))
             }
             RelDataExpr::GreaterThanEqual(_l, _r, _) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" >= ").append(_rm))
+                let _lm = _l.codegen(_tid, _smpt);
+                let _rm = _r.codegen(_tid, _smpt);
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" >= ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
+                // _lm.append(RcDoc::as_string(" >= ").append(_rm))
             }
             RelDataExpr::LessThan(_l, _r, _) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" < ").append(_rm))
+                let _lm = _l.codegen(_tid, _smpt);
+                let _rm = _r.codegen(_tid, _smpt);
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" < ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
+                // _lm.append(RcDoc::as_string(" < ").append(_rm))
             }
             RelDataExpr::LessThanEqual(_l, _r, _) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
-                _lm.append(RcDoc::as_string(" <= ").append(_rm))
+                let _lm = _l.codegen(_tid, _smpt);
+                let _rm = _r.codegen(_tid, _smpt);
+                RcDoc::as_string("(")
+                    .append(_lm.append(RcDoc::as_string(" <= ").append(_rm)))
+                    .append(RcDoc::as_string(")"))
+                // _lm.append(RcDoc::as_string(" <= ").append(_rm))
             }
         }
     }
 }
 
 impl SimpleDataExpr {
-    pub fn codegen(&self, _tid: usize) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
         match self {
             SimpleDataExpr::ConstI(_i, _) => RcDoc::as_string(_i),
             SimpleDataExpr::ConstF(_i, _) => RcDoc::as_string(_i),
@@ -169,18 +203,24 @@ impl SimpleDataExpr {
                 RcDoc::as_string(_s)
             }
             SimpleDataExpr::SimpleBinaryOp(_l, _op, _r, _) => {
-                let _lm = _l.codegen(_tid);
-                let _rm = _r.codegen(_tid);
+                let _lm = _l.codegen(_tid, _smpt);
+                let _rm = _r.codegen(_tid, _smpt);
                 let _opm = _op.codegen();
-                _lm
+                RcDoc::as_string("(")
+                    .append(_lm.append(_opm).append(_rm))
+                    .append(RcDoc::as_string(")"))
             }
             SimpleDataExpr::SignalRef(_sy, _) => {
-                let _s = format!("pre_{}.value", _sy.get_string());
+                let _s = format!(
+                    "_{}.value",
+                    _get_string_arg(_sy.get_string(), _smpt)
+                        .expect("Could not find args for: {self}")
+                );
                 RcDoc::as_string(_s)
             }
             SimpleDataExpr::Call(_sy, _v, _pos) => {
                 // let _s = RcDoc::as_string(_sy.get_string());
-		// let _vrs = _v.iter().map(|x| x.codegen(_tid));
+                // let _vrs = _v.iter().map(|x| x.codegen(_tid));
                 todo!("Call currently not supported")
             }
         }
@@ -200,16 +240,32 @@ impl ExprOp {
     }
 }
 
+fn _get_string_arg<'a>(_s: &'a String, _smpt: &'a HashMap<&str, usize>) -> Option<&'a usize> {
+    if _smpt.contains_key(_s.as_str()) {
+        _smpt.get(_s.as_str())
+    } else {
+        None
+    }
+}
+
 impl Stmt {
-    pub fn codegen(&self, _tid: usize) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
         match self {
             Stmt::Emit(_sy, _sexpr, _pos) => {
-                let _s = format!("curr_{}.status = true;", _sy.get_string());
+                let _s = format!(
+                    "_{}.status = true;",
+                    _get_string_arg(_sy.get_string(), _smpt)
+                        .expect("Could not find args for: {self}")
+                );
                 let _m = match _sexpr {
                     Some(__sexpr) => {
-                        let __s = format!("curr_{}.value = ", _sy.get_string());
+                        let __s = format!(
+                            "_{}.value = ",
+                            _get_string_arg(_sy.get_string(), _smpt)
+                                .expect("Could not find args for: {self}")
+                        );
                         RcDoc::as_string(__s)
-                            .append(__sexpr.codegen(_tid))
+                            .append(__sexpr.codegen(_tid, _smpt))
                             .append(RcDoc::as_string(";"))
                             .append(RcDoc::hardline())
                     }
@@ -219,7 +275,7 @@ impl Stmt {
             }
             Stmt::Assign(_sy, _sexpr, _pos) => {
                 let _s = format!("{}_{} = ", _sy.get_string(), _tid);
-                let _m = _sexpr.codegen(_tid);
+                let _m = _sexpr.codegen(_tid, _smpt);
                 RcDoc::as_string(_s)
                     .append(_m)
                     .append(RcDoc::as_string(";"))

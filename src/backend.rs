@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     iter::zip,
 };
 
@@ -222,16 +222,22 @@ pub fn _codegen(
     // XXX: Make the string with all the used signals in each thread
     let mut _used_sigs: Vec<String> = Vec::new();
     let mut _used_sigs_vec: Vec<String> = Vec::new();
+    let mut _sigs_map_per_thread: Vec<HashMap<&str, usize>> = Vec::new();
     let mut _used_sigs_cap: Vec<String> = Vec::new();
     let mut _used_sigs_tick: Vec<String> = Vec::new();
     for i in zip(_syref, _sref) {
+        let mut _sigs_map: HashMap<&str, usize> = HashMap::new();
         let vv = i.0.union(&i.1).collect::<Vec<_>>();
         let v1 = vv
             .iter()
             .enumerate()
-            .map(|(j, x)| format!("signal_{} &_{}", x, j))
+            .map(|(j, &&x)| {
+                _sigs_map.insert(x, j);
+                format!("signal_{} &_{}", x, j)
+            })
             .collect::<Vec<_>>()
             .join(", ");
+        _sigs_map_per_thread.push(_sigs_map);
         _used_sigs_vec.push(v1);
 
         let v2 = vv
@@ -265,7 +271,7 @@ pub fn _codegen(
         // XXX: First make I, ND, and D states
         let _ss = format!(
             "template <> struct Thread{}<E>{{\nconstexpr void tick \
-			  ({});}};",
+	     ({}){{}}}};",
             i, k1
         );
         thread_prototypes.push(_ss);
@@ -362,12 +368,21 @@ pub fn _codegen(
         .append(RcDoc::hardline());
 
     // XXX: The real code from the FSM
-    let _nn = _make_fsm_code(_ginode, _genode, _gnodes, *_nthreads, &_used_sigs_vec);
-    // TODO: Make the initial node code and then we are done!
+    let _nn = _make_fsm_code(
+        _ginode,
+        _genode,
+        _gnodes,
+        *_nthreads,
+        &_used_sigs_vec,
+        _sigs_map_per_thread,
+    );
+    let mut w1: Vec<u8> = Vec::with_capacity(1000);
+    let _ = _nn.render(8, &mut w1);
 
     let _ = _n.render(8, &mut w);
     // String::from_utf8(w).expect("Could not generate the prolouge")
-    w
+    w.append(&mut w1);
+    return w;
 }
 
 fn _walk_graph_code_gen<'a>(
@@ -378,6 +393,7 @@ fn _walk_graph_code_gen<'a>(
     _n: RcDoc<'a>,
     _used_sigs_per_thread: &'a [String],
     _done_nodes: &[usize],
+    _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
 ) -> (RcDoc<'a>, VecDeque<usize>, usize) {
     fn _gen_code<'a>(
         _f: usize,
@@ -388,10 +404,16 @@ fn _walk_graph_code_gen<'a>(
         _i: usize,
         _ptid: usize,
         _used_sigs_per_thread: &'a [String],
+        first: u8,
+        _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
     ) -> (RcDoc<'a>, VecDeque<usize>) {
-        if _nodes[_i].tag {
+        // XXX: First != 0 means that we have already reached this node
+        // and we want to continue from here
+        if _nodes[_i].tag && first != 0 {
             // FIXME: Handle the case when the _tid of stop is different
             // from current thread id
+
+            // FIXME: Also need to handle the join node for parallelism
 
             // XXX: We have already found where to stop
             if _i != _l {
@@ -436,6 +458,8 @@ fn _walk_graph_code_gen<'a>(
                     *x,
                     _nodes[_i]._tid,
                     _used_sigs_per_thread,
+                    first + 1,
+                    _sigs_map_per_threads,
                 )
             })
             .collect::<Vec<_>>();
@@ -450,24 +474,24 @@ fn _walk_graph_code_gen<'a>(
         let _gm = _nodes[_i]
             .guards
             .iter()
-            .map(|x| x.codegen(_nodes[_i]._tid))
+            .map(|x| x.codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]))
             .collect::<Vec<_>>();
 
         // XXX: Make the actions for each branch
         let _am = _nodes[_i]
             .actions
             .iter()
-            .map(|x| x.codegen(_nodes[_i]._tid))
+            .map(|x| x.codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]))
             .collect::<Vec<_>>();
 
-        assert!(_am.len() <= _bn.len());
         // XXX: First combine the actions with _bn
+        assert!(_am.len() <= _bn.len());
         let _bn = _bn
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
-                if _am.len() <= i {
-                    _am[i].clone().append(RcDoc::hardline()).append(x)
+                if i <= _am.len() && !_am.is_empty() {
+                    _am[i].clone().append(x)
                 } else {
                     x
                 }
@@ -509,7 +533,7 @@ fn _walk_graph_code_gen<'a>(
     if _done_nodes.iter().find(|&&x| x == inode).is_some() {
         return (_n, _rets, inode);
     }
-    // XXX: Continue only of this node has not already been done.
+    // XXX: Continue only if this node has not already been done.
     let (_n, _rets) = _gen_code(
         _f,
         _l,
@@ -519,11 +543,15 @@ fn _walk_graph_code_gen<'a>(
         inode,
         _nodes[inode]._tid,
         _used_sigs_per_thread,
+        0, // this indicates if it is the very
+        // first call to gen_code. Needed for traversing
+        // the graph from pause states.
+        _sigs_map_per_threads,
     );
     // XXX: Here we need to put it inside the method!
     let __n = RcDoc::<()>::as_string(format!(
         "constexpr void Thread{}<{}>::tick({}) {{",
-        _nodes[inode]._tid, _nodes[inode].label, _used_sigs_per_thread[inode]
+        _nodes[inode]._tid, _nodes[inode].label, _used_sigs_per_thread[_nodes[inode]._tid]
     ));
     // XXX: Here we close the method
     let __n = __n
@@ -541,10 +569,12 @@ fn _make_fsm_code<'a>(
     _nodes: &'a [GraphNode],
     _nthreads: usize,
     _used_sigs_per_thread: &'a [String],
+    _sigs_map_per_threads: Vec<HashMap<&str, usize>>,
 ) -> RcDoc<'a> {
-    // XXX: Walk graph
+    // XXX: Walk graph and generate code
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
     let mut _n = RcDoc::<()>::hardline();
+    let mut _res: Vec<RcDoc> = Vec::with_capacity(_nodes.len());
     let mut _done_nodes: Vec<usize> = Vec::with_capacity(_nodes.len());
     let mut _inode = 0usize;
     rets.push_back(_i);
@@ -554,11 +584,13 @@ fn _make_fsm_code<'a>(
             _e,
             rets,
             _nodes,
-            _n,
+            RcDoc::<()>::nil(),
             _used_sigs_per_thread,
             &_done_nodes,
+            &_sigs_map_per_threads,
         );
+        _res.push(_n);
         _done_nodes.push(_inode);
     }
-    return _n;
+    return _res.into_iter().fold(RcDoc::nil(), |acc, x| acc.append(x));
 }

@@ -21,7 +21,7 @@ pub enum NodeT {
 #[derive(Debug)]
 pub struct GraphNode {
     pub children: Vec<usize>, // this is the destination state
-    parents: Vec<usize>,  // this is the parent state
+    parents: Vec<usize>,      // this is the parent state
     pub actions: Vec<Stmt>,   // these are the actions on the transitions
     pub guards: Vec<Expr>,    // these are the guards on transitions
     pub tag: bool,            // this is to tell if this is a real state or dummy
@@ -52,7 +52,8 @@ type Index = usize;
 fn rewrite_stmt_to_graph_fsm(
     ff: &str,
     _nodes: &mut Vec<GraphNode>,
-    tid: Index,
+    tid: &mut Index,
+    tot: &mut Index,
     idx: &mut usize,
     s: &Stmt,
 ) -> (Index, Index) {
@@ -63,11 +64,11 @@ fn rewrite_stmt_to_graph_fsm(
     }
     match s {
         Stmt::Emit(a, expr, pos) => {
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.label = String::from("EmitStart");
             i.actions.push(Stmt::Emit(a.clone(), expr.clone(), *pos));
             i.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("EmitEnd");
             // XXX: Put these in the _nodes
             _nodes.push(i);
@@ -83,14 +84,14 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Pause(la, pos) => {
-            let mut s0 = GraphNode::default(tid);
+            let mut s0 = GraphNode::default(*tid);
             s0.label = symbol_string(la);
-	    s0.tt = NodeT::PauseStart;
+            s0.tt = NodeT::PauseStart;
             s0.tag = true;
             s0.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
-	    e.tt = NodeT::PauseEnd;
-	    e.label = symbol_string(la);
+            let mut e = GraphNode::default(*tid);
+            e.tt = NodeT::PauseEnd;
+            e.label = symbol_string(la);
             e.label = String::from("PauseEnd");
             // XXX: Add the doubly linked list annotations
             _nodes.push(s0);
@@ -106,10 +107,10 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Assign(a, expr, pos) => {
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.actions.push(Stmt::Assign(a.clone(), expr.clone(), *pos));
             i.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("End");
             // XXX: Add the doubly linked list annotations
             _nodes.push(i);
@@ -125,12 +126,12 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Variable(a, vtype, _val, pos) => {
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.label = String::from("VariableStart");
             i.actions
                 .push(Stmt::Variable(a.clone(), vtype.clone(), _val.clone(), *pos));
             i.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("VariableEnd");
             // XXX: Add the doubly linked list annotations
             _nodes.push(i);
@@ -146,7 +147,7 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::DataSignal(a, io, stype, sval, sop, pos) => {
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.label = String::from("DataSignalStart");
             i.actions.push(Stmt::DataSignal(
                 a.clone(),
@@ -157,7 +158,7 @@ fn rewrite_stmt_to_graph_fsm(
                 *pos,
             ));
             i.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("DataSignalEnd");
             // XXX: Add the doubly linked list annotations
             _nodes.push(i);
@@ -173,11 +174,11 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Signal(a, io, pos) => {
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.label = String::from("SignalStart");
             i.actions.push(Stmt::Signal(a.clone(), io.clone(), *pos));
             i.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("SignalEnd");
             // XXX: Add the doubly linked list annotations
             _nodes.push(i);
@@ -193,10 +194,10 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Noop(pos) => {
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.label = String::from("NoopStart");
             i.guards.push(Expr::True(*pos));
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("NoopEnd");
             // XXX: Put these in the _nodes
             _nodes.push(i);
@@ -211,16 +212,17 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
             (r1, r2)
         }
-        Stmt::Block(_stmts, _pos) => rewrite_to_graph_fsm(ff, _stmts, tid, idx, _nodes),
+        Stmt::Block(_stmts, _pos) => rewrite_to_graph_fsm(ff, _stmts, tid, tot, idx, _nodes),
         // XXX: With no else branch
         Stmt::Present(_expr, _tb, None, _pos) => {
             // XXX: First make the body
-            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _tb);
-            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, &Stmt::Noop(*_pos));
+            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb);
+            let (_er1, _er2) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, &Stmt::Noop(*_pos));
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.tt = NodeT::BranchFork;
             i.idx = ii;
             // XXX: Add the then and else branch guards
@@ -240,7 +242,7 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
 
             // XXX: Make the end node to connect _tr2 and _er2
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.idx = *idx;
             e.label = String::from("PresentEnd");
             e.tt = NodeT::BranchJoin;
@@ -263,12 +265,12 @@ fn rewrite_stmt_to_graph_fsm(
         // XXX: With an else branch
         Stmt::Present(_expr, _tb, Some(_eb), _pos) => {
             // XXX: First make the body
-            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _tb);
-            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _eb);
+            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb);
+            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _eb);
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
-            let mut i = GraphNode::default(tid);
+            let mut i = GraphNode::default(*tid);
             i.tt = NodeT::BranchFork;
             i.idx = ii;
             // XXX: Add the then and else branch guards
@@ -288,7 +290,7 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
 
             // XXX: Make the end node to connect _tr2 and _er2
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.idx = *idx;
             e.label = String::from("PresentEnd");
             e.tt = NodeT::BranchJoin;
@@ -309,7 +311,7 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Loop(_body, _pos) => {
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
             // XXX: Attach an edge from end node to the initial node
             _nodes[_be].children.push(_bi);
             _nodes[_be].guards.push(Expr::True(*_pos));
@@ -326,13 +328,13 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Abort(_a, None, _body, _pos) => {
             // XXX: This is strong abort
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
 
             // XXX: Now make the end node
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.idx = *idx;
             e.label = String::from("AbortEnd");
             let r2 = e.idx;
@@ -363,7 +365,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Abort(_a, Some(ASQual::Immediate), _body, _pos) => {
             // XXX: This is strong immediate abort
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
@@ -378,7 +380,7 @@ fn rewrite_stmt_to_graph_fsm(
             }
 
             // XXX: Now make the end node
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.idx = *idx;
             e.label = String::from("AbortEnd");
             let r2 = e.idx;
@@ -412,7 +414,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Suspend(_a, None, _body, _pos) => {
             // XXX: This is strong suspend
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
 
             // XXX: Get the guards for every real node
@@ -439,17 +441,19 @@ fn rewrite_stmt_to_graph_fsm(
             // again and call children threads, that are not yet done.
 
             // XXX: For each _stmts get the _bi and _ei
+            let mtid = *tid;
             let (_bi, _ei): (Vec<Index>, Vec<Index>) = _stmts
                 .iter()
-                .enumerate()
-                // FIXME: Maybe this is good enough, because we only
-                // want to check if the outgoing edge is not the same
-                // tid as this thread.
-                .map(|(ii, x)| rewrite_stmt_to_graph_fsm(ff, _nodes, tid + ii + 1, idx, x))
+                .map(|x| {
+                    *tid = *tot;
+                    *tot += 1;
+                    rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, x)
+                })
                 .unzip();
+            *tid = mtid;
 
             // XXX: Now make the fork node (initial)
-            let mut _fi = GraphNode::default(tid);
+            let mut _fi = GraphNode::default(*tid);
             _fi.label = String::from("SPARFork");
             _fi.tt = NodeT::SparFork;
 
@@ -465,7 +469,7 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
 
             // XXX: Make the join node (end)
-            let mut je = GraphNode::default(tid);
+            let mut je = GraphNode::default(*tid);
             je.tag = true; //this is a real node
             je.idx = *idx;
             je.label = String::from("SPARJoin");
@@ -495,7 +499,7 @@ fn rewrite_stmt_to_graph_fsm(
 
             // XXX: Now make the final end node -- get out into the
             // outside thread if all threads in parallel are done.
-            let mut e = GraphNode::default(tid);
+            let mut e = GraphNode::default(*tid);
             e.label = String::from("JoinEnd");
             e.idx = *idx;
             _nodes[rm].children.push(e.idx);
@@ -600,7 +604,8 @@ fn attach_abort_expr(
 pub fn rewrite_to_graph_fsm(
     ff: &str,
     _v: &[Stmt],
-    _tid: Index,
+    _tid: &mut Index,
+    _tot: &mut Index,
     _idx: &mut Index,
     _nodes: &mut Vec<GraphNode>,
 ) -> (Index, Index) {
@@ -608,7 +613,7 @@ pub fn rewrite_to_graph_fsm(
     let mut r2 = 0usize;
     let mut _pe = 0usize;
     for (ii, i) in _v.iter().enumerate() {
-        let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _idx, i);
+        let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _tot, _idx, i);
         if ii == 0 {
             r1 = si;
         }

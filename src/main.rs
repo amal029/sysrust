@@ -89,12 +89,14 @@ fn main() {
     // XXX: Make the FSM graph
     let mut _nodes: Vec<GraphNode> = Vec::with_capacity(1000);
     let mut idx = 0usize;
-    let tid = 0usize;
-    let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, tid, &mut idx, &mut _nodes);
-    // println!("{:?} {:?} {:?}", _nodes, _i, _e);
+    let mut tid = 0;
+    let mut tot = 1;
+    let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, &mut tid, &mut tot, &mut idx, &mut _nodes);
     // XXX: Make the label for _i and _e
     _nodes[_i].label = String::from("I");
     _nodes[_e].label = String::from("E");
+    _nodes[_e].tag = true;
+    println!("{:?} {:?} {:?}", _nodes, _i, _e);
 
     // XXX: Now start making the backend
     let ff = args[1].split('.').collect::<Vec<&str>>()[0];
@@ -114,7 +116,7 @@ fn main() {
             &_vyref,
             &_vref,
             &args[1],
-	    // XXX: These are generating the actual code
+            // XXX: These are generating the actual code
             _i,
             _e,
             &_nodes,
