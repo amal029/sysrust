@@ -4,6 +4,10 @@ input int signal J;
 input signal M;
 float h = 100.8;
 abort(M and J){
- S0: sustain O(h+?J+100);
+ loop{
+  h = h + 1;
+  emit O(h+?J);
+  S0: pause;
+ };
 };
 emit K;

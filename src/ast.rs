@@ -211,9 +211,10 @@ impl SimpleDataExpr {
                 RcDoc::as_string(_s)
             }
             SimpleDataExpr::Call(_sy, _v, _pos) => {
-                // let _s = RcDoc::as_string(_sy.get_string());
-                // let _vrs = _v.iter().map(|x| x.codegen(_tid));
-                todo!("Call currently not supported")
+                let _s = RcDoc::<()>::as_string(_sy.get_string());
+                let _vrs = _v.iter().map(|x| x.codegen(_tid, _smpt));
+                let _as = RcDoc::intersperse(_vrs, RcDoc::as_string(", ")).group();
+                _s.append("(").append(_as).append(")")
             }
         }
     }
