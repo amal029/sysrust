@@ -424,8 +424,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Suspend(_a, Some(_), _body, _pos) => {
             let _ = print_bytes(ff, _pos.0, _pos.1);
-            println!("Cannot happen!");
-            exit(1);
+            panic!("Cannot happen");
         }
         Stmt::Spar(_stmts, _pos) => {
             // XXX: Note that we can get edges outside the current
