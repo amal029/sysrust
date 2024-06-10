@@ -1,6 +1,6 @@
 output signal K;
 input signal M;
-float h = 0.0;
+int h = 0;
 int i = 10;
 loop{
  abort(M){

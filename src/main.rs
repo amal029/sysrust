@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::Write;
-use std::process::exit;
+use std::process::{exit, Command};
 use sysrust::ast::CallNameType;
 use sysrust::{ast, parse};
 
@@ -131,7 +131,7 @@ fn main() {
     // XXX: Now start making the backend
     let ff = args[1].split('.').collect::<Vec<&str>>()[0];
     let _fname = format!("{}.{}", ff, "cpp");
-    let mut _file = File::create(_fname).expect("Cannot create the cpp file");
+    let mut _file = File::create(&_fname).expect("Cannot create the cpp file");
 
     // XXX: First make the prolouge -- includes, threads, states,
     // signals, and vars
@@ -154,5 +154,24 @@ fn main() {
             &_nodes,
         ))
         .expect("Cannot write to cpp file");
-    // println!("{:?}", backend::_prolouge());
+
+    // XXX: Format the generated Cpp file using clang-format
+    let _clang_bin = Command::new("which")
+        .arg("clang-format")
+        .output()
+        .expect("Could not get path to clang-format");
+    let _clang_bin_status = _clang_bin.status;
+    let _clang_bin_path = _clang_bin
+        .stdout
+        .into_iter()
+        .map(|x| x as char)
+        .collect::<String>();
+    let _clang_bin_path = _clang_bin_path.strip_suffix("\n").unwrap();
+    if _clang_bin_status.success() {
+        let _fmt_res = Command::new(_clang_bin_path)
+            .arg("-i")
+            .arg(_fname)
+            .output()
+            .expect("failed to format the cpp file");
+    }
 }

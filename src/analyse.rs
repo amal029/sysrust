@@ -584,15 +584,51 @@ fn __type_infer_extern_calls<'a>(
             __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff)
         }
         Stmt::Block(_b, _) => _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
-        Stmt::Assign(_, _expr, _) => _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff),
-        Stmt::Emit(_, Some(_expr), _) => _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff),
+        Stmt::Assign(_sy, _expr, _) => {
+            let _t = _vars.iter().find(|x| match x {
+                Stmt::Variable(__sy, _t, _, _) => __sy.get_string() == _sy.get_string(),
+                _ => panic!("Non variable found in _vars during type inference: {:?}", x),
+            });
+            if !_t.is_some() {
+                panic!(
+                    "Variable Ref: {:?} not found in {:?} during type inference",
+                    _sy, _vars
+                );
+            }
+            let _u = match _t.unwrap() {
+                Stmt::Variable(_, _t, _, _) => _t.clone(),
+                _ => panic!("Could not infer type of: {:?}", _expr),
+            };
+            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &Some(_u))
+        }
+        Stmt::Emit(_sy, Some(_expr), _) => {
+            let _t = _signals.iter().find(|x| match x {
+                Stmt::DataSignal(__sy, _, _, _, _, _) => __sy.get_string() == _sy.get_string(),
+                Stmt::Signal(__sy, _, _) => __sy == _sy,
+                _ => panic!(
+                    "Non signal found in _signals during type inference: {:?}",
+                    x
+                ),
+            });
+            if !_t.is_some() {
+                panic!(
+                    "Signal Ref: {:?} not found in {:?} during type inference",
+                    _sy, _signals
+                );
+            }
+            let u = match _t.unwrap() {
+                Stmt::DataSignal(_, _, _t, _, _, _) => _t.clone(),
+                _ => panic!("Could not infer type of: {:?}", _expr),
+            };
+            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &Some(u))
+        }
         Stmt::Present(_expr, _t, Some(_e), _) => {
-            _type_infer_expr(_expr, _signals, _vars, _ret, _ff);
+            _type_infer_expr(_expr, _signals, _vars, _ret, _ff, &None);
             __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
             __type_infer_extern_calls(_signals, _vars, _e, _ret, _ff);
         }
         Stmt::Present(_expr, _t, None, _) => {
-            _type_infer_expr(_expr, _signals, _vars, _ret, _ff);
+            _type_infer_expr(_expr, _signals, _vars, _ret, _ff, &None);
             __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
         }
         Stmt::Loop(_b, _) => __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
@@ -611,16 +647,17 @@ fn _type_infer_expr(
     _vars: &[&Stmt],
     _ret: &mut Vec<CallNameType>,
     _ff: &str,
+    _oret: &Option<Type>,
 ) {
     match _expr {
         Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
-            _type_infer_expr(_l, _signals, _vars, _ret, _ff);
-            _type_infer_expr(_r, _signals, _vars, _ret, _ff);
+            _type_infer_expr(_l, _signals, _vars, _ret, _ff, _oret);
+            _type_infer_expr(_r, _signals, _vars, _ret, _ff, _oret);
         }
         Expr::Brackets(_e, _) | Expr::Not(_e, _) => {
-            _type_infer_expr(_e, _signals, _vars, _ret, _ff)
+            _type_infer_expr(_e, _signals, _vars, _ret, _ff, _oret)
         }
-        Expr::DataExpr(_rexpr, _) => _type_infer_rexpr(_rexpr, _signals, _vars, _ret, _ff),
+        Expr::DataExpr(_rexpr, _) => _type_infer_rexpr(_rexpr, _signals, _vars, _ret, _ff, _oret),
         _ => (),
     }
 }
@@ -631,6 +668,7 @@ fn _type_infer_rexpr(
     _vars: &[&Stmt],
     _ret: &mut Vec<CallNameType>,
     _ff: &str,
+    _oret: &Option<Type>,
 ) {
     match _expr {
         RelDataExpr::LessThan(_l, _r, _)
@@ -638,8 +676,8 @@ fn _type_infer_rexpr(
         | RelDataExpr::GreaterThan(_l, _r, _)
         | RelDataExpr::LessThanEqual(_l, _r, _)
         | RelDataExpr::GreaterThanEqual(_l, _r, _) => {
-            _type_infer_sexpr(_l, _signals, _vars, _ret, _ff);
-            _type_infer_sexpr(_r, _signals, _vars, _ret, _ff);
+            _type_infer_sexpr(_l, _signals, _vars, _ret, _ff, _oret);
+            _type_infer_sexpr(_r, _signals, _vars, _ret, _ff, _oret);
         }
     }
 }
@@ -650,27 +688,23 @@ fn _type_infer_sexpr<'a>(
     _vars: &'a [&Stmt],
     _ret: &'a mut Vec<CallNameType>,
     _ff: &str,
+    _oret: &Option<Type>,
 ) {
     match _expr {
         SimpleDataExpr::Call(_sy, _expr, _pos) => {
             let _ss = _sy;
             let arg_types = _expr
                 .iter()
-                .map(|x| _get_type(_signals, _vars, x, _ret, _ff))
+                .map(|x| _get_type(_signals, _vars, x, _ret, _ff, _oret))
                 .collect::<Vec<Type>>();
             assert!(!arg_types.is_empty());
-            let ll = arg_types.iter().all(|x| *x == Type::Int);
-            let rr = arg_types.iter().all(|x| *x == Type::Float);
-            if !(rr || ll) {
-                let _ = print_bytes_warn(_ff, _pos.0, _pos.1);
-                println!(
-                    "Different type arguments in external function calls. \
-			 Return type auto promoted to largest type." 
-                );
-            }
-            let ret_type = arg_types
-                .iter()
-                .fold(Type::Int, |acc, x| _union(&acc, x, *_pos));
+            let ret_type = if _oret.is_some() {
+                _oret.clone().unwrap()
+            } else {
+                let _ = print_bytes(_ff, _pos.0, _pos.1);
+                println!("Cannot infer return type");
+                exit(1);
+            };
             _ret.push(CallNameType {
                 _sy: _sy.get_string().to_string(),
                 _rtype: ret_type,
@@ -698,6 +732,7 @@ fn _get_type<'a>(
     _expr: &'a SimpleDataExpr,
     _ret: &'a mut Vec<CallNameType>,
     _ff: &str,
+    _oret: &Option<Type>,
 ) -> Type {
     match _expr {
         SimpleDataExpr::VarRef(_sy, _pos) => {
@@ -739,16 +774,18 @@ fn _get_type<'a>(
         SimpleDataExpr::ConstI(_, _) => Type::Int,
         SimpleDataExpr::ConstF(_, _) => Type::Float,
         SimpleDataExpr::Call(_, _, _) => {
-            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff);
+            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &_oret);
             _ret.last().unwrap()._rtype.clone()
         }
         SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _pos) => {
-            let _lt = _get_type(_signals, _vars, _l, _ret, _ff);
-            let _rt = _get_type(_signals, _vars, _r, _ret, _ff);
+            let _lt = _get_type(_signals, _vars, _l, _ret, _ff, &_oret);
+            let _rt = _get_type(_signals, _vars, _r, _ret, _ff, &_oret);
             if _lt != _rt {
                 let _ = print_bytes_warn(_ff, _pos.0, _pos.1);
-                println!("Different types in Binary operation. \
-			  Types will be auto promoted to largest type.");
+                println!(
+                    "Different types in Binary operation. \
+			  Types will be auto promoted to largest type."
+                );
             }
             _union(&_lt, &_rt, *_pos)
         }
