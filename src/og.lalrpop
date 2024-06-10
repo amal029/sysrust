@@ -180,9 +180,9 @@ pub SimpleDataExpr: ast::SimpleDataExpr = {
     <l:@L> <i:"float"> <r:@R> => ast::SimpleDataExpr::ConstF(i, (l,r)),
     <l:@L> <i:Symbol> <r:@R> => ast::SimpleDataExpr::VarRef(i, (l,r)),
     <l:@L> "?" <i:Symbol> <r:@R> => ast::SimpleDataExpr::SignalRef(i, (l,r)),
-    <l:@L> "extern" <i:Symbol> "(" <ll:SimpleDataExprList> ")" <r:@R> =>
+    <l:@L> <i:Symbol> "(" <ll:SimpleDataExprList> ")" <r:@R> =>
            ast::SimpleDataExpr::Call(i, ll, (l, r)),
-    <l:@L> "extern" <i:Symbol> "(" ")" <r:@R> =>
+    <l:@L> <i:Symbol> "(" ")" <r:@R> =>
            ast::SimpleDataExpr::Call(i, vec![], (l, r)),
    #[precedence(level="1")] #[assoc(side="left")] // Highest precedence
     <l:@L> <e1:SimpleDataExpr> "^^" <e2:SimpleDataExpr> <r:@R> =>

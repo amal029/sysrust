@@ -1,8 +1,11 @@
 output signal K;
 input signal M;
+float h = 0.0;
+int i = 1;
 loop{
  abort(M){
-   S0: halt;
+   h = mcall(i, ccall(h, i));
+   S0: pause;
  };
  emit K;
 };

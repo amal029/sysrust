@@ -1,4 +1,3 @@
-// FIXME: Get the extern function calls used to be put into the backend.
 use std::{collections::HashMap, process::exit};
 
 use sysrust::ast::*;
@@ -209,8 +208,8 @@ pub fn _analyse_var_signal_use(
         for m in _vmap.iter() {
             if m.contains_key(&symbol_string(_sy)) {
                 let _ = print_bytes(ff, start, end);
-		println!("Signal names have to be unique throughout program");
-		exit(1);
+                println!("Signal names have to be unique throughout program");
+                exit(1);
             }
         }
     }
@@ -249,8 +248,8 @@ pub fn _analyse_var_signal_use(
             _analyse_var_signal_use(ff, _st, ss, rets, tid)
         }
         Stmt::Signal(_sy, _io, _pos) => {
-	    // XXX: Check if the signal is already declared in the stack
-	    _signal_rep(&_stack, _sy, _pos.0, _pos.1, ff);
+            // XXX: Check if the signal is already declared in the stack
+            _signal_rep(&_stack, _sy, _pos.0, _pos.1, ff);
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
@@ -271,8 +270,8 @@ pub fn _analyse_var_signal_use(
             ss
         }
         Stmt::DataSignal(_sy, _io, _stype, _sval, _sop, _pos) => {
-	    // XXX: Check if signal is already declared
-	    _signal_rep(&_stack, _sy, _pos.0, _pos.1, ff);
+            // XXX: Check if signal is already declared
+            _signal_rep(&_stack, _sy, _pos.0, _pos.1, ff);
             // XXX: Push the signal Symbol into the hashmap
             let mut ss = _stack;
             let idx = ss.len() - 1;
@@ -557,5 +556,178 @@ fn get_s_v_ref_expr(
         }
         Expr::DataExpr(_rexpr, _) => get_s_v_rel_expr(_sref, _vref, _rexpr, _tid),
         _ => (),
+    }
+}
+
+pub fn _type_infer_extern_calls<'a>(
+    _signals: &'a [&Stmt],
+    _vars: &'a [&Stmt],
+    _ast: &'a [Stmt],
+    _ret: &'a mut Vec<CallNameType>,
+) {
+    for i in _ast {
+        __type_infer_extern_calls(_signals, _vars, i, _ret)
+    }
+}
+
+fn __type_infer_extern_calls<'a>(
+    _signals: &'a [&Stmt],
+    _vars: &'a [&Stmt],
+    _i: &'a Stmt,
+    _ret: &'a mut Vec<CallNameType>,
+) {
+    match _i {
+        Stmt::Abort(_, _, _b, _) | Stmt::Suspend(_, _, _b, _) => {
+            __type_infer_extern_calls(_signals, _vars, _b, _ret)
+        }
+        Stmt::Block(_b, _) => _type_infer_extern_calls(_signals, _vars, _b, _ret),
+        Stmt::Assign(_, _expr, _) => _type_infer_sexpr(_expr, _signals, _vars, _ret),
+        Stmt::Emit(_, Some(_expr), _) => _type_infer_sexpr(_expr, _signals, _vars, _ret),
+        Stmt::Present(_expr, _t, Some(_e), _) => {
+            _type_infer_expr(_expr, _signals, _vars, _ret);
+            __type_infer_extern_calls(_signals, _vars, _t, _ret);
+            __type_infer_extern_calls(_signals, _vars, _e, _ret);
+        }
+        Stmt::Present(_expr, _t, None, _) => {
+            _type_infer_expr(_expr, _signals, _vars, _ret);
+            __type_infer_extern_calls(_signals, _vars, _t, _ret);
+        }
+        Stmt::Loop(_b, _) => __type_infer_extern_calls(_signals, _vars, _b, _ret),
+        Stmt::Spar(_b, _) => _b
+            .iter()
+            .for_each(|x| __type_infer_extern_calls(_signals, _vars, x, _ret)),
+        // Stmt::DataSignal(_, _, _type, _, _expr, _) => todo!(),
+        // XXX: For anything else we do not need analysis
+        _ => (),
+    }
+}
+
+fn _type_infer_expr(
+    _expr: &Expr,
+    _signals: &[&Stmt],
+    _vars: &[&Stmt],
+    _ret: &mut Vec<CallNameType>,
+) {
+    match _expr {
+        Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
+            _type_infer_expr(_l, _signals, _vars, _ret);
+            _type_infer_expr(_r, _signals, _vars, _ret);
+        }
+        Expr::Brackets(_e, _) | Expr::Not(_e, _) => _type_infer_expr(_e, _signals, _vars, _ret),
+        Expr::DataExpr(_rexpr, _) => _type_infer_rexpr(_rexpr, _signals, _vars, _ret),
+        _ => (),
+    }
+}
+
+fn _type_infer_rexpr(
+    _expr: &RelDataExpr,
+    _signals: &[&Stmt],
+    _vars: &[&Stmt],
+    _ret: &mut Vec<CallNameType>,
+) {
+    match _expr {
+        RelDataExpr::LessThan(_l, _r, _)
+        | RelDataExpr::EqualTo(_l, _r, _)
+        | RelDataExpr::GreaterThan(_l, _r, _)
+        | RelDataExpr::LessThanEqual(_l, _r, _)
+        | RelDataExpr::GreaterThanEqual(_l, _r, _) => {
+            _type_infer_sexpr(_l, _signals, _vars, _ret);
+            _type_infer_sexpr(_r, _signals, _vars, _ret);
+        }
+    }
+}
+
+fn _type_infer_sexpr<'a>(
+    _expr: &'a SimpleDataExpr,
+    _signals: &'a [&Stmt],
+    _vars: &'a [&Stmt],
+    _ret: &'a mut Vec<CallNameType>,
+) {
+    match _expr {
+        SimpleDataExpr::Call(_sy, _expr, _pos) => {
+            let _ss = _sy;
+            let arg_types = _expr
+                .iter()
+                .map(|x| _get_type(_signals, _vars, x, _ret))
+                .collect::<Vec<Type>>();
+            assert!(!arg_types.is_empty());
+            let ret_type = arg_types
+                .iter()
+                .fold(Type::Int, |acc, x| _union(&acc, x, *_pos));
+            _ret.push(CallNameType {
+                _sy: _sy.get_string().to_string(),
+                _rtype: ret_type,
+                _arg_types: arg_types,
+            });
+        }
+        _ => (),
+    }
+}
+
+fn _union(_lt: &Type, _rt: &Type, _pos: Pos) -> Type {
+    match (_lt, _rt) {
+        (Type::Int, Type::Int) => Type::Int,
+        (Type::Float, Type::Float) => Type::Float,
+        (Type::Float, Type::Int) => Type::Float,
+        (Type::Int, Type::Float) => Type::Float,
+        (Type::None, _) => panic!("Cannot have None type in arithmetic operations"),
+        (_, Type::None) => panic!("Cannot have None type in arithmetic operations"),
+    }
+}
+
+fn _get_type<'a>(
+    _signals: &'a [&Stmt],
+    _vars: &'a [&Stmt],
+    _expr: &'a SimpleDataExpr,
+    _ret: &'a mut Vec<CallNameType>,
+) -> Type {
+    match _expr {
+        SimpleDataExpr::VarRef(_sy, _pos) => {
+            let _t = _vars.iter().find(|x| match x {
+                Stmt::Variable(__sy, _t, _, _) => __sy.get_string() == _sy.get_string(),
+                _ => panic!("Non variable found in _vars during type inference: {:?}", x),
+            });
+            if !_t.is_some() {
+                panic!(
+                    "Variable Ref: {:?} not found in {:?} during type inference",
+                    _sy, _vars
+                );
+            }
+            match _t.unwrap() {
+                Stmt::Variable(_, _t, _, _) => _t.clone(),
+                _ => panic!("Could not infer type of: {:?}", _expr),
+            }
+        }
+        SimpleDataExpr::SignalRef(_sy, _) => {
+            let _t = _signals.iter().find(|x| match x {
+                Stmt::DataSignal(__sy, _, _, _, _, _) => __sy.get_string() == _sy.get_string(),
+                Stmt::Signal(__sy, _, _) => __sy == _sy,
+                _ => panic!(
+                    "Non signal found in _signals during type inference: {:?}",
+                    x
+                ),
+            });
+            if !_t.is_some() {
+                panic!(
+                    "Signal Ref: {:?} not found in {:?} during type inference",
+                    _sy, _signals
+                );
+            }
+            match _t.unwrap() {
+                Stmt::DataSignal(_, _, _t, _, _, _) => _t.clone(),
+                _ => panic!("Could not infer type of: {:?}", _expr),
+            }
+        }
+        SimpleDataExpr::ConstI(_, _) => Type::Int,
+        SimpleDataExpr::ConstF(_, _) => Type::Float,
+        SimpleDataExpr::Call(_, _, _) => {
+            _type_infer_sexpr(_expr, _signals, _vars, _ret);
+            _ret.last().unwrap()._rtype.clone()
+        }
+        SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _pos) => {
+            let _lt = _get_type(_signals, _vars, _l, _ret);
+            let _rt = _get_type(_signals, _vars, _r, _ret);
+            _union(&_lt, &_rt, *_pos)
+        }
     }
 }

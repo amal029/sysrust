@@ -4,7 +4,7 @@ use std::{
 };
 
 use pretty::RcDoc;
-use sysrust::ast::{ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
+use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
 
 use crate::{
     error::print_bytes,
@@ -124,6 +124,8 @@ pub fn _codegen(
     _vyref: &[Vec<Symbol>],
     _vref: &[Vec<SimpleDataExpr>],
     _ff: &str,
+    // XXX: This is for external calls
+    _ext_call: &[CallNameType],
     // XXX: The nodes and the graph adj-list of the graph FSM
     _ginode: usize,
     _genode: usize,
@@ -135,6 +137,15 @@ pub fn _codegen(
     let r = h2.append(h3).append(h4).append(RcDoc::hardline());
     let mut w = Vec::new();
     r.render(8, &mut w).unwrap();
+
+    // XXX: Extern calls being put here
+    let mut _ec = RcDoc::<()>::as_string("extern \"C\"{");
+    let _ecs = _ext_call.into_iter().fold(RcDoc::nil(), |acc, _x| {
+        let __x = _x._get_doc();
+        acc.append(__x)
+    });
+    _ec = _ec.append(_ecs).append("}").append(RcDoc::hardline());
+    _ec.render(8, &mut w).unwrap();
 
     // XXX: Declare all the signals in the program/thread
     let _m_header = RcDoc::<()>::as_string("// Sig decls").append(RcDoc::hardline());

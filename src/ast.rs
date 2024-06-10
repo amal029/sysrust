@@ -9,7 +9,7 @@ pub enum Symbol {
     Symbol(String, Pos),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Type {
     Int,
     Float,
@@ -280,5 +280,37 @@ impl Stmt {
             Stmt::Noop(_) => RcDoc::as_string(";"),
             _ => panic!("Can never reach to this statement in FSM graph: {:?}", self),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct CallNameType {
+    pub _sy: String,
+    pub _rtype: Type,
+    pub _arg_types: Vec<Type>,
+}
+
+impl Type {
+    pub fn _to_string(&self) -> &str {
+        match self {
+            Type::Int => "int",
+            Type::Float => "float",
+            Type::None => "void",
+        }
+    }
+}
+
+impl CallNameType {
+    pub fn _get_doc(&self) -> RcDoc {
+        let _ret = RcDoc::<()>::as_string(self._rtype._to_string());
+        let _toret = RcDoc::<()>::as_string(self._sy.clone());
+        let _args = self
+            ._arg_types
+            .iter()
+            .map(|x| x._to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _args = RcDoc::<()>::as_string(format!("({});", _args));
+        _ret.append(" ").append(_toret).append(_args)
     }
 }

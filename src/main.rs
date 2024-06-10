@@ -1,13 +1,16 @@
 use analyse::{get_num_threads, get_states};
 use error::print_bytes;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::process::exit;
+use sysrust::ast::CallNameType;
 use sysrust::{ast, parse};
 
-use crate::analyse::{_analyse_var_signal_uses, get_s_v_ref, get_signals, get_vars};
+use crate::analyse::{
+    _analyse_var_signal_uses, _type_infer_extern_calls, get_s_v_ref, get_signals, get_vars,
+};
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
 mod backend;
@@ -67,6 +70,18 @@ fn main() {
     get_vars(&mut _vars, &_ast, &mut tid, &mut tot);
     // println!("{:?}", _vars);
 
+    // XXX: Type inference for extern calls to C
+    let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(1000);
+    let __signals = _signals.iter().flatten().collect::<Vec<_>>();
+    let __vars = _vars.iter().flatten().collect::<Vec<_>>();
+    _type_infer_extern_calls(&__signals, &__vars, &_ast, &mut _extern_calls);
+    let _extern_calls = _extern_calls
+        .into_iter()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    // println!("Inferred extern functions: {:?}", _extern_calls);
+
     // XXX: Get all the signal and var reference in each thread
     let mut _sref: Vec<Vec<ast::SimpleDataExpr>> = vec![vec![]; num_threads];
     let mut _vref: Vec<Vec<ast::SimpleDataExpr>> = vec![vec![]; num_threads];
@@ -100,7 +115,7 @@ fn main() {
         _nodes[_e].tag = true;
     }
     // println!("{_i} {_e}");
-    println!("{:?} {:?} {:?}", _nodes, _i, _e);
+    // println!("{:?} {:?} {:?}", _nodes, _i, _e);
 
     // XXX: Now start making the backend
     let ff = args[1].split('.').collect::<Vec<&str>>()[0];
@@ -120,6 +135,8 @@ fn main() {
             &_vyref,
             &_vref,
             &args[1],
+            // XXX: This is for external function in C
+            &_extern_calls,
             // XXX: These are generating the actual code
             _i,
             _e,
