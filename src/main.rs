@@ -74,7 +74,7 @@ fn main() {
     let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(1000);
     let __signals = _signals.iter().flatten().collect::<Vec<_>>();
     let __vars = _vars.iter().flatten().collect::<Vec<_>>();
-    _type_infer_extern_calls(&__signals, &__vars, &_ast, &mut _extern_calls);
+    _type_infer_extern_calls(&__signals, &__vars, &_ast, &mut _extern_calls, &args[1]);
     let _extern_calls = _extern_calls
         .into_iter()
         .collect::<HashSet<_>>()

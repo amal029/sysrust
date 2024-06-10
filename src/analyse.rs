@@ -3,6 +3,7 @@ use std::{collections::HashMap, process::exit};
 use sysrust::ast::*;
 
 use crate::error::print_bytes;
+use crate::error::print_bytes_warn;
 
 pub enum SignalVarType {
     Signal,
@@ -564,9 +565,10 @@ pub fn _type_infer_extern_calls<'a>(
     _vars: &'a [&Stmt],
     _ast: &'a [Stmt],
     _ret: &'a mut Vec<CallNameType>,
+    _ff: &str,
 ) {
     for i in _ast {
-        __type_infer_extern_calls(_signals, _vars, i, _ret)
+        __type_infer_extern_calls(_signals, _vars, i, _ret, _ff)
     }
 }
 
@@ -575,27 +577,28 @@ fn __type_infer_extern_calls<'a>(
     _vars: &'a [&Stmt],
     _i: &'a Stmt,
     _ret: &'a mut Vec<CallNameType>,
+    _ff: &str,
 ) {
     match _i {
         Stmt::Abort(_, _, _b, _) | Stmt::Suspend(_, _, _b, _) => {
-            __type_infer_extern_calls(_signals, _vars, _b, _ret)
+            __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff)
         }
-        Stmt::Block(_b, _) => _type_infer_extern_calls(_signals, _vars, _b, _ret),
-        Stmt::Assign(_, _expr, _) => _type_infer_sexpr(_expr, _signals, _vars, _ret),
-        Stmt::Emit(_, Some(_expr), _) => _type_infer_sexpr(_expr, _signals, _vars, _ret),
+        Stmt::Block(_b, _) => _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
+        Stmt::Assign(_, _expr, _) => _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff),
+        Stmt::Emit(_, Some(_expr), _) => _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff),
         Stmt::Present(_expr, _t, Some(_e), _) => {
-            _type_infer_expr(_expr, _signals, _vars, _ret);
-            __type_infer_extern_calls(_signals, _vars, _t, _ret);
-            __type_infer_extern_calls(_signals, _vars, _e, _ret);
+            _type_infer_expr(_expr, _signals, _vars, _ret, _ff);
+            __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
+            __type_infer_extern_calls(_signals, _vars, _e, _ret, _ff);
         }
         Stmt::Present(_expr, _t, None, _) => {
-            _type_infer_expr(_expr, _signals, _vars, _ret);
-            __type_infer_extern_calls(_signals, _vars, _t, _ret);
+            _type_infer_expr(_expr, _signals, _vars, _ret, _ff);
+            __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
         }
-        Stmt::Loop(_b, _) => __type_infer_extern_calls(_signals, _vars, _b, _ret),
+        Stmt::Loop(_b, _) => __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
         Stmt::Spar(_b, _) => _b
             .iter()
-            .for_each(|x| __type_infer_extern_calls(_signals, _vars, x, _ret)),
+            .for_each(|x| __type_infer_extern_calls(_signals, _vars, x, _ret, _ff)),
         // Stmt::DataSignal(_, _, _type, _, _expr, _) => todo!(),
         // XXX: For anything else we do not need analysis
         _ => (),
@@ -607,14 +610,17 @@ fn _type_infer_expr(
     _signals: &[&Stmt],
     _vars: &[&Stmt],
     _ret: &mut Vec<CallNameType>,
+    _ff: &str,
 ) {
     match _expr {
         Expr::And(_l, _r, _) | Expr::Or(_l, _r, _) => {
-            _type_infer_expr(_l, _signals, _vars, _ret);
-            _type_infer_expr(_r, _signals, _vars, _ret);
+            _type_infer_expr(_l, _signals, _vars, _ret, _ff);
+            _type_infer_expr(_r, _signals, _vars, _ret, _ff);
         }
-        Expr::Brackets(_e, _) | Expr::Not(_e, _) => _type_infer_expr(_e, _signals, _vars, _ret),
-        Expr::DataExpr(_rexpr, _) => _type_infer_rexpr(_rexpr, _signals, _vars, _ret),
+        Expr::Brackets(_e, _) | Expr::Not(_e, _) => {
+            _type_infer_expr(_e, _signals, _vars, _ret, _ff)
+        }
+        Expr::DataExpr(_rexpr, _) => _type_infer_rexpr(_rexpr, _signals, _vars, _ret, _ff),
         _ => (),
     }
 }
@@ -624,6 +630,7 @@ fn _type_infer_rexpr(
     _signals: &[&Stmt],
     _vars: &[&Stmt],
     _ret: &mut Vec<CallNameType>,
+    _ff: &str,
 ) {
     match _expr {
         RelDataExpr::LessThan(_l, _r, _)
@@ -631,8 +638,8 @@ fn _type_infer_rexpr(
         | RelDataExpr::GreaterThan(_l, _r, _)
         | RelDataExpr::LessThanEqual(_l, _r, _)
         | RelDataExpr::GreaterThanEqual(_l, _r, _) => {
-            _type_infer_sexpr(_l, _signals, _vars, _ret);
-            _type_infer_sexpr(_r, _signals, _vars, _ret);
+            _type_infer_sexpr(_l, _signals, _vars, _ret, _ff);
+            _type_infer_sexpr(_r, _signals, _vars, _ret, _ff);
         }
     }
 }
@@ -642,15 +649,25 @@ fn _type_infer_sexpr<'a>(
     _signals: &'a [&Stmt],
     _vars: &'a [&Stmt],
     _ret: &'a mut Vec<CallNameType>,
+    _ff: &str,
 ) {
     match _expr {
         SimpleDataExpr::Call(_sy, _expr, _pos) => {
             let _ss = _sy;
             let arg_types = _expr
                 .iter()
-                .map(|x| _get_type(_signals, _vars, x, _ret))
+                .map(|x| _get_type(_signals, _vars, x, _ret, _ff))
                 .collect::<Vec<Type>>();
             assert!(!arg_types.is_empty());
+            let ll = arg_types.iter().all(|x| *x == Type::Int);
+            let rr = arg_types.iter().all(|x| *x == Type::Float);
+            if !(rr || ll) {
+                let _ = print_bytes_warn(_ff, _pos.0, _pos.1);
+                println!(
+                    "Different type arguments in external function calls. \
+			 Return type auto promoted to largest type." 
+                );
+            }
             let ret_type = arg_types
                 .iter()
                 .fold(Type::Int, |acc, x| _union(&acc, x, *_pos));
@@ -680,6 +697,7 @@ fn _get_type<'a>(
     _vars: &'a [&Stmt],
     _expr: &'a SimpleDataExpr,
     _ret: &'a mut Vec<CallNameType>,
+    _ff: &str,
 ) -> Type {
     match _expr {
         SimpleDataExpr::VarRef(_sy, _pos) => {
@@ -721,12 +739,17 @@ fn _get_type<'a>(
         SimpleDataExpr::ConstI(_, _) => Type::Int,
         SimpleDataExpr::ConstF(_, _) => Type::Float,
         SimpleDataExpr::Call(_, _, _) => {
-            _type_infer_sexpr(_expr, _signals, _vars, _ret);
+            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff);
             _ret.last().unwrap()._rtype.clone()
         }
         SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _pos) => {
-            let _lt = _get_type(_signals, _vars, _l, _ret);
-            let _rt = _get_type(_signals, _vars, _r, _ret);
+            let _lt = _get_type(_signals, _vars, _l, _ret, _ff);
+            let _rt = _get_type(_signals, _vars, _r, _ret, _ff);
+            if _lt != _rt {
+                let _ = print_bytes_warn(_ff, _pos.0, _pos.1);
+                println!("Different types in Binary operation. \
+			  Types will be auto promoted to largest type.");
+            }
             _union(&_lt, &_rt, *_pos)
         }
     }

@@ -1,10 +1,11 @@
 output signal K;
 input signal M;
 float h = 0.0;
-int i = 1;
+int i = 10;
 loop{
  abort(M){
-   h = mcall(i, ccall(h, i));
+   // emit L;
+   h = mcall(i, ccall(h+100, i));
    S0: pause;
  };
  emit K;
