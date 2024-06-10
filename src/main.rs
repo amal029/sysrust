@@ -80,6 +80,17 @@ fn main() {
         .collect::<HashSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
+    let mut uniq: HashSet<&str> = HashSet::new();
+    for _i in _extern_calls.iter().map(|x| x._sy.as_str()) {
+        if uniq.contains(_i) {
+            println!(
+                "Function overloading in C is not allowed. \
+		 External C function \"{}\" with different signatures!",
+                _i
+            );
+        }
+        uniq.insert(_i);
+    }
     // println!("Inferred extern functions: {:?}", _extern_calls);
 
     // XXX: Get all the signal and var reference in each thread
