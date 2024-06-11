@@ -64,6 +64,22 @@ pub enum IO {
     Output,
 }
 
+impl IO {
+    pub fn is_output(&self) -> bool {
+        match self {
+            IO::Input => false,
+            IO::Output => true,
+        }
+    }
+
+    pub fn is_input(&self) -> bool {
+        match self {
+            IO::Input => true,
+            IO::Output => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ASQual {
     Weak,

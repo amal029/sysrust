@@ -385,15 +385,166 @@ pub fn _codegen(
         _gnodes,
         *_nthreads,
         &_used_sigs_vec,
-        _sigs_map_per_thread,
+        &_sigs_map_per_thread,
     );
     let mut w1: Vec<u8> = Vec::with_capacity(1000);
     let _ = _nn.render(8, &mut w1);
 
+    // XXX: Now make the main function and input/output functions, which
+    // are extern.
+    let _main = _make_main_code(_sigs, &_sigs_map_per_thread[0]);
+    let mut w2: Vec<u8> = Vec::with_capacity(1000);
+    let _ = _main.render(8, &mut w2);
     let _ = _n.render(8, &mut w);
-    // String::from_utf8(w).expect("Could not generate the prolouge")
     w.append(&mut w1);
+    w.append(&mut w2);
+
     return w;
+}
+
+fn _make_print_ouputs<'a>(_osigs: Vec<(&'a str, Option<&'a Type>)>) -> RcDoc<'a> {
+    let mut _n = RcDoc::<()>::nil();
+    for (i, j) in _osigs {
+        _n = _n
+            .append(format!(
+                "std::cout << \"Status of signal {}: \" << {}_curr.status;",
+                i, i
+            ))
+            .append(RcDoc::hardline());
+        if j.is_some() {
+            _n = _n
+                .append(format!(
+                    "std::cout << \"Value of signal {}: \" << {}_curr.value;",
+                    i, i
+                ))
+                .append(RcDoc::hardline());
+        }
+    }
+    let mut _m = RcDoc::<()>::as_string("void print_outputs(){")
+        .append(RcDoc::hardline())
+        .append(_n)
+        .append("}");
+    return _m;
+}
+
+fn _make_pre_eq_curr<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
+    let mut _n = RcDoc::<()>::as_string("void pre_eq_curr(){");
+    let _sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
+    for i in _sigs {
+        match i {
+            Stmt::Signal(_sy, _, _) => {
+                _n = _n
+                    .append(format!(
+                        "{}_prev.status = {}_curr.status;",
+                        _sy.get_string(),
+                        _sy.get_string()
+                    ))
+                    .append(RcDoc::hardline())
+            }
+            Stmt::DataSignal(_sy, _, _, _, _, _) => {
+                _n = _n
+                    .append(format!(
+                        "{}_prev.status = {}_curr.status;",
+                        _sy.get_string(),
+                        _sy.get_string(),
+                    ))
+                    .append(RcDoc::hardline())
+            }
+            _ => panic!("Got a non signal building code for pre <- curr status update"),
+        }
+    }
+    _n = _n.append("}");
+    return _n;
+}
+
+fn _make_curr_reset<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
+    let mut _n = RcDoc::<()>::as_string("void reset_curr(){");
+    let _sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
+    for i in _sigs {
+        match i {
+            Stmt::Signal(_sy, _, _) => {
+                _n = _n
+                    .append(format!("{}_curr.status = false;", _sy.get_string()))
+                    .append(RcDoc::hardline())
+            }
+            Stmt::DataSignal(_sy, _, _, _, _, _) => {
+                _n = _n
+                    .append(format!("{}_curr.status = false;", _sy.get_string()))
+                    .append(RcDoc::hardline())
+            }
+            _ => panic!("Got a non signal building code for pre <- curr status update"),
+        }
+    }
+    _n = _n.append("}");
+    return _n;
+}
+
+fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: &'a HashMap<&str, usize>) -> RcDoc<'a> {
+    let mut _n = RcDoc::nil();
+    let sigs_0 = _vsigs
+        .into_iter()
+        .map(|(&x, _)| format!("{}_curr", x))
+        .collect::<Vec<_>>()
+        .join(", ");
+    // XXX: Get all output signals
+    let __sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
+    let _osigs = __sigs
+        .iter()
+        .filter(|x| match x {
+            Stmt::Signal(_sy, _io, _pos) => _io.is_some() && _io.clone().unwrap().is_output(),
+            Stmt::DataSignal(_sy, _io, _t, _v, _expr, _pos) => {
+                _io.is_some() && _io.clone().unwrap().is_output()
+            }
+            _ => panic!("Got a non signal during output signal code generation"),
+        })
+        .map(|x| match x {
+            Stmt::Signal(_sy, _, _) => (_sy.get_string().as_str(), None),
+            Stmt::DataSignal(_sy, _, _t, _, _, _) => (_sy.get_string().as_str(), Some(_t)),
+            _ => panic!(),
+        })
+        .collect::<Vec<_>>();
+    // XXX: Get all the input signals
+    let _isigs = __sigs
+        .iter()
+        .filter(|x| match x {
+            Stmt::Signal(_sy, _io, _pos) => _io.is_some() && _io.clone().unwrap().is_input(),
+            Stmt::DataSignal(_sy, _io, _t, _v, _expr, _pos) => {
+                _io.is_some() && _io.clone().unwrap().is_input()
+            }
+            _ => panic!("Got a non signal during input signal code generation"),
+        })
+        .map(|x| match x {
+            Stmt::Signal(_sy, _, _) => (_sy.get_string().as_str(), None),
+            Stmt::DataSignal(_sy, _, _t, _, _, _) => (_sy.get_string().as_str(), Some(_t)),
+            _ => panic!("Got a non signal during input signal code generation"),
+        })
+        .collect::<Vec<_>>();
+    _n = _n
+        .append(_make_print_ouputs(_osigs))
+        .append(RcDoc::hardline())
+        .append(_make_pre_eq_curr(&_sigs))
+        .append(RcDoc::hardline())
+        .append(_make_curr_reset(&_sigs))
+        .append(RcDoc::hardline())
+        .append("int main (void){")
+        .append(RcDoc::hardline())
+        .append("init0();")
+        .append(RcDoc::hardline())
+        .append("while(1){")
+        .append(RcDoc::hardline())
+        .append("//read_inputs();")
+        .append(RcDoc::hardline())
+        .append(format!("visit0(st0, {});", sigs_0))
+        .append(RcDoc::hardline())
+        .append("print_outputs();")
+        .append(RcDoc::hardline())
+        .append("pre_eq_curr();")
+        .append(RcDoc::hardline())
+        .append("reset_curr();")
+        .append(RcDoc::hardline())
+        .append("}")
+        .append("}");
+    return _n;
 }
 
 fn _walk_graph_code_gen<'a>(
@@ -580,7 +731,7 @@ fn _make_fsm_code<'a>(
     _nodes: &'a [GraphNode],
     _nthreads: usize,
     _used_sigs_per_thread: &'a [String],
-    _sigs_map_per_threads: Vec<HashMap<&str, usize>>,
+    _sigs_map_per_threads: &'a Vec<HashMap<&str, usize>>,
 ) -> RcDoc<'a> {
     // XXX: Walk graph and generate code
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
