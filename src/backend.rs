@@ -236,6 +236,8 @@ pub fn _codegen(
     let mut _sigs_map_per_thread: Vec<HashMap<&str, usize>> = Vec::new();
     let mut _used_sigs_cap: Vec<String> = Vec::new();
     let mut _used_sigs_tick: Vec<String> = Vec::new();
+    let mut _for_main: Vec<String> = Vec::new();
+    let mut _counter = 0;
     for i in zip(_syref, _sref) {
         let mut _sigs_map: HashMap<&str, usize> = HashMap::new();
         let vv = i.0.union(&i.1).collect::<Vec<_>>();
@@ -244,6 +246,9 @@ pub fn _codegen(
             .enumerate()
             .map(|(j, &&x)| {
                 _sigs_map.insert(x, j);
+                if _counter == 0 {
+                    _for_main.push(x.to_string());
+                }
                 format!("signal_{} &_{}", x, j)
             })
             .collect::<Vec<_>>()
@@ -273,6 +278,7 @@ pub fn _codegen(
             .collect::<Vec<_>>()
             .join(", ");
         _used_sigs.push(vv);
+        _counter += 1;
     }
 
     // XXX: All thread prototypes
@@ -392,7 +398,7 @@ pub fn _codegen(
 
     // XXX: Now make the main function and input/output functions, which
     // are extern.
-    let _main = _make_main_code(_sigs, &_sigs_map_per_thread[0]);
+    let _main = _make_main_code(_sigs, _for_main);
     let mut w2: Vec<u8> = Vec::with_capacity(1000);
     let _ = _main.render(8, &mut w2);
     let _ = _n.render(8, &mut w);
@@ -479,11 +485,11 @@ fn _make_curr_reset<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
     return _n;
 }
 
-fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: &'a HashMap<&str, usize>) -> RcDoc<'a> {
+fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a> {
     let mut _n = RcDoc::nil();
     let sigs_0 = _vsigs
         .into_iter()
-        .map(|(&x, _)| format!("{}_curr", x))
+        .map(|x| format!("{}_curr", x))
         .collect::<Vec<_>>()
         .join(", ");
     // XXX: Get all output signals

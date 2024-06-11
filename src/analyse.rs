@@ -695,7 +695,9 @@ fn _type_infer_sexpr<'a>(
             let _ss = _sy;
             let arg_types = _expr
                 .iter()
-                .map(|x| _get_type(_signals, _vars, x, _ret, _ff, _oret))
+		// XXX: We have consumed the return type here for this
+		// call if any
+                .map(|x| _get_type(_signals, _vars, x, _ret, _ff, &None))
                 .collect::<Vec<Type>>();
             assert!(!arg_types.is_empty());
             let ret_type = if _oret.is_some() {

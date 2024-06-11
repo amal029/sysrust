@@ -2,10 +2,12 @@ output signal K;
 input signal M;
 int h = 0;
 int i = 10;
+int y = 0;
 loop{
  abort(M){
    // emit L;
-   h = mcall(i, ccall(h+100, i));
+   y = ccall(h+100, i);
+   h = mcall(i, y);
    S0: pause;
  };
  emit K;
