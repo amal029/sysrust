@@ -594,8 +594,14 @@ fn _gen_code<'a>(
                 _n = _n.append(RcDoc::as_string(s));
                 return (_n, _rets);
             } else {
-                // XXX: Do nothing here -- join node. Join node code
-                // will be built on its own with first == 0.
+		// XXX: Join node state.
+                let mut _n = _n;
+                _n = _n
+                    .append(RcDoc::as_string(format!(
+                        "st{} = Thread{}<ND>{{}};",
+                        _nodes[_i]._tid, _nodes[_i]._tid
+                    )))
+                    .append(RcDoc::hardline());
                 return (_n, _rets);
             }
         } else if _i == _l {
@@ -651,6 +657,8 @@ fn _gen_code<'a>(
             .iter()
             .map(|x| x.codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]))
             .collect::<Vec<_>>();
+
+	// XXX: Add extra guards if it is a Join node here
 
         // XXX: Make the actions for each branch
         let _am = _nodes[_i]
