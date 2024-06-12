@@ -13,6 +13,7 @@ lalrpop-util = "0.20.2"
 logos = "0.14"
 lalrpop-util = "0.20.2"
 pretty= "0.12.3"
+itertools = "0.13.0"
 
 [profile.dev]
 opt-level = 0

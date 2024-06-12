@@ -3,6 +3,7 @@ use std::{
     iter::zip,
 };
 
+use itertools::join;
 use pretty::RcDoc;
 use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type};
 
@@ -229,43 +230,27 @@ pub fn _codegen(
     for i in zip(_syref, _sref) {
         let mut _sigs_map: HashMap<&str, usize> = HashMap::new();
         let vv = i.0.union(&i.1).collect::<Vec<_>>();
-        let v1 = vv
-            .iter()
-            .enumerate()
-            .map(|(j, &&x)| {
+        let v1 = join(
+            vv.iter().enumerate().map(|(j, &&x)| {
                 _sigs_map.insert(x, j);
                 if _counter == 0 {
                     _for_main.push(x.to_string());
                 }
                 _for_fsm[_counter].push(x.to_string());
                 format!("signal_{} &_{}", x, j)
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
+            }),
+            ", ",
+        );
         _sigs_map_per_thread.push(_sigs_map);
         _used_sigs_vec.push(v1);
 
-        let v2 = vv
-            .iter()
-            .enumerate()
-            .map(|(j, _)| format!("&_{}", j))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let v2 = join(vv.iter().enumerate().map(|(j, _)| format!("&_{}", j)), ", ");
         _used_sigs_cap.push(v2);
 
-        let v2 = vv
-            .iter()
-            .enumerate()
-            .map(|(j, _)| format!("_{}", j))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let v2 = join(vv.iter().enumerate().map(|(j, _)| format!("_{}", j)), ", ");
         _used_sigs_tick.push(v2);
 
-        let vv = vv
-            .iter()
-            .map(|x| format!("signal_{} &", x))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let vv = join(vv.iter().map(|x| format!("signal_{} &", x)), ", ");
         _used_sigs.push(vv);
         _counter += 1;
     }
@@ -315,25 +300,25 @@ pub fn _codegen(
         .append(RcDoc::as_string(_prototypes))
         .append(RcDoc::hardline());
 
-    let _threadvar: Vec<_> = (0..*_nthreads)
-        .map(|x| format!("static Thread{}State st{};", x, x))
-        .collect();
-    let _threadvar = _threadvar.join("\n");
+    let _threadvar = join(
+        (0..*_nthreads).map(|x| format!("static Thread{}State st{};", x, x)),
+        ", ",
+    );
     _n = _n
         .append(RcDoc::hardline())
         .append(_threadvar)
         .append(RcDoc::hardline());
 
     // XXX: Make the initial functions
-    let _inits: Vec<_> = (0..*_nthreads)
-        .map(|x| {
+    let _inits = join(
+        (0..*_nthreads).map(|x| {
             format!(
                 "constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
                 x, x, x
             )
-        })
-        .collect();
-    let _inits = _inits.join("\n");
+        }),
+        ", ",
+    );
     _n = _n
         .append(RcDoc::hardline())
         .append(RcDoc::hardline())
@@ -349,8 +334,8 @@ pub fn _codegen(
     // XXX: All the visits
     assert!(*_nthreads == _used_sigs_vec.len());
     assert!(*_nthreads == _used_sigs_cap.len());
-    let _hh = (0..*_nthreads)
-        .map(|i| {
+    let _hh = join(
+        (0..*_nthreads).map(|i| {
             let _f1 = if _used_sigs_vec[i] != "" {
                 format!(
                     "constexpr void visit{}(Thread{}State &ts, {}){{\
@@ -365,9 +350,9 @@ pub fn _codegen(
                 )
             };
             _f1
-        })
-        .collect::<Vec<_>>();
-    let _hh = _hh.join("\n");
+        }),
+        ", ",
+    );
     _n = _n
         .append(RcDoc::hardline())
         .append(RcDoc::as_string(_hh))
@@ -478,11 +463,7 @@ fn _make_curr_reset<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
 
 fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a> {
     let mut _n = RcDoc::nil();
-    let sigs_0 = _vsigs
-        .into_iter()
-        .map(|x| format!("{}_curr", x))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let sigs_0 = join(_vsigs.into_iter().map(|x| format!("{}_curr", x)), ", ");
     // XXX: Get all output signals
     let __sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
     let _osigs = __sigs
@@ -594,7 +575,7 @@ fn _gen_code<'a>(
                 _n = _n.append(RcDoc::as_string(s));
                 return (_n, _rets);
             } else {
-		// XXX: Join node state.
+                // XXX: Join node state.
                 let mut _n = _n;
                 _n = _n
                     .append(RcDoc::as_string(format!(
@@ -658,7 +639,7 @@ fn _gen_code<'a>(
             .map(|x| x.codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]))
             .collect::<Vec<_>>();
 
-	// XXX: Add extra guards if it is a Join node here
+        // XXX: Add extra guards if it is a Join node here
 
         // XXX: Make the actions for each branch
         let _am = _nodes[_i]

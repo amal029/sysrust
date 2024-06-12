@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use pretty::RcDoc;
 
+use itertools::join;
 type Pos = (usize, usize);
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
@@ -329,12 +330,7 @@ impl CallNameType {
     pub fn _get_doc(&self) -> RcDoc {
         let _ret = RcDoc::<()>::as_string(self._rtype._to_string());
         let _toret = RcDoc::<()>::as_string(self._sy.clone());
-        let _args = self
-            ._arg_types
-            .iter()
-            .map(|x| x._to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
+        let _args = join(self._arg_types.iter().map(|x| x._to_string()), ", ");
         let _args = RcDoc::<()>::as_string(format!("({});", _args));
         _ret.append(" ").append(_toret).append(_args)
     }
