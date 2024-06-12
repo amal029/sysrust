@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{iter::zip, process::exit};
 
 use sysrust::ast::*;
 
@@ -8,8 +8,8 @@ use crate::error::print_bytes;
 pub enum NodeT {
     PauseStart,
     PauseEnd,
-    SparFork,
-    SparJoin,
+    SparFork(usize),
+    SparJoin(usize),
     Seq,
     BranchFork,
     BranchJoin,
@@ -53,12 +53,8 @@ fn rewrite_stmt_to_graph_fsm(
     tot: &mut Index,
     idx: &mut usize,
     s: &Stmt,
+    _tidxs: &mut Vec<(usize, usize)>,
 ) -> (Index, Index) {
-    fn symbol_string(s: &Symbol) -> String {
-        match s {
-            Symbol::Symbol(ss, _) => ss.clone(),
-        }
-    }
     match s {
         Stmt::Emit(a, expr, pos) => {
             let mut i = GraphNode::default(*tid);
@@ -82,13 +78,13 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Pause(la, pos) => {
             let mut s0 = GraphNode::default(*tid);
-            s0.label = symbol_string(la);
+            s0.label = la.get_string().to_string();
             s0.tt = NodeT::PauseStart;
             s0.tag = true;
             s0.guards.push(Expr::True(*pos));
             let mut e = GraphNode::default(*tid);
             e.tt = NodeT::PauseEnd;
-            e.label = symbol_string(la);
+            e.label = la.get_string().to_string();
             e.label = String::from("PauseEnd");
             // XXX: Add the doubly linked list annotations
             _nodes.push(s0);
@@ -209,13 +205,15 @@ fn rewrite_stmt_to_graph_fsm(
             *idx += 1;
             (r1, r2)
         }
-        Stmt::Block(_stmts, _pos) => rewrite_to_graph_fsm(ff, _stmts, tid, tot, idx, _nodes),
+        Stmt::Block(_stmts, _pos) => {
+            rewrite_to_graph_fsm(ff, _stmts, tid, tot, idx, _nodes, _tidxs)
+        }
         // XXX: With no else branch
         Stmt::Present(_expr, _tb, None, _pos) => {
             // XXX: First make the body
-            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb);
+            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb, _tidxs);
             let (_er1, _er2) =
-                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, &Stmt::Noop(*_pos));
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, &Stmt::Noop(*_pos), _tidxs);
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
@@ -262,8 +260,8 @@ fn rewrite_stmt_to_graph_fsm(
         // XXX: With an else branch
         Stmt::Present(_expr, _tb, Some(_eb), _pos) => {
             // XXX: First make the body
-            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb);
-            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _eb);
+            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb, _tidxs);
+            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _eb, _tidxs);
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
@@ -308,7 +306,7 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Loop(_body, _pos) => {
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
             // XXX: Attach an edge from end node to the initial node
             _nodes[_be].children.push(_bi);
             _nodes[_be].guards.push(Expr::True(*_pos));
@@ -325,7 +323,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Abort(_a, None, _body, _pos) => {
             // XXX: This is strong abort
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
@@ -362,7 +360,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Abort(_a, Some(ASQual::Immediate), _body, _pos) => {
             // XXX: This is strong immediate abort
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
@@ -411,7 +409,7 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Suspend(_a, None, _body, _pos) => {
             // XXX: This is strong suspend
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body);
+            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
 
             // XXX: Get the guards for every real node
@@ -425,7 +423,7 @@ fn rewrite_stmt_to_graph_fsm(
         Stmt::Suspend(_a, Some(_), _body, _pos) => {
             let _ = print_bytes(ff, _pos.0, _pos.1);
             println!("Cannot happen");
-	    exit(1);
+            exit(1);
         }
         Stmt::Spar(_stmts, _pos) => {
             // XXX: Note that we can get edges outside the current
@@ -444,15 +442,21 @@ fn rewrite_stmt_to_graph_fsm(
                 .map(|x| {
                     *tid = *tot;
                     *tot += 1;
-                    rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, x)
+                    rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, x, _tidxs)
                 })
                 .unzip();
             *tid = mtid;
 
+            // XXX: Add the _bis and _eis to _tidxs
+            let mut _idxs = zip(_bi.iter(), _ei.iter())
+                .map(|(&x, &y)| (x, y))
+                .collect::<Vec<_>>();
+            _tidxs.append(&mut _idxs);
+
             // XXX: Now make the fork node (initial)
             let mut _fi = GraphNode::default(*tid);
             _fi.label = String::from("SPARFork");
-            _fi.tt = NodeT::SparFork;
+            _fi.tt = NodeT::SparFork(0);
 
             // XXX: Attach from _fi to _bis
             _bi.iter().for_each(|&x| {
@@ -469,9 +473,14 @@ fn rewrite_stmt_to_graph_fsm(
             let mut je = GraphNode::default(*tid);
             je.tag = true; //this is a real node
             je.idx = *idx;
-            je.label = String::from("SPARJoin");
-            je.tt = NodeT::SparJoin;
+            // XXX: This has to be ND for backend code generation
+            je.label = String::from("ND");
+            // je.tt = NodeT::SparJoin(0);
             let rm = je.idx;
+
+            // XXX: Attach the join node to the fork node and vice-versa
+            _nodes[r1].tt = NodeT::SparFork(rm);
+            je.tt = NodeT::SparJoin(r1);
 
             // XXX: Attach _eis to je.
             _ei.iter().for_each(|&x| {
@@ -605,12 +614,13 @@ pub fn rewrite_to_graph_fsm(
     _tot: &mut Index,
     _idx: &mut Index,
     _nodes: &mut Vec<GraphNode>,
+    _tidxs: &mut Vec<(usize, usize)>,
 ) -> (Index, Index) {
     let mut r1 = 0usize;
     let mut r2 = 0usize;
     let mut _pe = 0usize;
     for (ii, i) in _v.iter().enumerate() {
-        let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _tot, _idx, i);
+        let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _tot, _idx, i, _tidxs);
         if ii == 0 {
             r1 = si;
         }

@@ -92,6 +92,15 @@ pub enum Val {
     VFloat(f64),
 }
 
+impl Val {
+    pub fn to_string(&self) -> String {
+        match self {
+            Val::VFloat(x) => x.to_string(),
+            Val::VInt(x) => x.to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     Block(Vec<Stmt>, Pos),

@@ -4,18 +4,12 @@ use std::{
 };
 
 use pretty::RcDoc;
-use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val};
+use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type};
 
 use crate::{
     error::print_bytes,
     rewrite::{GraphNode, NodeT},
 };
-
-fn _symbol_string(_sy: &Symbol) -> &String {
-    match _sy {
-        Symbol::Symbol(_sy, _) => _sy,
-    }
-}
 
 fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str {
     match _ty {
@@ -25,13 +19,6 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str
             let _ = print_bytes(ff, _pos.0, _pos.1);
             panic!("Cannot write an empty type")
         }
-    }
-}
-
-fn _val_string(_val: &Val) -> String {
-    match _val {
-        Val::VInt(x) => x.to_string(),
-        Val::VFloat(x) => x.to_string(),
     }
 }
 
@@ -52,25 +39,25 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
-            let _m = format!("struct signal_{}", _symbol_string(_sy));
+            let _m = format!("struct signal_{}", _sy.get_string());
             let _m = format!("{} {{bool status;}};", _m);
             let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
-            let sname = _symbol_string(_sy);
+            let sname = _sy.get_string();
             let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
             _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
-            let _m = format!("struct signal_{}", _symbol_string(_sy));
+            let _m = format!("struct signal_{}", _sy.get_string());
             let _m = format!(
                 "{} {{bool status; {} value = {}; {}<{}> op {{}};}};",
                 _m,
                 _type_string(_ty, *_pos, _ff),
-                _val_string(_iv),
+                _iv.to_string(),
                 _expr_op_std_op(_op, *_pos, _ff),
                 _type_string(_ty, *_pos, _ff)
             );
             let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
-            let sname = _symbol_string(_sy);
+            let sname = _sy.get_string();
             let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
             a.append(u).append(RcDoc::hardline())
         }
@@ -84,9 +71,9 @@ fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
             let _m = format!(
                 "{} {}_{} = {};",
                 _type_string(_ty, *_pos, _ff),
-                _symbol_string(_sy),
+                _sy.get_string(),
                 _tid,
-                _val_string(_iv)
+                _iv.to_string(),
             );
             RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
         }
@@ -96,7 +83,7 @@ fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
 
 fn _get_unique_set(st: &[Vec<Symbol>]) -> Vec<HashSet<&String>> {
     st.iter()
-        .map(|x| x.iter().map(|y| _symbol_string(y)).collect::<HashSet<_>>())
+        .map(|x| x.iter().map(|y| y.get_string()).collect::<HashSet<_>>())
         .collect()
 }
 
@@ -105,8 +92,8 @@ fn _get_unique_set_sexpr(st: &[Vec<SimpleDataExpr>]) -> Vec<HashSet<&String>> {
         .map(|i| {
             i.iter()
                 .map(|j| match j {
-                    SimpleDataExpr::SignalRef(_sy, _) => _symbol_string(_sy),
-                    SimpleDataExpr::VarRef(_sy, _) => _symbol_string(_sy),
+                    SimpleDataExpr::SignalRef(_sy, _) => _sy.get_string(),
+                    SimpleDataExpr::VarRef(_sy, _) => _sy.get_string(),
                     _ => panic!("Got a non signal and variable when making unique names"),
                 })
                 .collect::<HashSet<_>>()
@@ -149,7 +136,7 @@ pub fn _codegen(
 
     // XXX: Declare all the signals in the program/thread
     let _m_header = RcDoc::<()>::as_string("// Sig decls").append(RcDoc::hardline());
-    _m_header.render(8, &mut w).expect("Cannot write variables");
+    _m_header.render(8, &mut w).expect("Cannot write signals");
     for (_i, _s) in _sigs.iter().enumerate() {
         for _ss in _s {
             let _m = _sig_decl(_ss, _i, _ff).append(RcDoc::hardline());
@@ -192,7 +179,7 @@ pub fn _codegen(
     let mut _n = RcDoc::<()>::line();
     for _i in _states {
         for _j in _i {
-            let k = format!("struct {} : State {{}};", _symbol_string(_j));
+            let k = format!("struct {} : State {{}};", _j.get_string());
             _n = _n.append(RcDoc::as_string(k)).append(RcDoc::hardline());
         }
     }
@@ -216,7 +203,7 @@ pub fn _codegen(
     for (_k, _i) in _states.iter().enumerate() {
         let mut _vv: Vec<_> = _i
             .iter()
-            .map(|x| format!("Thread{}<{}>", _k, _symbol_string(x)))
+            .map(|x| format!("Thread{}<{}>", _k, x.get_string()))
             .collect();
         _vv.push(format!("Thread{}<I>", _k));
         _vv.push(format!("Thread{}<E>", _k));
@@ -237,6 +224,7 @@ pub fn _codegen(
     let mut _used_sigs_cap: Vec<String> = Vec::new();
     let mut _used_sigs_tick: Vec<String> = Vec::new();
     let mut _for_main: Vec<String> = Vec::new();
+    let mut _for_fsm: Vec<Vec<String>> = vec![Vec::new(); *_nthreads];
     let mut _counter = 0;
     for i in zip(_syref, _sref) {
         let mut _sigs_map: HashMap<&str, usize> = HashMap::new();
@@ -249,6 +237,7 @@ pub fn _codegen(
                 if _counter == 0 {
                     _for_main.push(x.to_string());
                 }
+                _for_fsm[_counter].push(x.to_string());
                 format!("signal_{} &_{}", x, j)
             })
             .collect::<Vec<_>>()
@@ -311,7 +300,7 @@ pub fn _codegen(
         );
         thread_prototypes.push(_ss);
         for j in k2 {
-            let mm = _symbol_string(j);
+            let mm = j.get_string();
             let _ss = format!(
                 "template <> struct Thread{}<{}>{{\nconstexpr void tick \
 			  ({});}};",
@@ -392,14 +381,16 @@ pub fn _codegen(
         *_nthreads,
         &_used_sigs_vec,
         &_sigs_map_per_thread,
+        &_for_fsm,
+        &_sigs,
     );
-    let mut w1: Vec<u8> = Vec::with_capacity(1000);
+    let mut w1: Vec<u8> = Vec::with_capacity(50);
     let _ = _nn.render(8, &mut w1);
 
     // XXX: Now make the main function and input/output functions, which
     // are extern.
     let _main = _make_main_code(_sigs, _for_main);
-    let mut w2: Vec<u8> = Vec::with_capacity(1000);
+    let mut w2: Vec<u8> = Vec::with_capacity(50);
     let _ = _main.render(8, &mut w2);
     let _ = _n.render(8, &mut w);
     w.append(&mut w1);
@@ -525,6 +516,11 @@ fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a>
             _ => panic!("Got a non signal during input signal code generation"),
         })
         .collect::<Vec<_>>();
+    let __m: RcDoc<()> = if sigs_0.is_empty() {
+        RcDoc::as_string(format!("visit0(st0);"))
+    } else {
+        RcDoc::as_string(format!("visit0(st0, {});", sigs_0))
+    };
     _n = _n
         .append(_make_print_ouputs(_osigs))
         .append(RcDoc::hardline())
@@ -540,7 +536,7 @@ fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a>
         .append(RcDoc::hardline())
         .append("//read_inputs();")
         .append(RcDoc::hardline())
-        .append(format!("visit0(st0, {});", sigs_0))
+        .append(__m)
         .append(RcDoc::hardline())
         .append("print_outputs();")
         .append(RcDoc::hardline())
@@ -553,43 +549,40 @@ fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a>
     return _n;
 }
 
-fn _walk_graph_code_gen<'a>(
+fn _gen_code<'a>(
     _f: usize,
     _l: usize,
     _rets: VecDeque<usize>,
     _nodes: &'a [GraphNode],
     _n: RcDoc<'a>,
+    _i: usize,
+    _ptid: usize,
     _used_sigs_per_thread: &'a [String],
-    _done_nodes: &[usize],
+    first: u8,
     _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
-) -> (RcDoc<'a>, VecDeque<usize>, usize) {
-    fn _gen_code<'a>(
-        _f: usize,
-        _l: usize,
-        _rets: VecDeque<usize>,
-        _nodes: &'a [GraphNode],
-        _n: RcDoc<'a>,
-        _i: usize,
-        _ptid: usize,
-        _used_sigs_per_thread: &'a [String],
-        first: u8,
-        _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
-    ) -> (RcDoc<'a>, VecDeque<usize>) {
-        // XXX: First != 0 means that we have already reached this node
-        // and we want to continue from here
-        if _nodes[_i].tag && first != 0 {
-            // FIXME: Handle the case when the _tid of stop is different
-            // from current thread id
-
-            // FIXME: Also need to handle the join node for parallelism
-
-            // XXX: We have already found where to stop
-            if _i != _l {
-                // XXX: This must be a pause
-                match _nodes[_i].tt {
-                    NodeT::PauseStart => (),
-                    _ => panic!("Got a non pause stop state: {:?}", _nodes[_i]),
-                }
+    _for_fsm_sigs_thread: &'a [Vec<String>],
+    _all_sigs: &'a [Vec<Stmt>],
+) -> (RcDoc<'a>, VecDeque<usize>) {
+    // XXX: First != 0 means that we have already reached this node
+    // and we want to continue from here
+    if _nodes[_i].tag && first != 0 {
+        if _nodes[_i]._tid != _ptid {
+            // XXX: This means we are outside the previous thread
+            let s = format!("st{} = Thread{}<E>{{}};", _ptid, _ptid);
+            let mut _n = _n;
+            _n = _n.append(RcDoc::as_string(s));
+            // XXX: Do not push yourself onto _rets
+            return (_n, _rets);
+        }
+        // XXX: We have already found where to stop
+        else if _i != _l {
+            // XXX: This must be a pause
+            let _join = match _nodes[_i].tt {
+                NodeT::PauseStart => false,
+                NodeT::SparJoin(_) => true,
+                _ => panic!("Got a non pause stop state: {:?}", _nodes[_i]),
+            };
+            if !_join {
                 let mut _rets = _rets;
                 // XXX: Push yourself into the queue for codegen later
                 _rets.push_back(_i);
@@ -600,18 +593,30 @@ fn _walk_graph_code_gen<'a>(
                 let mut _n = _n;
                 _n = _n.append(RcDoc::as_string(s));
                 return (_n, _rets);
-            } else if _i == _l {
-                // XXX: Just make the end node code
-                let s = format!("st{} = Thread{}<E>{{}};", _nodes[_i]._tid, _nodes[_i]._tid,);
-                let mut _n = _n;
-                _n = _n.append(RcDoc::as_string(s));
-                return (_n, _rets);
             } else {
-                panic!("Reached a deadend: {:?}", _nodes[_i])
+                // XXX: Do nothing here -- join node. Join node code
+                // will be built on its own with first == 0.
+                return (_n, _rets);
             }
-            // XXX: Now make the code for this node and return
+        } else if _i == _l {
+            // XXX: Just make the end node code
+            let s = format!("st{} = Thread{}<E>{{}};", _nodes[_i]._tid, _nodes[_i]._tid,);
+            let mut _n = _n;
+            _n = _n.append(RcDoc::as_string(s));
+            return (_n, _rets);
+        } else {
+            panic!("Reached a deadend: {:?}", _nodes[_i])
         }
+        // XXX: Now make the code for this node and return
+    }
 
+    // XXX: If this is a forkNode then we have to do something different
+    let _fork = match _nodes[_i].tt {
+        NodeT::SparFork(_) => true,
+        _ => false,
+    };
+
+    if !_fork {
         // XXX: First do a map of each child branch
         let _cbm = _nodes[_i]
             .children
@@ -628,6 +633,8 @@ fn _walk_graph_code_gen<'a>(
                     _used_sigs_per_thread,
                     first + 1,
                     _sigs_map_per_threads,
+                    _for_fsm_sigs_thread,
+                    _all_sigs,
                 )
             })
             .collect::<Vec<_>>();
@@ -692,8 +699,111 @@ fn _walk_graph_code_gen<'a>(
             .into_iter()
             .collect::<VecDeque<_>>();
         return (__n.append(_n), _rn);
-    }
+    } else {
+        // XXX: This is for the fork node
+        let _jnode_idx = match _nodes[_i].tt {
+            NodeT::SparFork(x) => x,
+            _ => panic!("Got a non join node when building backend"),
+        };
 
+        // 1. Then build the code for init.
+        let _ctids = _nodes[_i].children.iter().map(|x| _nodes[*x]._tid);
+        let mut _n = _n;
+        for i in _ctids {
+            _n = _n.append(format!("init{}();", i)).append(RcDoc::hardline());
+            // XXX: Here we need the signals used in children threads.
+            let _csigs = &_for_fsm_sigs_thread[i];
+            for _s in _csigs.iter() {
+                _n = _n
+                    .append(format!("//Copy of signal {}", _s))
+                    .append(RcDoc::hardline());
+                _n = _n.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+                _n = _n.append(RcDoc::hardline());
+            }
+            // XXX: Now make the input signals to visit
+            let _vsigs = _csigs
+                .iter()
+                .enumerate()
+                .map(|(_jk, x)| format!("{}_{}", x, i))
+                .collect::<Vec<_>>();
+            if _vsigs.is_empty() {
+                _n = _n
+                    .append(format!("visit{}(st{});", i, i))
+                    .append(RcDoc::hardline());
+            } else {
+                _n = _n
+                    .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
+                    .append(RcDoc::hardline());
+            }
+            // XXX: Update the status of the signal copies being sent!
+            for _cs in _csigs {
+                _n = _n
+                    .append(format!(
+                        "{}_curr.status = {}_curr.status || {}_{}.status;",
+                        _cs, _cs, _cs, i
+                    ))
+                    .append(RcDoc::hardline());
+            }
+            // FIXME: Handle data value for signals here.
+            _n = _n
+                .append("//FIXME: Still need to handle valued signals correctly")
+                .append(RcDoc::hardline());
+        }
+        // FIXME: Here we need signals that are passed to this thread
+        _n = _n
+            .append(format!(
+                "st{} = Thread{}<ND>{{}};",
+                _nodes[_i]._tid, _nodes[_i]._tid
+            ))
+            .append(RcDoc::hardline());
+        let _csigs = &_for_fsm_sigs_thread[_nodes[_i]._tid];
+        // XXX: Now call the visit for Done node
+        let _vsigs = _csigs
+            .into_iter()
+            .map(|x| {
+                format!(
+                    "_{}",
+                    _sigs_map_per_threads[_nodes[_i]._tid]
+                        .get(&x.as_str())
+                        .unwrap()
+                )
+            })
+            .collect::<Vec<_>>();
+        if _vsigs.is_empty() {
+            _n = _n
+                .append(format!("visit{}(st{});", _nodes[_i]._tid, _nodes[_i]._tid))
+                .append(RcDoc::hardline());
+        } else {
+            _n = _n
+                .append(format!(
+                    "visit{}(st{}, {});",
+                    _nodes[_i]._tid,
+                    _nodes[_i]._tid,
+                    _vsigs.join(", ")
+                ))
+                .append(RcDoc::hardline());
+        }
+
+        // 2. Push the join node into _rets
+        let mut _rets = _rets;
+        _rets.push_back(_jnode_idx);
+        // XXX: Fix this output
+        return (_n, _rets);
+    }
+}
+
+fn _walk_graph_code_gen<'a>(
+    _f: usize,
+    _l: usize,
+    _rets: VecDeque<usize>,
+    _nodes: &'a [GraphNode],
+    _n: RcDoc<'a>,
+    _used_sigs_per_thread: &'a [String],
+    _done_nodes: &[usize],
+    _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
+    _for_fsm_sigs_thread: &'a [Vec<String>],
+    _all_sigs: &'a [Vec<Stmt>],
+) -> (RcDoc<'a>, VecDeque<usize>, usize) {
     let mut _rets = _rets;
     let inode = _rets.pop_front().unwrap();
     // XXX: Return if you have already generated code for this node.
@@ -715,6 +825,8 @@ fn _walk_graph_code_gen<'a>(
         // first call to gen_code. Needed for traversing
         // the graph from pause states.
         _sigs_map_per_threads,
+        _for_fsm_sigs_thread,
+        _all_sigs,
     );
     // XXX: Here we need to put it inside the method!
     let __n = RcDoc::<()>::as_string(format!(
@@ -738,6 +850,8 @@ fn _make_fsm_code<'a>(
     _nthreads: usize,
     _used_sigs_per_thread: &'a [String],
     _sigs_map_per_threads: &'a Vec<HashMap<&str, usize>>,
+    _for_fsm_sigs_thread: &'a [Vec<String>],
+    _all_sigs: &'a [Vec<Stmt>],
 ) -> RcDoc<'a> {
     // XXX: Walk graph and generate code
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
@@ -756,6 +870,8 @@ fn _make_fsm_code<'a>(
             _used_sigs_per_thread,
             &_done_nodes,
             &_sigs_map_per_threads,
+            _for_fsm_sigs_thread,
+            _all_sigs,
         );
         _res.push(_n);
         _done_nodes.push(_inode);

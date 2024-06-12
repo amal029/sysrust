@@ -23,14 +23,14 @@ fn main() {
 
     // XXX: Analyse signa/var declaration and their uses
     let mut stack: Vec<HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>> =
-        Vec::with_capacity(1000);
+        Vec::with_capacity(50);
 
     // XXX: The errors in the program are collected here.
-    let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(1000);
+    let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(50);
 
     // XXX: Check the usage and declaration of signals and variables
     let tid = 0;
-    stack.push(HashMap::with_capacity(1000)); // pushed the first hashmap
+    stack.push(HashMap::with_capacity(50)); // pushed the first hashmap
     stack = _analyse_var_signal_uses(&args[1], &_ast, stack, &mut rets, tid);
     stack.pop(); // removed the final hashmap
 
@@ -71,7 +71,7 @@ fn main() {
     // println!("{:?}", _vars);
 
     // XXX: Type inference for extern calls to C
-    let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(1000);
+    let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(50);
     let __signals = _signals.iter().flatten().collect::<Vec<_>>();
     let __vars = _vars.iter().flatten().collect::<Vec<_>>();
     _type_infer_extern_calls(&__signals, &__vars, &_ast, &mut _extern_calls, &args[1]);
@@ -113,11 +113,20 @@ fn main() {
     // println!("{:?} {:?} {:?} {:?}", _syref, _sref, _vyref, _vref);
 
     // XXX: Make the FSM graph
-    let mut _nodes: Vec<GraphNode> = Vec::with_capacity(1000);
+    let mut _nodes: Vec<GraphNode> = Vec::with_capacity(50);
     let mut idx = 0usize;
     let mut tid = 0;
     let mut tot = 1;
-    let (_i, _e) = rewrite_to_graph_fsm(&args[1], &_ast, &mut tid, &mut tot, &mut idx, &mut _nodes);
+    let mut _tidxs: Vec<(usize, usize)> = Vec::with_capacity(50);
+    let (_i, _e) = rewrite_to_graph_fsm(
+        &args[1],
+        &_ast,
+        &mut tid,
+        &mut tot,
+        &mut idx,
+        &mut _nodes,
+        &mut _tidxs,
+    );
     // XXX: Make the label for _i and _e
     _nodes[_i].label = String::from("I");
     // XXX: Only make the end node if it has no children -- a loop
