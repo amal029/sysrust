@@ -302,7 +302,7 @@ pub fn _codegen(
 
     let _threadvar = join(
         (0..*_nthreads).map(|x| format!("static Thread{}State st{};", x, x)),
-        ", ",
+        "\n ",
     );
     _n = _n
         .append(RcDoc::hardline())
@@ -317,7 +317,7 @@ pub fn _codegen(
                 x, x, x
             )
         }),
-        ", ",
+        "\n ",
     );
     _n = _n
         .append(RcDoc::hardline())
@@ -351,7 +351,7 @@ pub fn _codegen(
             };
             _f1
         }),
-        ", ",
+        "\n ",
     );
     _n = _n
         .append(RcDoc::hardline())

@@ -1,5 +1,6 @@
 use analyse::{get_num_threads, get_states};
 use error::print_bytes;
+use rewrite::NodeT;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::File;
@@ -128,6 +129,10 @@ fn main() {
         &mut _tidxs,
     );
     // XXX: Make the label for _i and _e
+    let _ = match _nodes[_i].tt {
+        NodeT::PauseStart => panic!("Please add a nothing before the first pause in the program"),
+        _ => (),
+    };
     _nodes[_i].label = String::from("I");
     // XXX: Only make the end node if it has no children -- a loop
     if _nodes[_e].children.is_empty() {
@@ -170,17 +175,19 @@ fn main() {
         .output()
         .expect("Could not get path to clang-format");
     let _clang_bin_status = _clang_bin.status;
-    let _clang_bin_path = _clang_bin
-        .stdout
-        .into_iter()
-        .map(|x| x as char)
-        .collect::<String>();
-    let _clang_bin_path = _clang_bin_path.strip_suffix("\n").unwrap();
     if _clang_bin_status.success() {
+        let _clang_bin_path = _clang_bin
+            .stdout
+            .into_iter()
+            .map(|x| x as char)
+            .collect::<String>();
+        let _clang_bin_path = _clang_bin_path.strip_suffix("\n").unwrap();
         let _fmt_res = Command::new(_clang_bin_path)
             .arg("-i")
             .arg(_fname)
             .output()
             .expect("failed to format the cpp file");
+    } else {
+        println!("Could not find clang-format the generated cpp file will not be formatted");
     }
 }
