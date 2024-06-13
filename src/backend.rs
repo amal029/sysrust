@@ -118,6 +118,7 @@ pub fn _codegen(
     _ginode: usize,
     _genode: usize,
     _gnodes: &[GraphNode],
+    _tidxs: Vec<(usize, usize)>,
 ) -> Vec<u8> {
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
@@ -208,7 +209,7 @@ pub fn _codegen(
             .collect();
         _vv.push(format!("Thread{}<I>", _k));
         _vv.push(format!("Thread{}<E>", _k));
-        _vv.push(format!("Thread{}<D>", _k));
+        // _vv.push(format!("Thread{}<D>", _k));
         _vv.push(format!("Thread{}<ND>", _k));
         let _vv = _vv.join(", ");
         let _vv = format!("using Thread{}State = std::variant<{}>;", _k, _vv);
@@ -278,12 +279,12 @@ pub fn _codegen(
             i, k1
         );
         thread_prototypes.push(_ss);
-        let _ss = format!(
-            "template <> struct Thread{}<D>{{\nconstexpr void tick \
-			  ({});}};",
-            i, k1
-        );
-        thread_prototypes.push(_ss);
+        // let _ss = format!(
+        //     "template <> struct Thread{}<D>{{\nconstexpr void tick \
+	// 		  ({});}};",
+        //     i, k1
+        // );
+        // thread_prototypes.push(_ss);
         for j in k2 {
             let mm = j.get_string();
             let _ss = format!(
@@ -360,22 +361,37 @@ pub fn _codegen(
 
     // XXX: The real code from the FSM
     let _nn = _make_fsm_code(
-        _ginode,
-        _genode,
-        _gnodes,
+        _ginode, // this is i
+        _genode, // this is e
+        _gnodes, // this is the adj-list
         *_nthreads,
         &_used_sigs_vec,
         &_sigs_map_per_thread,
         &_for_fsm,
         &_sigs,
     );
-    let mut w1: Vec<u8> = Vec::with_capacity(50);
+    let mut w1: Vec<u8> = Vec::with_capacity(5000);
     let _ = _nn.render(8, &mut w1);
+
+    // XXX: Make all other threads here
+    _tidxs.into_iter().for_each(|(_ginode, _genode)| {
+        let _nn = _make_fsm_code(
+            _ginode, // this is i
+            _genode, // this is e
+            _gnodes, // this is the adj-list
+            *_nthreads,
+            &_used_sigs_vec,
+            &_sigs_map_per_thread,
+            &_for_fsm,
+            &_sigs,
+        );
+        let _ = _nn.render(8, &mut w1);
+    });
 
     // XXX: Now make the main function and input/output functions, which
     // are extern.
     let _main = _make_main_code(_sigs, _for_main);
-    let mut w2: Vec<u8> = Vec::with_capacity(50);
+    let mut w2: Vec<u8> = Vec::with_capacity(5000);
     let _ = _main.render(8, &mut w2);
     let _ = _n.render(8, &mut w);
     w.append(&mut w1);
@@ -389,14 +405,14 @@ fn _make_print_ouputs<'a>(_osigs: Vec<(&'a str, Option<&'a Type>)>) -> RcDoc<'a>
     for (i, j) in _osigs {
         _n = _n
             .append(format!(
-                "std::cout << \"Status of signal {}: \" << {}_curr.status;",
+                "std::cout << \"Status of signal {}: \" << {}_curr.status << \"\\n\";",
                 i, i
             ))
             .append(RcDoc::hardline());
         if j.is_some() {
             _n = _n
                 .append(format!(
-                    "std::cout << \"Value of signal {}: \" << {}_curr.value;",
+                    "std::cout << \"Value of signal {}: \" << {}_curr.value << \"\\n\";",
                     i, i
                 ))
                 .append(RcDoc::hardline());

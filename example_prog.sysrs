@@ -1,6 +1,10 @@
 output signal K;
 output signal m;
+input signal H;
 S0: pause;
-{emit K; emit m;}||{emit m;};
+// This abort currently does not work!
+abort (H){
+ {emit K; emit m; S2: pause;}||{nothing; S3: pause;};
+};
 emit K;
 S1: pause;

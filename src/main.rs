@@ -133,6 +133,19 @@ fn main() {
         NodeT::PauseStart => panic!("Please add a nothing before the first pause in the program"),
         _ => (),
     };
+    // XXX: Fix labels for _tidxs
+    _tidxs.iter().for_each(|(i, e)| {
+        match _nodes[*i].tt {
+            NodeT::PauseStart => panic!("Please put a nothing at start of each thread"),
+            _ => _nodes[*i].label = String::from("I"),
+        }
+        let _etid = _nodes[*e]._tid;
+        // XXX: Check if any child node has _tid == _etid
+        if _nodes[*e].children.iter().all(|x| _nodes[*x]._tid != _etid) {
+            _nodes[*e].label = String::from("E");
+            _nodes[*e].tag = true;
+        }
+    });
     _nodes[_i].label = String::from("I");
     // XXX: Only make the end node if it has no children -- a loop
     if _nodes[_e].children.is_empty() {
@@ -149,24 +162,28 @@ fn main() {
 
     // XXX: First make the prolouge -- includes, threads, states,
     // signals, and vars
+    let _ftowrite = &backend::_codegen(
+        &_signals,
+        &_vars,
+        &num_threads,
+        &_states,
+        &_syref,
+        &_sref,
+        &_vyref,
+        &_vref,
+        &args[1],
+        // XXX: This is for external function in C
+        &_extern_calls,
+        // XXX: These are generating the actual code
+        _i,
+        _e,
+        &_nodes,
+        // XXX: These are the other threads in the program
+        _tidxs,
+    );
+    // XXX: Make all othre thread code as well.
     _file
-        .write_all(&backend::_codegen(
-            &_signals,
-            &_vars,
-            &num_threads,
-            &_states,
-            &_syref,
-            &_sref,
-            &_vyref,
-            &_vref,
-            &args[1],
-            // XXX: This is for external function in C
-            &_extern_calls,
-            // XXX: These are generating the actual code
-            _i,
-            _e,
-            &_nodes,
-        ))
+        .write_all(&_ftowrite)
         .expect("Cannot write to cpp file");
 
     // XXX: Format the generated Cpp file using clang-format
@@ -188,6 +205,6 @@ fn main() {
             .output()
             .expect("failed to format the cpp file");
     } else {
-        println!("Could not find clang-format the generated cpp file will not be formatted");
+        println!("Could not find clang-format, the generated cpp file will not be formatted");
     }
 }
