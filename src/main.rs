@@ -153,7 +153,7 @@ fn main() {
         _nodes[_e].tag = true;
     }
     // println!("{_i} {_e}");
-    // dbg!("{:?} {:?} {:?}", &_nodes, _i, _e);
+    dbg!("{:?} {:?} {:?}", &_nodes, _i, _e);
 
     // XXX: Now start making the backend
     let ff = args[1].split('.').collect::<Vec<&str>>()[0];

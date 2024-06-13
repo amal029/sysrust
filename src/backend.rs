@@ -705,58 +705,82 @@ fn _gen_code<'a>(
             .collect::<VecDeque<_>>();
         return (__n.append(_n), _rn);
     } else {
-	// FIXME: This can have other children too! -- handle them!
+        // FIXME: This can have other children too! -- handle them!
         // XXX: This is for the fork node
         let _jnode_idx = match _nodes[_i].tt {
             NodeT::SparFork(x) => x,
             _ => panic!("Got a non join node when building backend"),
         };
 
-        // 1. Then build the code for init.
-        let _ctids = _nodes[_i].children.iter().map(|x| _nodes[*x]._tid);
+        // XXX: First make sure that the number of guards == number of children
+        assert!(_nodes[_i].children.len() == _nodes[_i].guards.len());
+
         let mut _n = _n;
-        for i in _ctids {
-            _n = _n.append(format!("init{}();", i)).append(RcDoc::hardline());
-            // XXX: Here we need the signals used in children threads.
-            let _csigs = &_for_fsm_sigs_thread[i];
-            for _s in _csigs.iter() {
+        let mut _gnn: Vec<RcDoc<()>> = Vec::with_capacity(_nodes[_i].guards.len());
+        for (j, &c) in _nodes[_i].children.iter().enumerate() {
+            let i = _nodes[c]._tid; // The child thread id
+            if _nodes[c]._tid != _nodes[_i]._tid {
+                println!("child index: is: {j}, guard: {:?}", _nodes[_i].guards[j]);
+                let _gn = _nodes[_i].guards[j]
+                    .codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]);
+                _gnn.push(_gn.clone());
+                let _ifgn = RcDoc::<()>::as_string("if(")
+                    .append(_gn)
+                    .append(")")
+                    .append("{");
+                _n = _n.append(_ifgn);
+                // 1. Then build the code for init.
+                _n = _n.append(format!("init{}();", i)).append(RcDoc::hardline());
+                // XXX: Here we need the signals used in children threads.
+                let _csigs = &_for_fsm_sigs_thread[i];
+                for _s in _csigs.iter() {
+                    _n = _n
+                        .append(format!("//Copy of signal {}", _s))
+                        .append(RcDoc::hardline());
+                    _n = _n.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+                    _n = _n.append(RcDoc::hardline());
+                }
+                // XXX: Now make the input signals to visit
+                let _vsigs = _csigs
+                    .iter()
+                    .enumerate()
+                    .map(|(_jk, x)| format!("{}_{}", x, i))
+                    .collect::<Vec<_>>();
+                if _vsigs.is_empty() {
+                    _n = _n
+                        .append(format!("visit{}(st{});", i, i))
+                        .append(RcDoc::hardline());
+                } else {
+                    _n = _n
+                        .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
+                        .append(RcDoc::hardline());
+                }
+                // XXX: Update the status of the signal copies being sent!
+                for _cs in _csigs {
+                    _n = _n
+                        .append(format!(
+                            "{}_curr.status = {}_curr.status || {}_{}.status;",
+                            _cs, _cs, _cs, i
+                        ))
+                        .append(RcDoc::hardline());
+                }
+                // FIXME: Handle data value for signals here.
                 _n = _n
-                    .append(format!("//Copy of signal {}", _s))
+                    .append("//FIXME: Still need to handle valued signals correctly")
                     .append(RcDoc::hardline());
-                _n = _n.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
-                _n = _n.append(RcDoc::hardline());
-            }
-            // XXX: Now make the input signals to visit
-            let _vsigs = _csigs
-                .iter()
-                .enumerate()
-                .map(|(_jk, x)| format!("{}_{}", x, i))
-                .collect::<Vec<_>>();
-            if _vsigs.is_empty() {
-                _n = _n
-                    .append(format!("visit{}(st{});", i, i))
-                    .append(RcDoc::hardline());
+                _n = _n.append("}");
             } else {
-                _n = _n
-                    .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
-                    .append(RcDoc::hardline());
+                // XXX: This is when a child is in the same _tid.
             }
-            // XXX: Update the status of the signal copies being sent!
-            for _cs in _csigs {
-                _n = _n
-                    .append(format!(
-                        "{}_curr.status = {}_curr.status || {}_{}.status;",
-                        _cs, _cs, _cs, i
-                    ))
-                    .append(RcDoc::hardline());
-            }
-            // FIXME: Handle data value for signals here.
-            _n = _n
-                .append("//FIXME: Still need to handle valued signals correctly")
-                .append(RcDoc::hardline());
         }
-        // FIXME: Here we need signals that are passed to this thread
+        // XXX: This is calling the join node for ticking this
+        // thread.
+        let _mifgm = RcDoc::intersperse(_gnn, RcDoc::as_string(" and "));
         _n = _n
+            .append("if(")
+            .append(_mifgm)
+            .append("){")
+            .append(RcDoc::hardline())
             .append(format!(
                 "st{} = Thread{}<ND>{{}};",
                 _nodes[_i]._tid, _nodes[_i]._tid
@@ -789,11 +813,11 @@ fn _gen_code<'a>(
                 ))
                 .append(RcDoc::hardline());
         }
+        _n = _n.append("}").append(RcDoc::hardline());
 
         // 2. Push the join node into _rets
         let mut _rets = _rets;
         _rets.push_back(_jnode_idx);
-        // XXX: Fix this output
         return (_n, _rets);
     }
 }
