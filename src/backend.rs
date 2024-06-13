@@ -281,7 +281,7 @@ pub fn _codegen(
         thread_prototypes.push(_ss);
         // let _ss = format!(
         //     "template <> struct Thread{}<D>{{\nconstexpr void tick \
-	// 		  ({});}};",
+        // 		  ({});}};",
         //     i, k1
         // );
         // thread_prototypes.push(_ss);
@@ -562,22 +562,22 @@ fn _gen_code<'a>(
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: First != 0 means that we have already reached this node
     // and we want to continue from here
-    if _nodes[_i].tag && first != 0 {
-        if _nodes[_i]._tid != _ptid {
-            // XXX: This means we are outside the previous thread
-            let s = format!("st{} = Thread{}<E>{{}};", _ptid, _ptid);
-            let mut _n = _n;
-            _n = _n.append(RcDoc::as_string(s));
-            // XXX: Do not push yourself onto _rets
-            return (_n, _rets);
-        }
+    if _nodes[_i]._tid != _ptid {
+        // println!("ptid != tid {_ptid} {:?}", _nodes[_i]._tid);
+        // XXX: This means we are outside the previous thread
+        let s = format!("st{} = Thread{}<E>{{}};", _ptid, _ptid);
+        let mut _n = _n;
+        _n = _n.append(RcDoc::as_string(s));
+        // XXX: Do not push yourself onto _rets
+        return (_n, _rets);
+    } else if _nodes[_i].tag && first != 0 {
         // XXX: We have already found where to stop
-        else if _i != _l {
+        if _i != _l {
             // XXX: This must be a pause
             let _join = match _nodes[_i].tt {
                 NodeT::PauseStart => false,
                 NodeT::SparJoin(_) => true,
-                _ => panic!("Got a non pause stop state: {:?}", _nodes[_i]),
+                _ => panic!("Got a non pause stop state: {:?}, l: {:?}", _nodes[_i], _l),
             };
             if !_join {
                 let mut _rets = _rets;
@@ -705,6 +705,7 @@ fn _gen_code<'a>(
             .collect::<VecDeque<_>>();
         return (__n.append(_n), _rn);
     } else {
+	// FIXME: This can have other children too! -- handle them!
         // XXX: This is for the fork node
         let _jnode_idx = match _nodes[_i].tt {
             NodeT::SparFork(x) => x,

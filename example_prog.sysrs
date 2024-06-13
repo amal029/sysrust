@@ -1,10 +1,10 @@
-output signal K;
-output signal m;
 input signal H;
+output signal K;
+output signal J;
 S0: pause;
-// This abort currently does not work!
-abort (H){
- {emit K; emit m; S2: pause;}||{nothing; S3: pause;};
+loop{
+ abort (immediate H){
+  {SL: sustain J;}||{S2: sustain K;};
+ };
+ S1: pause;
 };
-emit K;
-S1: pause;
