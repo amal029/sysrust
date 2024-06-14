@@ -343,7 +343,7 @@ pub fn _codegen(
     assert!(*_nthreads == _used_sigs_cap.len());
     let _hh = join(
         (0..*_nthreads).map(|i| {
-            let _f1 = if _used_sigs_vec[i] != "" {
+            if _used_sigs_vec[i] != "" {
                 format!(
                     "constexpr void visit{}(Thread{}State &ts, {}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
@@ -355,8 +355,7 @@ pub fn _codegen(
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
-            };
-            _f1
+            }
         }),
         "\n ",
     );
@@ -389,7 +388,7 @@ pub fn _codegen(
             &_used_sigs_vec,
             &_sigs_map_per_thread,
             &_for_fsm,
-            &_sigs,
+            _sigs,
         );
         let _ = _nn.render(8, &mut w1);
     });
@@ -529,7 +528,7 @@ fn _make_main_code(_sigs: &[Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc {
         .append(RcDoc::hardline())
         .append(_make_pre_eq_curr(_sigs))
         .append(RcDoc::hardline())
-        .append(_make_curr_reset(&_sigs))
+        .append(_make_curr_reset(_sigs))
         .append(RcDoc::hardline())
         .append("int main (void){")
         .append(RcDoc::hardline())

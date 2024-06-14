@@ -690,30 +690,27 @@ fn _type_infer_sexpr<'a>(
     _ff: &str,
     _oret: &Option<Type>,
 ) {
-    match _expr {
-        SimpleDataExpr::Call(_sy, _expr, _pos) => {
-            let _ss = _sy;
-            let arg_types = _expr
-                .iter()
-                // XXX: We have consumed the return type here for this
-                // call if any
-                .map(|x| _get_type(_signals, _vars, x, _ret, _ff, &None))
-                .collect::<Vec<Type>>();
-            assert!(!arg_types.is_empty());
-            let ret_type = if _oret.is_some() {
-                _oret.clone().unwrap()
-            } else {
-                let _ = print_bytes(_ff, _pos.0, _pos.1);
-                println!("Cannot infer return type");
-                exit(1);
-            };
-            _ret.push(CallNameType {
-                _sy: _sy.get_string().to_string(),
-                _rtype: ret_type,
-                _arg_types: arg_types,
-            });
-        }
-        _ => (),
+    if let SimpleDataExpr::Call(_sy, _expr, _pos) = _expr {
+        let _ss = _sy;
+        let arg_types = _expr
+            .iter()
+            // XXX: We have consumed the return type here for this
+            // call if any
+            .map(|x| _get_type(_signals, _vars, x, _ret, _ff, &None))
+            .collect::<Vec<Type>>();
+        assert!(!arg_types.is_empty());
+        let ret_type = if _oret.is_some() {
+            _oret.clone().unwrap()
+        } else {
+            let _ = print_bytes(_ff, _pos.0, _pos.1);
+            println!("Cannot infer return type");
+            exit(1);
+        };
+        _ret.push(CallNameType {
+            _sy: _sy.get_string().to_string(),
+            _rtype: ret_type,
+            _arg_types: arg_types,
+        });
     }
 }
 

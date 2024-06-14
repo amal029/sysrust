@@ -18,13 +18,14 @@ mod backend;
 mod error;
 mod rewrite;
 
+type StackType = HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let _ast = parse(&args[1]);
 
     // XXX: Analyse signa/var declaration and their uses
-    let mut stack: Vec<HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>> =
-        Vec::with_capacity(50);
+    let mut stack: Vec<StackType> = Vec::with_capacity(50);
 
     // XXX: The errors in the program are collected here.
     let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(50);
@@ -181,8 +182,8 @@ fn main() {
         &_nodes,
         // XXX: These are the other threads in the program
         _tidxs,
-	// XXX: These are the nodes that have a valid ND state
-	_ndtidxs,
+        // XXX: These are the nodes that have a valid ND state
+        _ndtidxs,
     );
     // XXX: Make all othre thread code as well.
     _file
