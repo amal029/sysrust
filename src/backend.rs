@@ -621,6 +621,10 @@ fn _make_seq_code<'a>(
     };
 
     // XXX: Add extra guards if it is a Join node here
+
+    // FIXME: Need to call visit for each parent thread if not already
+    // done! Cannot just make this, because even forknode is calling
+    // this node -- C++ code will go into an infinite loop.
     let _is_join_node = matches!(_nodes[_i].tt, NodeT::SparJoin(_));
 
     if _is_join_node {
