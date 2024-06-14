@@ -368,7 +368,7 @@ pub fn _codegen(
         &_used_sigs_vec,
         &_sigs_map_per_thread,
         &_for_fsm,
-        &_sigs,
+        _sigs,
     );
     let mut w1: Vec<u8> = Vec::with_capacity(5000);
     let _ = _nn.render(8, &mut w1);
@@ -397,7 +397,7 @@ pub fn _codegen(
     w.append(&mut w1);
     w.append(&mut w2);
 
-    return w;
+    w
 }
 
 fn _make_print_ouputs<'a>(_osigs: Vec<(&'a str, Option<&'a Type>)>) -> RcDoc<'a> {
@@ -422,12 +422,12 @@ fn _make_print_ouputs<'a>(_osigs: Vec<(&'a str, Option<&'a Type>)>) -> RcDoc<'a>
         .append(RcDoc::hardline())
         .append(_n)
         .append("}");
-    return _m;
+    _m
 }
 
-fn _make_pre_eq_curr<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
+fn _make_pre_eq_curr(_sigs: &[Vec<Stmt>]) -> RcDoc {
     let mut _n = RcDoc::<()>::as_string("void pre_eq_curr(){");
-    let _sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
+    let _sigs = _sigs.iter().flatten().collect::<Vec<_>>();
     for i in _sigs {
         match i {
             Stmt::Signal(_sy, _, _) => {
@@ -452,12 +452,12 @@ fn _make_pre_eq_curr<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
         }
     }
     _n = _n.append("}");
-    return _n;
+    _n
 }
 
-fn _make_curr_reset<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
+fn _make_curr_reset(_sigs: &[Vec<Stmt>]) -> RcDoc {
     let mut _n = RcDoc::<()>::as_string("void reset_curr(){");
-    let _sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
+    let _sigs = _sigs.iter().flatten().collect::<Vec<_>>();
     for i in _sigs {
         match i {
             Stmt::Signal(_sy, _, _) => {
@@ -474,14 +474,14 @@ fn _make_curr_reset<'a>(_sigs: &'a [Vec<Stmt>]) -> RcDoc<'a> {
         }
     }
     _n = _n.append("}");
-    return _n;
+    _n
 }
 
-fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a> {
+fn _make_main_code(_sigs: &[Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc {
     let mut _n = RcDoc::nil();
     let sigs_0 = join(_vsigs.into_iter().map(|x| format!("{}_curr", x)), ", ");
     // XXX: Get all output signals
-    let __sigs = _sigs.into_iter().flatten().collect::<Vec<_>>();
+    let __sigs = _sigs.iter().flatten().collect::<Vec<_>>();
     let _osigs = __sigs
         .iter()
         .filter(|x| match x {
@@ -514,14 +514,14 @@ fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a>
         })
         .collect::<Vec<_>>();
     let __m: RcDoc<()> = if sigs_0.is_empty() {
-        RcDoc::as_string(format!("visit0(st0);"))
+        RcDoc::as_string("visit0(st0);".to_string())
     } else {
         RcDoc::as_string(format!("visit0(st0, {});", sigs_0))
     };
     _n = _n
         .append(_make_print_ouputs(_osigs))
         .append(RcDoc::hardline())
-        .append(_make_pre_eq_curr(&_sigs))
+        .append(_make_pre_eq_curr(_sigs))
         .append(RcDoc::hardline())
         .append(_make_curr_reset(&_sigs))
         .append(RcDoc::hardline())
@@ -543,7 +543,7 @@ fn _make_main_code<'a>(_sigs: &'a [Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc<'a>
         .append(RcDoc::hardline())
         .append("}")
         .append("}");
-    return _n;
+    _n
 }
 
 fn _make_seq_code<'a>(
@@ -609,10 +609,8 @@ fn _make_seq_code<'a>(
         .collect::<Vec<_>>();
 
     // XXX: Add extra guards if it is a Join node here
-    let _is_join_node = match _nodes[_i].tt {
-        NodeT::SparJoin(_) => true,
-        _ => false,
-    };
+    let _is_join_node = matches!(_nodes[_i].tt, NodeT::SparJoin(_));
+
     if _is_join_node {
         // XXX: Now get all parent thread _tids.
         let _ptids = _nodes[_i]
@@ -635,7 +633,7 @@ fn _make_seq_code<'a>(
             .append(")");
 
         // XXX: Check that the first node is always the self-loop
-        assert!(_nodes[_i].children.len() > 0);
+        assert!(!_nodes[_i].children.is_empty());
         assert!(_i == _nodes[_i].children[0]);
 
         // XXX: Now attach the _has_alternative to each of the children
@@ -819,7 +817,7 @@ fn _make_fork_code<'a>(
     let _csigs = &_for_fsm_sigs_thread[_nodes[_i]._tid];
     // XXX: Now call the visit for Done node
     let _vsigs = _csigs
-        .into_iter()
+        .iter()
         .map(|x| {
             format!(
                 "_{}",
@@ -868,7 +866,7 @@ fn _make_fork_code<'a>(
     let mut _rets = _srets;
     _rets.push_back(_jnode_idx);
 
-    return (_n, _rets);
+    (_n, _rets)
 }
 
 fn _gen_code<'a>(
@@ -939,10 +937,7 @@ fn _gen_code<'a>(
     }
 
     // XXX: Is this a fork node or just a normal node?
-    let _fork = match _nodes[_i].tt {
-        NodeT::SparFork(_) => true,
-        _ => false,
-    };
+    let _fork = matches!(_nodes[_i].tt, NodeT::SparFork(_));
 
     if !_fork {
         let _same_tid_indices = (0.._nodes[_i].children.len()).collect_vec();
@@ -1028,7 +1023,7 @@ fn _walk_graph_code_gen<'a>(
         .append(RcDoc::hardline())
         .append(RcDoc::as_string("}"))
         .append(RcDoc::hardline());
-    return (__n, _rets, inode);
+    (__n, _rets, inode)
 }
 
 fn _make_fsm_code<'a>(
@@ -1057,7 +1052,7 @@ fn _make_fsm_code<'a>(
             RcDoc::<()>::nil(),
             _used_sigs_per_thread,
             &_done_nodes,
-            &_sigs_map_per_threads,
+            _sigs_map_per_threads,
             _for_fsm_sigs_thread,
             _all_sigs,
         );

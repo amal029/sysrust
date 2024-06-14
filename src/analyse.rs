@@ -589,7 +589,7 @@ fn __type_infer_extern_calls<'a>(
                 Stmt::Variable(__sy, _t, _, _) => __sy.get_string() == _sy.get_string(),
                 _ => panic!("Non variable found in _vars during type inference: {:?}", x),
             });
-            if !_t.is_some() {
+            if _t.is_none() {
                 panic!(
                     "Variable Ref: {:?} not found in {:?} during type inference",
                     _sy, _vars
@@ -610,7 +610,7 @@ fn __type_infer_extern_calls<'a>(
                     x
                 ),
             });
-            if !_t.is_some() {
+            if _t.is_none() {
                 panic!(
                     "Signal Ref: {:?} not found in {:?} during type inference",
                     _sy, _signals
@@ -695,8 +695,8 @@ fn _type_infer_sexpr<'a>(
             let _ss = _sy;
             let arg_types = _expr
                 .iter()
-		// XXX: We have consumed the return type here for this
-		// call if any
+                // XXX: We have consumed the return type here for this
+                // call if any
                 .map(|x| _get_type(_signals, _vars, x, _ret, _ff, &None))
                 .collect::<Vec<Type>>();
             assert!(!arg_types.is_empty());
@@ -742,7 +742,7 @@ fn _get_type<'a>(
                 Stmt::Variable(__sy, _t, _, _) => __sy.get_string() == _sy.get_string(),
                 _ => panic!("Non variable found in _vars during type inference: {:?}", x),
             });
-            if !_t.is_some() {
+            if _t.is_none() {
                 panic!(
                     "Variable Ref: {:?} not found in {:?} during type inference",
                     _sy, _vars
@@ -762,7 +762,7 @@ fn _get_type<'a>(
                     x
                 ),
             });
-            if !_t.is_some() {
+            if _t.is_none() {
                 panic!(
                     "Signal Ref: {:?} not found in {:?} during type inference",
                     _sy, _signals
@@ -776,12 +776,12 @@ fn _get_type<'a>(
         SimpleDataExpr::ConstI(_, _) => Type::Int,
         SimpleDataExpr::ConstF(_, _) => Type::Float,
         SimpleDataExpr::Call(_, _, _) => {
-            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &_oret);
+            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, _oret);
             _ret.last().unwrap()._rtype.clone()
         }
         SimpleDataExpr::SimpleBinaryOp(_l, _, _r, _pos) => {
-            let _lt = _get_type(_signals, _vars, _l, _ret, _ff, &_oret);
-            let _rt = _get_type(_signals, _vars, _r, _ret, _ff, &_oret);
+            let _lt = _get_type(_signals, _vars, _l, _ret, _ff, _oret);
+            let _rt = _get_type(_signals, _vars, _r, _ret, _ff, _oret);
             if _lt != _rt {
                 let _ = print_bytes_warn(_ff, _pos.0, _pos.1);
                 println!(

@@ -129,14 +129,13 @@ fn main() {
         &mut _tidxs,
     );
     // XXX: Make the label for _i and _e
-    let _ = match _nodes[_i].tt {
-        NodeT::PauseStart => panic!("Please add a nothing before the first pause in the program"),
-        _ => (),
+    if let NodeT::PauseStart = _nodes[_i].tt {
+        panic!("Please add a nothing before the first pause in the program");
     };
     // XXX: Fix labels for _tidxs
     _tidxs.iter().for_each(|(i, e)| {
         match _nodes[*i].tt {
-            NodeT::PauseStart => panic!("Please put a nothing at start of each thread"),
+            NodeT::PauseStart => panic!("Please add a nothing at start of each thread"),
             _ => _nodes[*i].label = String::from("I"),
         }
         let _etid = _nodes[*e]._tid;
@@ -183,7 +182,7 @@ fn main() {
     );
     // XXX: Make all othre thread code as well.
     _file
-        .write_all(&_ftowrite)
+        .write_all(_ftowrite)
         .expect("Cannot write to cpp file");
 
     // XXX: Format the generated Cpp file using clang-format
@@ -198,7 +197,7 @@ fn main() {
             .into_iter()
             .map(|x| x as char)
             .collect::<String>();
-        let _clang_bin_path = _clang_bin_path.strip_suffix("\n").unwrap();
+        let _clang_bin_path = _clang_bin_path.strip_suffix('\n').unwrap();
         let _fmt_res = Command::new(_clang_bin_path)
             .arg("-i")
             .arg(_fname)
