@@ -124,7 +124,11 @@ pub fn _codegen(
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
-    let r = h2.append(h3).append(h4).append(h5).append(RcDoc::hardline());
+    let r = h2
+        .append(h3)
+        .append(h4)
+        .append(h5)
+        .append(RcDoc::hardline());
     let mut w = Vec::new();
     r.render(8, &mut w).unwrap();
 
@@ -620,11 +624,8 @@ fn _make_seq_code<'a>(
         (None, None)
     };
 
-    // XXX: Add extra guards if it is a Join node here
-
     // FIXME: Need to call visit for each parent thread if not already
-    // done! Cannot just make this, because even forknode is calling
-    // this node -- C++ code will go into an infinite loop.
+    // done in the non <E> branch only!
     let _is_join_node = matches!(_nodes[_i].tt, NodeT::SparJoin(_));
 
     if _is_join_node {
@@ -716,12 +717,12 @@ fn _make_seq_code<'a>(
         __n = __n
             .append(RcDoc::as_string("assert(("))
             .append(_x)
-            .append(") == false );")
+            .append(") == false && \"Non deterministic program\" );")
             .append(RcDoc::hardline());
         __n = __n
             .append(RcDoc::as_string("assert(("))
             .append(_y)
-            .append(") == true );")
+            .append(") == true && \"Non reactive program\");")
             .append(RcDoc::hardline());
     }
     for (c, b) in zip(_gm, _bn) {
@@ -770,9 +771,11 @@ fn _make_fork_code<'a>(
     let mut _n = _n;
     let mut _gnn: Vec<RcDoc<()>> = Vec::with_capacity(_nodes[_i].guards.len());
     let mut _same_tid_indices: Vec<usize> = Vec::with_capacity(_nodes[_i].guards.len());
+    let mut _other_tids: Vec<usize> = Vec::with_capacity(_nodes[_i].guards.len());
     for (j, &c) in _nodes[_i].children.iter().enumerate() {
         let i = _nodes[c]._tid; // The child thread id
         if _nodes[c]._tid != _nodes[_i]._tid {
+            _other_tids.push(_nodes[c]._tid);
             // println!("child index: is: {j}, guard: {:?}", _nodes[_i].guards[j]);
             let _gn = _nodes[_i].guards[j]
                 .codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]);
@@ -830,17 +833,16 @@ fn _make_fork_code<'a>(
     // XXX: This is calling the join node for ticking this
     // thread.
     let _mifgm = RcDoc::intersperse(_gnn, RcDoc::as_string(" and "));
-    _n = _n
-        .append("if(")
-        .append(_mifgm)
-        .append("){")
-        .append(RcDoc::hardline())
-        .append(format!(
-            "st{} = Thread{}<ND>{{}};",
-            _nodes[_i]._tid, _nodes[_i]._tid
-        ))
-        .append(RcDoc::hardline());
+    let _holds_alternative = "(".to_owned()
+        + &join(
+            _other_tids
+                .into_iter()
+                .map(|x| format!("std::holds_alternative<Thread{}<E>>(st{})", x, x)),
+            "and ",
+        )
+        + ")";
     let _csigs = &_for_fsm_sigs_thread[_nodes[_i]._tid];
+
     // XXX: Now call the visit for Done node
     let _vsigs = _csigs
         .iter()
@@ -853,21 +855,30 @@ fn _make_fork_code<'a>(
             )
         })
         .collect::<Vec<_>>();
-    if _vsigs.is_empty() {
-        _n = _n
-            .append(format!("visit{}(st{});", _nodes[_i]._tid, _nodes[_i]._tid))
-            .append(RcDoc::hardline());
+    let _nj = if _vsigs.is_empty() {
+        format!("visit{}(st{});", _nodes[_i]._tid, _nodes[_i]._tid)
     } else {
-        _n = _n
-            .append(format!(
-                "visit{}(st{}, {});",
-                _nodes[_i]._tid,
-                _nodes[_i]._tid,
-                _vsigs.join(", ")
-            ))
-            .append(RcDoc::hardline());
-    }
-    _n = _n.append("}").append(RcDoc::hardline());
+        format!(
+            "visit{}(st{}, {});",
+            _nodes[_i]._tid,
+            _nodes[_i]._tid,
+            _vsigs.join(", ")
+        )
+    };
+
+    _n = _n
+        .append("if(")
+        .append(_mifgm)
+        .append("){")
+        .append(RcDoc::hardline())
+        .append(format!(
+            // XXX: Calling visit this thread when all internal threads
+            // are done!
+            "if({}){{ st{} = Thread{}<ND>{{}}; {_nj} }} else {{ st{} = Thread{}<ND>{{}};}}",
+            _holds_alternative, _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i]._tid
+        ))
+        .append("}")
+        .append(RcDoc::hardline());
 
     // XXX: Now make the sequential node with same _tid
     let (_sn, _srets) = _make_seq_code(
