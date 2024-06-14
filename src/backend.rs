@@ -595,7 +595,7 @@ fn _make_seq_code<'a>(
     }
 
     // XXX: Make the guards for each branch
-    let _gm = _nodes[_i]
+    let mut _gm = _nodes[_i]
         .guards
         .iter()
         .enumerate()
@@ -609,6 +609,60 @@ fn _make_seq_code<'a>(
         .collect::<Vec<_>>();
 
     // XXX: Add extra guards if it is a Join node here
+    let _is_join_node = match _nodes[_i].tt {
+        NodeT::SparJoin(_) => true,
+        _ => false,
+    };
+    if _is_join_node {
+        // XXX: Now get all parent thread _tids.
+        let _ptids = _nodes[_i]
+            .parents
+            .iter()
+            .filter(|&&_x| _nodes[_x]._tid != _nodes[_i]._tid)
+            .map(|&x| _nodes[x]._tid)
+            .collect::<Vec<_>>();
+        // XXX: Make the guard condition
+        let _has_alternative = join(
+            _ptids
+                .into_iter()
+                .map(|x| format!("std::holds_alternative<Thread{}<E>>(st{})", x, x)),
+            " and ",
+        );
+        let _has_alternative: RcDoc<()> =
+            RcDoc::as_string("(").append(_has_alternative).append(")");
+        let _not_has_alternative = RcDoc::<()>::as_string("(not ")
+            .append(_has_alternative.clone())
+            .append(")");
+
+        // XXX: Check that the first node is always the self-loop
+        assert!(_nodes[_i].children.len() > 0);
+        assert!(_i == _nodes[_i].children[0]);
+
+        // XXX: Now attach the _has_alternative to each of the children
+        // accordingly.
+        _gm = _gm
+            .into_iter()
+            .enumerate()
+            .map(|(_k, x)| {
+                if _k == 0 {
+                    RcDoc::<()>::as_string("(")
+                        .append(x)
+                        .append(" and ")
+                        .append(_not_has_alternative.clone())
+                        .append(")")
+                } else {
+                    RcDoc::<()>::as_string("(")
+                        .append(x)
+                        .append(" and ")
+                        .append(_has_alternative.clone())
+                        .append(")")
+                }
+            })
+            .collect::<Vec<_>>();
+    }
+
+    // XXX: Make the determinism and reactivity assert statements for
+    // CPP code.
 
     // XXX: Make the actions for each branch
     let _am = _nodes[_i]

@@ -18,7 +18,7 @@ pub enum NodeT {
 #[derive(Debug)]
 pub struct GraphNode {
     pub children: Vec<usize>, // this is the destination state
-    parents: Vec<usize>,      // this is the parent state
+    pub parents: Vec<usize>,      // this is the parent state
     pub actions: Vec<Stmt>,   // these are the actions on the transitions
     pub guards: Vec<Expr>,    // these are the guards on transitions
     pub tag: bool,            // this is to tell if this is a real state or dummy
@@ -482,9 +482,18 @@ fn rewrite_stmt_to_graph_fsm(
             _nodes[r1].tt = NodeT::SparFork(rm);
             je.tt = NodeT::SparJoin(r1);
 
+            // XXX: Add a self-loop -- this is when one thread is done
+            // and others are not! -- will be copied inside each thread
+            // in the backend.
+            je.children.push(je.idx);
+            je.guards.push(Expr::True(*_pos));
+            je.parents.push(je.idx);
+
             // XXX: Attach _eis to je.
             _ei.iter().for_each(|&x| {
                 _nodes[x].children.push(je.idx);
+		// XXX: This if-else means if the parent thread can end
+		// then come to join node.
                 if _nodes[x].children.is_empty() {
                     _nodes[x].guards.push(Expr::True(*_pos));
                 } else {
@@ -493,12 +502,6 @@ fn rewrite_stmt_to_graph_fsm(
                 je.parents.push(x);
             });
 
-            // XXX: Add a self-loop -- this is when one thread is done
-            // and others are not! -- will be copied inside each thread
-            // in the backend.
-            je.children.push(je.idx);
-            je.guards.push(Expr::True(*_pos));
-            je.parents.push(je.idx);
 
             _nodes.push(je);
             *idx += 1;
