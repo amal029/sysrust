@@ -122,8 +122,9 @@ pub fn _codegen(
 ) -> Vec<u8> {
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
-    let h4 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
-    let r = h2.append(h3).append(h4).append(RcDoc::hardline());
+    let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
+    let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
+    let r = h2.append(h3).append(h4).append(h5).append(RcDoc::hardline());
     let mut w = Vec::new();
     r.render(8, &mut w).unwrap();
 
@@ -608,6 +609,17 @@ fn _make_seq_code<'a>(
         })
         .collect::<Vec<_>>();
 
+    // XXX: Make the determinism and reactivity assert statements for
+    // CPP code.
+    let (_det_gm, _reac_gm) = if _gm.len() > 1 {
+        (
+            Some(RcDoc::intersperse(_gm.clone(), RcDoc::as_string(" and "))),
+            Some(RcDoc::intersperse(_gm.clone(), RcDoc::as_string(" or "))),
+        )
+    } else {
+        (None, None)
+    };
+
     // XXX: Add extra guards if it is a Join node here
     let _is_join_node = matches!(_nodes[_i].tt, NodeT::SparJoin(_));
 
@@ -659,9 +671,6 @@ fn _make_seq_code<'a>(
             .collect::<Vec<_>>();
     }
 
-    // XXX: Make the determinism and reactivity assert statements for
-    // CPP code.
-
     // XXX: Make the actions for each branch
     let _am = _nodes[_i]
         .actions
@@ -698,6 +707,19 @@ fn _make_seq_code<'a>(
             .append(RcDoc::as_string(")"))
     });
     let mut __n = RcDoc::nil();
+    // XXX: Add the determinism and reactivity assertions
+    if let (Some(_x), Some(_y)) = (_det_gm, _reac_gm) {
+        __n = __n
+            .append(RcDoc::as_string("assert(("))
+            .append(_x)
+            .append(") == false );")
+            .append(RcDoc::hardline());
+        __n = __n
+            .append(RcDoc::as_string("assert(("))
+            .append(_y)
+            .append(") == true );")
+            .append(RcDoc::hardline());
+    }
     for (c, b) in zip(_gm, _bn) {
         let cb = c
             .append(RcDoc::as_string("{"))
