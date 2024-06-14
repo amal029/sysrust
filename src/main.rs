@@ -118,7 +118,8 @@ fn main() {
     let mut idx = 0usize;
     let mut tid = 0;
     let mut tot = 1;
-    let mut _tidxs: Vec<(usize, usize)> = Vec::with_capacity(50);
+    let mut _tidxs: Vec<(usize, usize)> = Vec::with_capacity(num_threads);
+    let mut _ndtidxs: Vec<usize> = Vec::with_capacity(num_threads);
     let (_i, _e) = rewrite_to_graph_fsm(
         &args[1],
         &_ast,
@@ -127,6 +128,7 @@ fn main() {
         &mut idx,
         &mut _nodes,
         &mut _tidxs,
+        &mut _ndtidxs,
     );
     // XXX: Make the label for _i and _e
     if let NodeT::PauseStart = _nodes[_i].tt {
@@ -179,6 +181,8 @@ fn main() {
         &_nodes,
         // XXX: These are the other threads in the program
         _tidxs,
+	// XXX: These are the nodes that have a valid ND state
+	_ndtidxs,
     );
     // XXX: Make all othre thread code as well.
     _file

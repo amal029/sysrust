@@ -119,6 +119,8 @@ pub fn _codegen(
     _genode: usize,
     _gnodes: &[GraphNode],
     _tidxs: Vec<(usize, usize)>,
+    // XXX: These are the nodes with a valid ND state
+    _ndtidxs: Vec<usize>,
 ) -> Vec<u8> {
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
@@ -214,7 +216,6 @@ pub fn _codegen(
             .collect();
         _vv.push(format!("Thread{}<I>", _k));
         _vv.push(format!("Thread{}<E>", _k));
-        // _vv.push(format!("Thread{}<D>", _k));
         _vv.push(format!("Thread{}<ND>", _k));
         let _vv = _vv.join(", ");
         let _vv = format!("using Thread{}State = std::variant<{}>;", _k, _vv);
@@ -278,18 +279,18 @@ pub fn _codegen(
             i, k1
         );
         thread_prototypes.push(_ss);
+        // XXX: Check if this i is in _ndtidxs
+        let _sbr = if _ndtidxs.iter().contains(&i) {
+            ";"
+        } else {
+            "{}"
+        };
         let _ss = format!(
             "template <> struct Thread{}<ND>{{\nconstexpr void tick \
-			  ({});}};",
-            i, k1
+	     ({}){}}};",
+            i, k1, _sbr
         );
         thread_prototypes.push(_ss);
-        // let _ss = format!(
-        //     "template <> struct Thread{}<D>{{\nconstexpr void tick \
-        // 		  ({});}};",
-        //     i, k1
-        // );
-        // thread_prototypes.push(_ss);
         for j in k2 {
             let mm = j.get_string();
             let _ss = format!(
@@ -677,7 +678,7 @@ fn _make_seq_code<'a>(
     }
 
     // XXX: Make the actions for each branch
-    let _am = _nodes[_i]
+    let mut _am = _nodes[_i]
         .actions
         .iter()
         .enumerate()
@@ -689,14 +690,81 @@ fn _make_seq_code<'a>(
             }
         })
         .collect::<Vec<_>>();
-
+    // XXX: Make the action statements to visit parent threads and
+    // attach it to _am[0].
+    if _is_join_node {
+        // XXX: Now get all parent thread _tids.
+        let _ptids = _nodes[_i]
+            .parents
+            .iter()
+            .filter(|&&_x| _nodes[_x]._tid != _nodes[_i]._tid)
+            .map(|&x| _nodes[x]._tid)
+            .collect::<Vec<_>>();
+        let mut _vp = RcDoc::<()>::nil();
+        for i in _ptids {
+            let _csigs = &_for_fsm_sigs_thread[i];
+            for _s in _csigs.iter() {
+                _vp = _vp
+                    .append(format!(
+                        "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
+                        i, i
+                    ))
+                    .append(RcDoc::hardline())
+                    .append(format!("//Copy of signal {}", _s))
+                    .append(RcDoc::hardline());
+                _vp = _vp.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+                _vp = _vp.append(RcDoc::hardline());
+            }
+            // XXX: Now make the input signals to visit
+            let _vsigs = _csigs
+                .iter()
+                .enumerate()
+                .map(|(_jk, x)| format!("{}_{}", x, i))
+                .collect::<Vec<_>>();
+            if _vsigs.is_empty() {
+                _vp = _vp
+                    .append(format!("visit{}(st{});", i, i))
+                    .append(RcDoc::hardline());
+            } else {
+                _vp = _vp
+                    .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
+                    .append(RcDoc::hardline());
+            }
+            // XXX: Update the status of the signal copies being sent!
+            for _cs in _csigs {
+                _vp = _vp
+                    .append(format!(
+                        "{}_curr.status = {}_curr.status || {}_{}.status;",
+                        _cs, _cs, _cs, i
+                    ))
+                    .append(RcDoc::hardline());
+            }
+            // FIXME: Handle data value for signals here.
+            _vp = _vp
+                .append("//FIXME: Still need to handle valued signals correctly")
+                .append(RcDoc::hardline())
+                .append("}")
+                .append(RcDoc::hardline());
+        }
+        // XXX: Add _vp to _am[0]
+        if _am.is_empty() {
+            _am.push(_vp);
+        } else {
+            _am = _am
+                .into_iter()
+                .enumerate()
+                .map(|(_j, x)| if _j == 0 { x.append(_vp.clone()) } else { x })
+                .collect::<Vec<_>>();
+        }
+    }
+    // println!("Length of _am: {}, length of _bn: {}", _am.len(), _bn.len());
     // XXX: First combine the actions with _bn
     assert!(_am.len() <= _bn.len());
     let _bn = _bn
         .into_iter()
         .enumerate()
         .map(|(i, x)| {
-            if i <= _am.len() && !_am.is_empty() {
+            if i < _am.len() && !_am.is_empty() {
                 _am[i].clone().append(x)
             } else {
                 x

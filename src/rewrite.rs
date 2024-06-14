@@ -18,7 +18,7 @@ pub enum NodeT {
 #[derive(Debug)]
 pub struct GraphNode {
     pub children: Vec<usize>, // this is the destination state
-    pub parents: Vec<usize>,      // this is the parent state
+    pub parents: Vec<usize>,  // this is the parent state
     pub actions: Vec<Stmt>,   // these are the actions on the transitions
     pub guards: Vec<Expr>,    // these are the guards on transitions
     pub tag: bool,            // this is to tell if this is a real state or dummy
@@ -54,6 +54,7 @@ fn rewrite_stmt_to_graph_fsm(
     idx: &mut usize,
     s: &Stmt,
     _tidxs: &mut Vec<(usize, usize)>,
+    _ndtidxs: &mut Vec<usize>,
 ) -> (Index, Index) {
     match s {
         Stmt::Emit(a, expr, pos) => {
@@ -206,14 +207,23 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Block(_stmts, _pos) => {
-            rewrite_to_graph_fsm(ff, _stmts, tid, tot, idx, _nodes, _tidxs)
+            rewrite_to_graph_fsm(ff, _stmts, tid, tot, idx, _nodes, _tidxs, _ndtidxs)
         }
         // XXX: With no else branch
         Stmt::Present(_expr, _tb, None, _pos) => {
             // XXX: First make the body
-            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb, _tidxs);
-            let (_er1, _er2) =
-                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, &Stmt::Noop(*_pos), _tidxs);
+            let (_tr1, _tr2) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb, _tidxs, _ndtidxs);
+            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(
+                ff,
+                _nodes,
+                tid,
+                tot,
+                idx,
+                &Stmt::Noop(*_pos),
+                _tidxs,
+                _ndtidxs,
+            );
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
@@ -260,8 +270,10 @@ fn rewrite_stmt_to_graph_fsm(
         // XXX: With an else branch
         Stmt::Present(_expr, _tb, Some(_eb), _pos) => {
             // XXX: First make the body
-            let (_tr1, _tr2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb, _tidxs);
-            let (_er1, _er2) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _eb, _tidxs);
+            let (_tr1, _tr2) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _tb, _tidxs, _ndtidxs);
+            let (_er1, _er2) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _eb, _tidxs, _ndtidxs);
 
             // XXX: Now make the initial node for the if-else statement
             let ii = *idx;
@@ -306,7 +318,8 @@ fn rewrite_stmt_to_graph_fsm(
             (r1, r2)
         }
         Stmt::Loop(_body, _pos) => {
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
+            let (_bi, _be) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs, _ndtidxs);
             // XXX: Attach an edge from end node to the initial node
             _nodes[_be].children.push(_bi);
             _nodes[_be].guards.push(Expr::True(*_pos));
@@ -323,7 +336,8 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Abort(_a, None, _body, _pos) => {
             // XXX: This is strong abort
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
+            let (_bi, _be) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs, _ndtidxs);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
@@ -360,7 +374,8 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Abort(_a, Some(ASQual::Immediate), _body, _pos) => {
             // XXX: This is strong immediate abort
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
+            let (_bi, _be) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs, _ndtidxs);
             let mut vis = vec![false; _nodes.len()];
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
             attach_abort_expr(_nodes, _bi, _be, &mut vis, &_aexpr, *_pos);
@@ -409,7 +424,8 @@ fn rewrite_stmt_to_graph_fsm(
         }
         Stmt::Suspend(_a, None, _body, _pos) => {
             // XXX: This is strong suspend
-            let (_bi, _be) = rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs);
+            let (_bi, _be) =
+                rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, _body, _tidxs, _ndtidxs);
             let _aexpr = Expr::Not(Box::new(_a.clone()), *_pos);
 
             // XXX: Get the guards for every real node
@@ -442,7 +458,7 @@ fn rewrite_stmt_to_graph_fsm(
                 .map(|x| {
                     *tid = *tot;
                     *tot += 1;
-                    rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, x, _tidxs)
+                    rewrite_stmt_to_graph_fsm(ff, _nodes, tid, tot, idx, x, _tidxs, _ndtidxs)
                 })
                 .unzip();
             *tid = mtid;
@@ -473,6 +489,8 @@ fn rewrite_stmt_to_graph_fsm(
             let mut je = GraphNode::default(*tid);
             je.tag = true; //this is a real node
             je.idx = *idx;
+            // XXX: Also add this tid to _ndtidxs
+            _ndtidxs.push(*tid);
             // XXX: This has to be ND for backend code generation
             je.label = String::from("ND");
             // je.tt = NodeT::SparJoin(0);
@@ -492,8 +510,8 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Attach _eis to je.
             _ei.iter().for_each(|&x| {
                 _nodes[x].children.push(je.idx);
-		// XXX: This if-else means if the parent thread can end
-		// then come to join node.
+                // XXX: This if-else means if the parent thread can end
+                // then come to join node.
                 if _nodes[x].children.is_empty() {
                     _nodes[x].guards.push(Expr::True(*_pos));
                 } else {
@@ -501,7 +519,6 @@ fn rewrite_stmt_to_graph_fsm(
                 }
                 je.parents.push(x);
             });
-
 
             _nodes.push(je);
             *idx += 1;
@@ -618,12 +635,13 @@ pub fn rewrite_to_graph_fsm(
     _idx: &mut Index,
     _nodes: &mut Vec<GraphNode>,
     _tidxs: &mut Vec<(usize, usize)>,
+    _ndtidxs: &mut Vec<usize>,
 ) -> (Index, Index) {
     let mut r1 = 0usize;
     let mut r2 = 0usize;
     let mut _pe = 0usize;
     for (ii, i) in _v.iter().enumerate() {
-        let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _tot, _idx, i, _tidxs);
+        let (si, ei) = rewrite_stmt_to_graph_fsm(ff, _nodes, _tid, _tot, _idx, i, _tidxs, _ndtidxs);
         if ii == 0 {
             r1 = si;
         }
