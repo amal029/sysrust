@@ -1,10 +1,16 @@
+// FIXME: 1. Better error message for data signals.
+// 2. Better error message for variables not being shared between threads.
+
 input signal H;
+output signal FG;
 output signal K;
-output signal J;
+output int signal J = 0 : +;
+int h = 0;
+h = rcal(h + 100.8, ?J);
 S0: pause;
 loop{
- abort (immediate H){
-  {SL: sustain J;}||{S2: sustain K;};
+ abort (immediate H) {
+  {SL: sustain J(100);}||{S2: sustain K;}||{emit FG;};
  };
  S1: pause;
 };
