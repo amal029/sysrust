@@ -19,11 +19,11 @@ type HT = HashMap<String, (Type, SignalVarType, Option<IO>)>;
 type Pos = (usize, usize);
 type Pos1 = (usize, usize, String);
 
-pub fn symbol_string(s: &Symbol) -> String {
-    match s {
-        Symbol::Symbol(ss, _) => ss.clone(),
-    }
-}
+// pub fn symbol_string(s: &Symbol) -> String {
+//     match s {
+//         Symbol::Symbol(ss, _) => ss.clone(),
+//     }
+// }
 
 pub fn _analyse_var_signal_uses(
     ff: &str,
@@ -71,14 +71,14 @@ fn _check_sym_in_map(
     let mut there = false;
     let mut _dcheck = false;
     for map in vmap.iter() {
-        if map.contains_key(&symbol_string(s)) {
-            let _svt2 = &map.get(&symbol_string(s)).unwrap().1;
-            let _svt3 = &map.get(&symbol_string(s)).unwrap().2;
+        if map.contains_key(s.get_string()) {
+            let _svt2 = &map.get(s.get_string()).unwrap().1;
+            let _svt3 = &map.get(s.get_string()).unwrap().2;
             if match_signal_var_type(&_svt, _svt2) && match_signal_io_type(&_io, _svt3) {
                 // XXX: Check if the signal ref being used is a valued signal.
                 _dcheck = match _dvt {
                     ValuedSignalDataCheck::Check => {
-                        let _dvt2 = &map.get(&symbol_string(s)).unwrap().0;
+                        let _dvt2 = &map.get(s.get_string()).unwrap().0;
                         match _dvt2 {
                             Type::Float | Type::Int => true,
                             Type::None => false,
@@ -97,13 +97,13 @@ fn _check_sym_in_map(
 	     and variable \
 	     declarations can shadow each other.\nVariables cannot be \
 	     shared between threads.",
-            symbol_string(s)
+            s.get_string()
         );
         rets.push((pos.0, pos.1, ss));
         return;
     }
     if !_dcheck {
-        let ss = format!("Signal {} is not a valued signal.", symbol_string(s));
+        let ss = format!("Signal {} is not a valued signal.", s.get_string());
         rets.push((pos.0, pos.1, ss));
     }
 }
@@ -207,7 +207,7 @@ pub fn _analyse_var_signal_use(
 ) -> Vec<HT> {
     fn _signal_rep(_vmap: &[HT], _sy: &Symbol, start: usize, end: usize, ff: &str) {
         for m in _vmap.iter() {
-            if m.contains_key(&symbol_string(_sy)) {
+            if m.contains_key(_sy.get_string()) {
                 let _ = print_bytes(ff, start, end);
                 println!("Signal names have to be unique throughout program");
                 exit(1);
@@ -237,6 +237,9 @@ pub fn _analyse_var_signal_use(
                 ValuedSignalDataCheck::NoCheck,
                 Some(IO::Output),
             );
+            if let Some(__expr) = _expr {
+                _check_sym_in_simple_expr(ff, __expr, &_stack, *_pos, rets, tid);
+            }
             _stack
         }
         Stmt::Present(_sy, _st, None, _pos) => {
@@ -255,7 +258,7 @@ pub fn _analyse_var_signal_use(
             let mut ss = _stack;
             let idx = ss.len() - 1;
             ss[idx].insert(
-                symbol_string(_sy),
+                _sy.get_string().to_string(),
                 (Type::None, SignalVarType::Signal, _io.clone()),
             );
             ss
@@ -265,7 +268,7 @@ pub fn _analyse_var_signal_use(
             let mut ss = _stack;
             let idx = ss.len() - 1;
             ss[idx].insert(
-                symbol_string(_sy),
+                _sy.get_string().to_string(),
                 (_type.clone(), SignalVarType::Var(tid), None),
             );
             ss
@@ -277,7 +280,7 @@ pub fn _analyse_var_signal_use(
             let mut ss = _stack;
             let idx = ss.len() - 1;
             ss[idx].insert(
-                symbol_string(_sy),
+                _sy.get_string().to_string(),
                 (_stype.clone(), SignalVarType::Signal, _io.clone()),
             );
             ss
@@ -601,20 +604,27 @@ fn __type_infer_extern_calls<'a>(
             };
             _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &Some(_u))
         }
-        Stmt::Emit(_sy, Some(_expr), _) => {
+        Stmt::Emit(_sy, Some(_expr), _pos) => {
             let _t = _signals.iter().find(|x| match x {
                 Stmt::DataSignal(__sy, _, _, _, _, _) => __sy.get_string() == _sy.get_string(),
-                Stmt::Signal(__sy, _, _) => __sy == _sy,
+                Stmt::Signal(__sy, _, _) => {
+                    if __sy.get_string() == _sy.get_string() {
+                        let _ = print_bytes(_ff, _pos.0, _pos.1);
+                        println!("Signal {} is not a valued signal", _sy.get_string());
+                        exit(1);
+                    } else {
+                        false
+                    }
+                }
                 _ => panic!(
                     "Non signal found in _signals during type inference: {:?}",
                     x
                 ),
             });
             if _t.is_none() {
-                panic!(
-                    "Signal Ref: {:?} not found in {:?} during type inference",
-                    _sy, _signals
-                );
+                let _ = print_bytes(_ff, _pos.0, _pos.1);
+                println!("Non declared signal being emitted");
+                exit(1);
             }
             let u = match _t.unwrap() {
                 Stmt::DataSignal(_, _, _t, _, _, _) => _t.clone(),
