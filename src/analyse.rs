@@ -93,9 +93,8 @@ fn _check_sym_in_map(
     }
     if !there {
         let ss = format!(
-            "Signal/Var {} either not declared, or input signal(s) being emmited.\nSignal \
-	     and variable \
-	     declarations can shadow each other.\nVariables cannot be \
+            "Signal/Variable: {} either not declared, or input signal(s) are being emitted.\
+	     \nSignal and variable declarations can shadow each other.\nVariables cannot be \
 	     shared between threads.",
             s.get_string()
         );

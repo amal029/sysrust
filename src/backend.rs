@@ -624,8 +624,8 @@ fn _make_seq_code<'a>(
         (None, None)
     };
 
-    // FIXME: Need to call visit for each parent thread if not already
-    // done in the non <E> branch only!
+    // XXX: Call visit for each parent thread if they are not already
+    // done, i.e., in the <E> state.
     let _is_join_node = matches!(_nodes[_i].tt, NodeT::SparJoin(_));
 
     if _is_join_node {
@@ -738,9 +738,31 @@ fn _make_seq_code<'a>(
                     ))
                     .append(RcDoc::hardline());
             }
-            // FIXME: Handle data value for signals here.
+            // XXX: Handle data value for signals here.
+            let _dsigs = _all_sigs[_nodes[_i]._tid]
+                .iter()
+                .filter_map(|x| match x {
+                    Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
+                        if _csigs.contains(_sy.get_string()) {
+                            Some(_sy.get_string())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            for _cs in _csigs {
+                if _dsigs.contains(&_cs) {
+                    _vp = _vp
+                        .append(format!(
+                            "if ({_cs}_curr.status) \
+			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
+                        ))
+                        .append(RcDoc::hardline());
+                }
+            }
             _vp = _vp
-                .append("//FIXME: Still need to handle valued signals correctly")
                 .append(RcDoc::hardline())
                 .append("}")
                 .append(RcDoc::hardline());
@@ -887,9 +909,31 @@ fn _make_fork_code<'a>(
                     ))
                     .append(RcDoc::hardline());
             }
-            // FIXME: Handle data value for signals here.
+            // XXX: Handle data value for signals here.
+            let _dsigs = _all_sigs[_nodes[_i]._tid]
+                .iter()
+                .filter_map(|x| match x {
+                    Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
+                        if _csigs.contains(_sy.get_string()) {
+                            Some(_sy.get_string())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            for _cs in _csigs {
+                if _dsigs.contains(&_cs) {
+                    _n = _n
+                        .append(format!(
+                            "if ({_cs}_curr.status) \
+			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
+                        ))
+                        .append(RcDoc::hardline());
+                }
+            }
             _n = _n
-                .append("//FIXME: Still need to handle valued signals correctly")
                 .append(RcDoc::hardline());
             _n = _n.append("}");
         } else {
