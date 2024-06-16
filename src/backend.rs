@@ -795,10 +795,25 @@ fn _make_seq_code<'a>(
 
     // XXX: Confirm we have a guard for each branch
     assert!(_gm.len() == _bn.len());
+    let _gml = _gm.len();
     let _gm = _gm.into_iter().map(|x| {
-        RcDoc::as_string("if(")
-            .append(x)
-            .append(RcDoc::as_string(")"))
+        // XXX: Remove the conditional if it is just "true"
+        let vvm = if _gml == 1 {
+            let vvm = format!("{:?}", x);
+            vvm == String::from("\"true\"")
+        } else {
+            false
+        };
+        if !vvm {
+            (
+                RcDoc::as_string("if(")
+                    .append(x)
+                    .append(RcDoc::as_string(")")),
+                true,
+            )
+        } else {
+            (RcDoc::nil(), false)
+        }
     });
     let mut __n = RcDoc::nil();
     // XXX: Add the determinism and reactivity assertions
@@ -815,12 +830,22 @@ fn _make_seq_code<'a>(
             .append(RcDoc::hardline());
     }
     for (c, b) in zip(_gm, _bn) {
-        let cb = c
-            .append(RcDoc::as_string("{"))
-            .append(RcDoc::hardline())
-            .append(b)
-            .append(RcDoc::as_string("}"))
-            .append(RcDoc::hardline());
+	// XXX: Remove the extra braces and line if there is no
+	// conditional from above removal of if(true)
+        let _bs: RcDoc<'_, _> = if c.1 {
+            RcDoc::<()>::as_string("{").append(RcDoc::hardline())
+        } else {
+            RcDoc::nil()
+        };
+        let be: RcDoc<'_, _> = if c.1 {
+            RcDoc::<()>::as_string("}").append(RcDoc::hardline())
+        } else {
+            RcDoc::nil()
+        };
+        let cb =
+            c.0.append(_bs)
+                .append(b)
+                .append(be);
         __n = __n.append(cb);
     }
 
@@ -933,8 +958,7 @@ fn _make_fork_code<'a>(
                         .append(RcDoc::hardline());
                 }
             }
-            _n = _n
-                .append(RcDoc::hardline());
+            _n = _n.append(RcDoc::hardline());
             _n = _n.append("}");
         } else {
             // XXX: This is when a child is in the same _tid.
