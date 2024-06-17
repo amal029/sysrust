@@ -41,8 +41,25 @@ pub fn parse(s: &str) -> Vec<ast::Stmt> {
     let parse_res = parser.parse(lexer);
     match parse_res {
         Ok(x) => x,
-        Err(x) => {
-            match x {
+        Err(y) => {
+            match y {
+                ParseError::UnrecognizedEof { location, expected } => {
+                    let _ = print_bytes(s, location, location + 1);
+                    println!(
+                        "Expected: {}",
+                        expected
+                            .iter()
+                            .enumerate()
+                            .fold(String::from(""), |acc, (j, x)| {
+                                let orr = if j > 0 { " or " } else { " " };
+                                acc + &orr.to_string() + x
+                            })
+                    );
+                }
+                ParseError::ExtraToken { token } => {
+                    let (f, _, r) = token;
+                    let _ = print_bytes(s, f, r);
+                }
                 ParseError::UnrecognizedToken { token, expected } => {
                     let (f, _, r) = token;
                     let _ = print_bytes(s, f, r);
@@ -61,7 +78,6 @@ pub fn parse(s: &str) -> Vec<ast::Stmt> {
                     let _ = print_bytes(s, location, location + 1);
                 }
                 ParseError::User { error } => println!("{:?}", error),
-                _ => todo!(),
             }
             panic!("Error while parsing!")
         }

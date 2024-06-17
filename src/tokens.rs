@@ -3,12 +3,17 @@ use std::fmt; // to implement the Display trait later
 use std::num::ParseFloatError;
 use std::num::ParseIntError;
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LexicalError {
     InvalidInteger(ParseIntError),
     InvalidFloat(ParseFloatError),
-    #[default]
     InvalidToken,
+}
+
+impl Default for LexicalError {
+    fn default() -> Self {
+	LexicalError::InvalidToken
+    }
 }
 
 impl From<ParseFloatError> for LexicalError {
