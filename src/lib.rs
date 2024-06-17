@@ -8,7 +8,7 @@ use og::ScriptParser;
 
 use std::{
     fs::File,
-    io::{self, Read, Seek, SeekFrom},
+    io::{self, Read, Seek, SeekFrom}, process::exit,
 };
 pub fn print_bytes(ff: &str, start: usize, end: usize) -> io::Result<()> {
     let mut f = File::open(ff)?;
@@ -79,7 +79,8 @@ pub fn parse(s: &str) -> Vec<ast::Stmt> {
                 }
                 ParseError::User { error } => println!("{:?}", error),
             }
-            panic!("Error while parsing!")
+            println!("Error while parsing!");
+	    exit(1);
         }
     }
 }

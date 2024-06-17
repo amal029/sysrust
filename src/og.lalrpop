@@ -73,36 +73,36 @@ pub IOSignal: ast::Stmt = {
    <l:@L> <i:IOT> "signal" <s:Symbol> <r:@R> => ast::Stmt::Signal(s, Some(i), (l, r)),
    <l:@L> "signal" <s:Symbol> <r:@R> => ast::Stmt::Signal(s, None, (l, r)),
 
-   <l:@L> <i:"output"> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "+" <r:@R> =>
+   <l:@L> <i:"output"> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Int,
 	  ast::Val::VInt(iv), ast::ExprOp::Plus, (l, r)),
-   <l:@L> <i:"output"> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "*" <r:@R> =>
+   <l:@L> <i:"output"> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Int,
 	  ast::Val::VInt(iv), ast::ExprOp::Mul, (l, r)),
-   <l:@L> <i:"output"> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "+" <r:@R> =>
+   <l:@L> <i:"output"> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Plus, (l, r)),
-   <l:@L> <i:"output"> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "*" <r:@R> =>
+   <l:@L> <i:"output"> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
 
-   <l:@L> <i:"input"> "i64" "signal" <s:Symbol> <r:@R> =>
+   <l:@L> <i:"input"> "integer" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Int,
 	  ast::Val::VInt(0_i64), ast::ExprOp::Plus, (l, r)),
-   <l:@L> <i:"input"> "f64" "signal" <s:Symbol> <r:@R> =>
+   <l:@L> <i:"input"> "float" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Float,
 	  ast::Val::VFloat(0_f64), ast::ExprOp::Plus, (l, r)),
 
-   <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "+" <r:@R> =>
+   <l:@L> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Int,
 	  ast::Val::VInt(iv), ast::ExprOp::Plus, (l, r)),
-   <l:@L> "i64" "signal" <s:Symbol> "=" <iv:"int"> ":" "*" <r:@R> =>
+   <l:@L> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Int,
 	  ast::Val::VInt(iv), ast::ExprOp::Mul, (l, r)),
-   <l:@L> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "+" <r:@R> =>
+   <l:@L> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Plus, (l, r)),
-   <l:@L> "f64" "signal" <s:Symbol> "=" <iv:"float"> ":" "*" <r:@R> =>
+   <l:@L> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
 }
@@ -126,9 +126,9 @@ pub Statement: ast::Stmt = {
    <a:Sustain> ";" => a,
    <a:Halt> ";" => a,
    <a:IOSignal> ";" => a,
-   <l:@L> "i64" <s:Symbol> <r:@R> "=" <iv:"int"> ";" =>
+   <l:@L> "integer" <s:Symbol> <r:@R> "=" <iv:"i64"> ";" =>
    ast::Stmt::Variable(s, ast::Type::Int, ast::Val::VInt(iv), (l, r)),
-   <l:@L> "f64" <s:Symbol> <r:@R> "=" <iv:"float"> ";" =>
+   <l:@L> "float" <s:Symbol> <r:@R> "=" <iv:"f64"> ";" =>
    ast::Stmt::Variable(s, ast::Type::Float, ast::Val::VFloat(iv), (l, r)),
    <l:@L> <ss:Spar> ";" <r:@R> => ast::Stmt::Spar(ss, (l, r)),
 }
@@ -176,8 +176,8 @@ pub RelDataExpr: ast::RelDataExpr = {
 
 pub SimpleDataExpr: ast::SimpleDataExpr = {
     #[precedence(level="0")] // Highest precedence
-    <l:@L> <i:"int"> <r:@R> => ast::SimpleDataExpr::ConstI(i, (l,r)),
-    <l:@L> <i:"float"> <r:@R> => ast::SimpleDataExpr::ConstF(i, (l,r)),
+    <l:@L> <i:"i64"> <r:@R> => ast::SimpleDataExpr::ConstI(i, (l,r)),
+    <l:@L> <i:"f64"> <r:@R> => ast::SimpleDataExpr::ConstF(i, (l,r)),
     <l:@L> <i:Symbol> <r:@R> => ast::SimpleDataExpr::VarRef(i, (l,r)),
     <l:@L> "?" <i:Symbol> <r:@R> => ast::SimpleDataExpr::SignalRef(i, (l,r)),
     <l:@L> <i:Symbol> "(" <ll:SimpleDataExprList> ")" <r:@R> =>
@@ -232,8 +232,8 @@ enum Token {
     "input" => Token::Input,
     "output" => Token::Output,
     "id" => Token::Symbol(<String>),
-    "int" => Token::Integer(<i64>),
-    "float" => Token::Float(<f64>),
+    "i64" => Token::Integer(<i64>),
+    "f64" => Token::Float(<f64>),
     "(" => Token::LParen,
     ")" => Token::RParen,
     "{" => Token::LBrace,
@@ -264,8 +264,8 @@ enum Token {
     "halt" => Token::Halt,
     "false" => Token::False,
     ":" => Token::OpColon,
-    "i64" => Token::TInt,
-    "f64" => Token::TFloat,
+    "integer" => Token::TInt,
+    "float" => Token::TFloat,
     "extern" => Token::TExtern,
     }
 }
