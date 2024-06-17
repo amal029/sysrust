@@ -10,6 +10,7 @@ pub enum NodeT {
     PauseEnd,
     SparFork(usize),
     SparJoin(usize),
+    JoinChild(usize),
     Seq,
     BranchFork,
     BranchJoin,
@@ -442,15 +443,6 @@ fn rewrite_stmt_to_graph_fsm(
             exit(1);
         }
         Stmt::Spar(_stmts, _pos) => {
-            // XXX: Note that we can get edges outside the current
-            // thread. This can be identified with tid. If we go outside
-            // the current thread that means we just produce a Done
-            // state for that thread. Moreover, the join node will
-            // produce a done state if all its incoming threads are in
-            // done state. Same for parent threads. If the join node
-            // does not produce a done state then next time we loop
-            // again and call children threads, that are not yet done.
-
             // XXX: For each _stmts get the _bi and _ei
             let mtid = *tid;
             let (_bi, _ei): (Vec<Index>, Vec<Index>) = _stmts
@@ -526,6 +518,7 @@ fn rewrite_stmt_to_graph_fsm(
             // XXX: Now make the final end node -- get out into the
             // outside thread if all threads in parallel are done.
             let mut e = GraphNode::default(*tid);
+            e.tt = NodeT::JoinChild(rm);
             e.label = String::from("JoinEnd");
             e.idx = *idx;
             _nodes[rm].children.push(e.idx);

@@ -628,6 +628,7 @@ fn _make_seq_code<'a>(
     // done, i.e., in the <E> state.
     let _is_join_node = matches!(_nodes[_i].tt, NodeT::SparJoin(_));
 
+    let mut __neidx = usize::MAX;
     if _is_join_node {
         // XXX: Now get all parent thread _tids.
         let _ptids = _nodes[_i]
@@ -653,6 +654,34 @@ fn _make_seq_code<'a>(
         assert!(!_nodes[_i].children.is_empty());
         assert!(_i == _nodes[_i].children[0]);
 
+        // XXX: Check the last one is always the normal JoinChild
+        let _normal_exit_idx = _nodes[_i]
+            .children
+            .iter()
+            .enumerate()
+            .filter_map(|(_k, &x)| {
+                if let NodeT::JoinChild(y) = _nodes[x].tt {
+                    if y == _i {
+                        Some(_k)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        // XXX: There should be only 1 such normal exit child!
+        let mut _neidx = usize::MAX;
+        assert!(_normal_exit_idx.len() == 1);
+        for i in _normal_exit_idx {
+            _neidx = i;
+        }
+
+        // XXX: Copy the _neidx to __neidx to attach actions in _bn
+        // later on for abort, etc.
+        __neidx = _neidx;
+
         // XXX: Now attach the _has_alternative to each of the children
         // accordingly.
         _gm = _gm
@@ -665,12 +694,14 @@ fn _make_seq_code<'a>(
                         .append(" and ")
                         .append(_not_has_alternative.clone())
                         .append(")")
-                } else {
+                } else if _k == _neidx {
                     RcDoc::<()>::as_string("(")
                         .append(x)
                         .append(" and ")
                         .append(_has_alternative.clone())
                         .append(")")
+                } else {
+                    x
                 }
             })
             .collect::<Vec<_>>();
@@ -690,17 +721,23 @@ fn _make_seq_code<'a>(
             }
         })
         .collect::<Vec<_>>();
-    // XXX: Make the action statements to visit parent threads and
-    // attach it to _am[0].
+
+    let mut __vp = RcDoc::<()>::nil();
     if _is_join_node {
+        // XXX: Make the action statements to visit parent threads and
+        // attach it to _am[0].
         // XXX: Now get all parent thread _tids.
         let _ptids = _nodes[_i]
             .parents
             .iter()
             .filter(|&&_x| _nodes[_x]._tid != _nodes[_i]._tid)
-            .map(|&x| _nodes[x]._tid)
-            .collect::<Vec<_>>();
+            .map(|&x| _nodes[x]._tid);
         let mut _vp = RcDoc::<()>::nil();
+        let mut _avp = RcDoc::<()>::as_string(
+            "//Are all parent threads \
+				    are done?",
+        )
+        .append(RcDoc::hardline());
         for i in _ptids {
             _vp = _vp.append(format!(
                 "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
@@ -743,9 +780,7 @@ fn _make_seq_code<'a>(
             let _dsigs = _all_sigs
                 .into_iter()
                 .flatten()
-                .collect::<Vec<_>>()
-                .iter()
-                .filter_map(|&x| match x {
+                .filter_map(|x| match x {
                     Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
                         if _csigs.contains(_sy.get_string()) {
                             Some(_sy.get_string())
@@ -768,37 +803,57 @@ fn _make_seq_code<'a>(
             }
             _vp = _vp
                 .append(RcDoc::hardline())
-                .append("} // end of if not?")
+                .append("}")
+                .append(RcDoc::hardline());
+            _avp = _avp
+                .append(format!(
+                    "assert(holds_alternative<Thread{}<E>>(st{}));",
+                    i, i
+                ))
                 .append(RcDoc::hardline());
         }
-        // XXX: Add _vp to _am[0]
+
+        // XXX: This is needed for later attachment to _bn for abort,
+        // etc statements.
+        __vp = _vp.clone().append(_avp);
+
+        // XXX: Add _vp to _am[0] and also to all non normal exit nodes.
         if _am.is_empty() {
             _am.push(_vp);
         } else {
             _am = _am
                 .into_iter()
                 .enumerate()
+                // XXX: Add to child 0 and any other child that is not _neidx
                 .map(|(_j, x)| if _j == 0 { x.append(_vp.clone()) } else { x })
                 .collect::<Vec<_>>();
         }
     }
-    // println!("Length of _am: {}, length of _bn: {}", _am.len(), _bn.len());
-    // XXX: First combine the actions with _bn
+
+    // XXX: Confirm we have a guard for each branch
+    assert!(_gm.len() == _bn.len());
+    // XXX: Confirm that we have an action on outgoing branch of join
+    // node.
     assert!(_am.len() <= _bn.len());
+
+    // XXX: First combine the actions with _bn
     let _bn = _bn
         .into_iter()
         .enumerate()
         .map(|(i, x)| {
             if i < _am.len() && !_am.is_empty() {
                 _am[i].clone().append(x)
+            } else if i != __neidx && _is_join_node {
+                // XXX: This is the case when we have abort, etc and we
+                // want to make sure that all children are in the exit
+                // status before this thread exits.
+                __vp.clone().append(x)
             } else {
                 x
             }
         })
         .collect::<Vec<_>>();
 
-    // XXX: Confirm we have a guard for each branch
-    assert!(_gm.len() == _bn.len());
     let _gml = _gm.len();
     let _gm = _gm.into_iter().map(|x| {
         // XXX: Remove the conditional if it is just "true"
@@ -1019,7 +1074,8 @@ fn _make_fork_code<'a>(
         .append("}")
         .append(RcDoc::hardline());
 
-    // XXX: Now make the sequential node with same _tid
+    // XXX: Now make the sequential node with same _tid -- for example
+    // immediate abort
     let (_sn, _srets) = _make_seq_code(
         _f,
         _l,

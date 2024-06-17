@@ -1,5 +1,5 @@
 use analyse::{get_num_threads, get_states};
-use error::print_bytes;
+// use error::print_bytes;
 use rewrite::NodeT;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -7,7 +7,9 @@ use std::fs::File;
 use std::io::Write;
 use std::process::{exit, Command};
 use sysrust::ast::CallNameType;
-use sysrust::{ast, parse};
+use sysrust::{ast, error, parse};
+
+use error::print_bytes;
 
 use crate::analyse::{
     _analyse_var_signal_uses, _type_infer_extern_calls, get_s_v_ref, get_signals, get_vars,
@@ -15,7 +17,7 @@ use crate::analyse::{
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
 mod backend;
-mod error;
+// mod error;
 mod rewrite;
 
 type StackType = HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>;

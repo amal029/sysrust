@@ -1,36 +1,13 @@
 pub mod ast;
+pub mod error;
 mod lexer;
 pub mod tokens;
 
+use error::print_bytes;
 use lalrpop_util::{lalrpop_mod, ParseError};
+use std::process::exit;
 lalrpop_mod!(pub og);
 use og::ScriptParser;
-
-use std::{
-    fs::File,
-    io::{self, Read, Seek, SeekFrom}, process::exit,
-};
-pub fn print_bytes(ff: &str, start: usize, end: usize) -> io::Result<()> {
-    let mut f = File::open(ff)?;
-    // XXX: Read from start into contents2
-    let mut _nc: Vec<u8> = vec![0; start];
-    f.read_exact(&mut _nc)?;
-    let mut nl = 1usize;
-    _nc.into_iter().for_each(|x| {
-        if x == 10 {
-            nl += 1;
-        };
-    });
-
-    // XXX: The error line
-    f.seek(SeekFrom::Start(start as u64))?;
-    let mut contents = vec![0; end - start];
-    f.read_exact(&mut contents)?;
-    print!("\x1B[41mError Line {}\x1B[0m : ", nl);
-    contents.into_iter().for_each(|x| print!("{}", x as char));
-    println!("\n\t\t^^^^^^^^^^^^^^^^^^^");
-    Ok(())
-}
 
 pub fn parse(s: &str) -> Vec<ast::Stmt> {
     let source_code = std::fs::read_to_string(s).unwrap();
@@ -80,7 +57,7 @@ pub fn parse(s: &str) -> Vec<ast::Stmt> {
                 ParseError::User { error } => println!("{:?}", error),
             }
             println!("Error while parsing!");
-	    exit(1);
+            exit(1);
         }
     }
 }
