@@ -674,6 +674,7 @@ fn _make_seq_code<'a>(
                 }
             })
             .collect::<Vec<_>>();
+        // println!(" Join node {} {:?}", _nodes[_i]._tid, _gm);
     }
 
     // XXX: Make the actions for each branch
@@ -701,13 +702,13 @@ fn _make_seq_code<'a>(
             .collect::<Vec<_>>();
         let mut _vp = RcDoc::<()>::nil();
         for i in _ptids {
+            _vp = _vp.append(format!(
+                "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
+                i, i
+            ));
             let _csigs = &_for_fsm_sigs_thread[i];
             for _s in _csigs.iter() {
                 _vp = _vp
-                    .append(format!(
-                        "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
-                        i, i
-                    ))
                     .append(RcDoc::hardline())
                     .append(format!("//Copy of signal {}", _s))
                     .append(RcDoc::hardline());
@@ -739,9 +740,12 @@ fn _make_seq_code<'a>(
                     .append(RcDoc::hardline());
             }
             // XXX: Handle data value for signals here.
-            let _dsigs = _all_sigs[_nodes[_i]._tid]
+            let _dsigs = _all_sigs
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
                 .iter()
-                .filter_map(|x| match x {
+                .filter_map(|&x| match x {
                     Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
                         if _csigs.contains(_sy.get_string()) {
                             Some(_sy.get_string())
@@ -764,7 +768,7 @@ fn _make_seq_code<'a>(
             }
             _vp = _vp
                 .append(RcDoc::hardline())
-                .append("}")
+                .append("} // end of if not?")
                 .append(RcDoc::hardline());
         }
         // XXX: Add _vp to _am[0]
@@ -830,8 +834,8 @@ fn _make_seq_code<'a>(
             .append(RcDoc::hardline());
     }
     for (c, b) in zip(_gm, _bn) {
-	// XXX: Remove the extra braces and line if there is no
-	// conditional from above removal of if(true)
+        // XXX: Remove the extra braces and line if there is no
+        // conditional from above removal of if(true)
         let _bs: RcDoc<'_, _> = if c.1 {
             RcDoc::<()>::as_string("{").append(RcDoc::hardline())
         } else {
@@ -842,10 +846,7 @@ fn _make_seq_code<'a>(
         } else {
             RcDoc::nil()
         };
-        let cb =
-            c.0.append(_bs)
-                .append(b)
-                .append(be);
+        let cb = c.0.append(_bs).append(b).append(be);
         __n = __n.append(cb);
     }
 
@@ -935,9 +936,12 @@ fn _make_fork_code<'a>(
                     .append(RcDoc::hardline());
             }
             // XXX: Handle data value for signals here.
-            let _dsigs = _all_sigs[_nodes[_i]._tid]
+            let _dsigs = _all_sigs
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
                 .iter()
-                .filter_map(|x| match x {
+                .filter_map(|&x| match x {
                     Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
                         if _csigs.contains(_sy.get_string()) {
                             Some(_sy.get_string())

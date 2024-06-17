@@ -8,7 +8,12 @@ h = rcal(h + 100.8, ?J);
 S0: pause;
 loop{
  abort (immediate H) {
-  {SL: sustain J(100);}||{S2: sustain K;}||{emit FG;};
+  {S2: sustain K;}
+  ||
+  {
+  {emit J(100);}||{S10: sustain FG;};
+  S11: pause;
+  };
  };
  S1: pause;
 };
