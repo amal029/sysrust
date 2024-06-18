@@ -654,7 +654,7 @@ fn _make_seq_code<'a>(
         assert!(!_nodes[_i].children.is_empty());
         assert!(_i == _nodes[_i].children[0]);
 
-        // XXX: Check the last one is always the normal JoinChild
+        // XXX: Check one is always the normal JoinChild
         let _normal_exit_idx = _nodes[_i]
             .children
             .iter()
@@ -733,78 +733,76 @@ fn _make_seq_code<'a>(
             .filter(|&&_x| _nodes[_x]._tid != _nodes[_i]._tid)
             .map(|&x| _nodes[x]._tid);
         let mut _vp = RcDoc::<()>::nil();
-        let mut _avp = RcDoc::<()>::as_string(
-            "//Are all parent threads \
-				    are done?",
-        )
-        .append(RcDoc::hardline());
+        let mut _avp = RcDoc::as_string("//Parent threads done?").append(RcDoc::hardline());
         for i in _ptids {
             _vp = _vp.append(format!(
                 "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
                 i, i
             ));
-            let _csigs = &_for_fsm_sigs_thread[i];
-            for _s in _csigs.iter() {
-                _vp = _vp
-                    .append(RcDoc::hardline())
-                    .append(format!("//Copy of signal {}", _s))
-                    .append(RcDoc::hardline());
-                _vp = _vp.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
-                _vp = _vp.append(RcDoc::hardline());
-            }
-            // XXX: Now make the input signals to visit
-            let _vsigs = _csigs
-                .iter()
-                .enumerate()
-                .map(|(_jk, x)| format!("{}_{}", x, i))
-                .collect::<Vec<_>>();
-            if _vsigs.is_empty() {
-                _vp = _vp
-                    .append(format!("visit{}(st{});", i, i))
-                    .append(RcDoc::hardline());
-            } else {
-                _vp = _vp
-                    .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
-                    .append(RcDoc::hardline());
-            }
-            // XXX: Update the status of the signal copies being sent!
-            for _cs in _csigs {
-                _vp = _vp
-                    .append(format!(
-                        "{}_curr.status = {}_curr.status || {}_{}.status;",
-                        _cs, _cs, _cs, i
-                    ))
-                    .append(RcDoc::hardline());
-            }
-            // XXX: Handle data value for signals here.
-            let _dsigs = _all_sigs
-                .into_iter()
-                .flatten()
-                .filter_map(|x| match x {
-                    Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
-                        if _csigs.contains(_sy.get_string()) {
-                            Some(_sy.get_string())
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            for _cs in _csigs {
-                if _dsigs.contains(&_cs) {
-                    _vp = _vp
-                        .append(format!(
-                            "if ({_cs}_curr.status) \
-			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
-                        ))
-                        .append(RcDoc::hardline());
-                }
-            }
-            _vp = _vp
-                .append(RcDoc::hardline())
-                .append("}")
-                .append(RcDoc::hardline());
+	    let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
+	    _vp = _vp.append(_m);
+            // let _csigs = &_for_fsm_sigs_thread[i];
+            // for _s in _csigs.iter() {
+            //     _vp = _vp
+            //         .append(RcDoc::hardline())
+            //         .append(format!("//Copy of signal {}", _s))
+            //         .append(RcDoc::hardline());
+            //     _vp = _vp.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+            //     _vp = _vp.append(RcDoc::hardline());
+            // }
+            // // XXX: Now make the input signals to visit
+            // let _vsigs = _csigs
+            //     .iter()
+            //     .enumerate()
+            //     .map(|(_jk, x)| format!("{}_{}", x, i))
+            //     .collect::<Vec<_>>();
+            // if _vsigs.is_empty() {
+            //     _vp = _vp
+            //         .append(format!("visit{}(st{});", i, i))
+            //         .append(RcDoc::hardline());
+            // } else {
+            //     _vp = _vp
+            //         .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
+            //         .append(RcDoc::hardline());
+            // }
+            // // XXX: Update the status of the signal copies being sent!
+            // for _cs in _csigs {
+            //     _vp = _vp
+            //         .append(format!(
+            //             "{}_curr.status = {}_curr.status || {}_{}.status;",
+            //             _cs, _cs, _cs, i
+            //         ))
+            //         .append(RcDoc::hardline());
+            // }
+            // // XXX: Handle data value for signals here.
+            // let _dsigs = _all_sigs
+            //     .into_iter()
+            //     .flatten()
+            //     .filter_map(|x| match x {
+            //         Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
+            //             if _csigs.contains(_sy.get_string()) {
+            //                 Some(_sy.get_string())
+            //             } else {
+            //                 None
+            //             }
+            //         }
+            //         _ => None,
+            //     })
+            //     .collect::<Vec<_>>();
+            // for _cs in _csigs {
+            //     if _dsigs.contains(&_cs) {
+            //         _vp = _vp
+            //             .append(format!(
+            //                 "if ({_cs}_curr.status) \
+	    // 		 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
+            //             ))
+            //             .append(RcDoc::hardline());
+            //     }
+            // }
+            // _vp = _vp
+            //     .append(RcDoc::hardline())
+            //     .append("}")
+            //     .append(RcDoc::hardline());
             _avp = _avp
                 .append(format!(
                     "assert(holds_alternative<Thread{}<E>>(st{}));",
@@ -915,6 +913,77 @@ fn _make_seq_code<'a>(
     return (__n.append(_n), _rn);
 }
 
+fn _make_stmts_for_fork_join<'a>(
+    _for_fsm_sigs_thread: &'a [Vec<String>],
+    i: usize,
+    _all_sigs: &'a [Vec<Stmt>],
+) -> RcDoc<'a> {
+    let mut _vp = RcDoc::<()>::nil();
+    let _csigs = &_for_fsm_sigs_thread[i];
+    for _s in _csigs.iter() {
+        _vp = _vp
+            .append(RcDoc::hardline())
+            .append(format!("//Copy of signal {}", _s))
+            .append(RcDoc::hardline());
+        _vp = _vp.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+        _vp = _vp.append(RcDoc::hardline());
+    }
+    // XXX: Now make the input signals to visit
+    let _vsigs = _csigs
+        .iter()
+        .enumerate()
+        .map(|(_jk, x)| format!("{}_{}", x, i))
+        .collect::<Vec<_>>();
+    if _vsigs.is_empty() {
+        _vp = _vp
+            .append(format!("visit{}(st{});", i, i))
+            .append(RcDoc::hardline());
+    } else {
+        _vp = _vp
+            .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
+            .append(RcDoc::hardline());
+    }
+    // XXX: Update the status of the signal copies being sent!
+    for _cs in _csigs {
+        _vp = _vp
+            .append(format!(
+                "{}_curr.status = {}_curr.status || {}_{}.status;",
+                _cs, _cs, _cs, i
+            ))
+            .append(RcDoc::hardline());
+    }
+    // XXX: Handle data value for signals here.
+    let _dsigs = _all_sigs
+        .into_iter()
+        .flatten()
+        .filter_map(|x| match x {
+            Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
+                if _csigs.contains(_sy.get_string()) {
+                    Some(_sy.get_string())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for _cs in _csigs {
+        if _dsigs.contains(&_cs) {
+            _vp = _vp
+                .append(format!(
+                    "if ({_cs}_curr.status) \
+			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
+                ))
+                .append(RcDoc::hardline());
+        }
+    }
+    _vp = _vp
+        .append(RcDoc::hardline())
+        .append("}")
+        .append(RcDoc::hardline());
+    _vp
+}
+
 fn _make_fork_code<'a>(
     _f: usize,
     _l: usize,
@@ -956,69 +1025,9 @@ fn _make_fork_code<'a>(
                 .append("{");
             _n = _n.append(_ifgn);
             // 1. Then build the code for init.
-            _n = _n.append(format!("init{}();", i)).append(RcDoc::hardline());
-            // XXX: Here we need the signals used in children threads.
-            let _csigs = &_for_fsm_sigs_thread[i];
-            for _s in _csigs.iter() {
-                _n = _n
-                    .append(format!("//Copy of signal {}", _s))
-                    .append(RcDoc::hardline());
-                _n = _n.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
-                _n = _n.append(RcDoc::hardline());
-            }
-            // XXX: Now make the input signals to visit
-            let _vsigs = _csigs
-                .iter()
-                .enumerate()
-                .map(|(_jk, x)| format!("{}_{}", x, i))
-                .collect::<Vec<_>>();
-            if _vsigs.is_empty() {
-                _n = _n
-                    .append(format!("visit{}(st{});", i, i))
-                    .append(RcDoc::hardline());
-            } else {
-                _n = _n
-                    .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
-                    .append(RcDoc::hardline());
-            }
-            // XXX: Update the status of the signal copies being sent!
-            for _cs in _csigs {
-                _n = _n
-                    .append(format!(
-                        "{}_curr.status = {}_curr.status || {}_{}.status;",
-                        _cs, _cs, _cs, i
-                    ))
-                    .append(RcDoc::hardline());
-            }
-            // XXX: Handle data value for signals here.
-            let _dsigs = _all_sigs
-                .into_iter()
-                .flatten()
-                .collect::<Vec<_>>()
-                .iter()
-                .filter_map(|&x| match x {
-                    Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
-                        if _csigs.contains(_sy.get_string()) {
-                            Some(_sy.get_string())
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            for _cs in _csigs {
-                if _dsigs.contains(&_cs) {
-                    _n = _n
-                        .append(format!(
-                            "if ({_cs}_curr.status) \
-			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
-                        ))
-                        .append(RcDoc::hardline());
-                }
-            }
-            _n = _n.append(RcDoc::hardline());
-            _n = _n.append("}");
+            _n = _n.append(format!("init{}();", i));
+            let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
+            _n = _n.append(_m);
         } else {
             // XXX: This is when a child is in the same _tid.
             _same_tid_indices.push(j);
