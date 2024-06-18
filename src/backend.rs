@@ -284,13 +284,13 @@ pub fn _codegen(
     for (i, (k1, k2)) in zip(_used_sigs, _states).enumerate() {
         // XXX: First make I, ND, and D states
         let _ss = format!(
-            "template <> struct Thread{}<E>{{\nconstexpr void tick \
+            "template <> struct Thread{}<E>{{\ninline void tick \
 	     ({}){{}}}};",
             i, k1
         );
         thread_prototypes.push(_ss);
         let _ss = format!(
-            "template <> struct Thread{}<I>{{\nconstexpr void tick \
+            "template <> struct Thread{}<I>{{\ninline void tick \
 			  ({});}};",
             i, k1
         );
@@ -302,7 +302,7 @@ pub fn _codegen(
             "{}"
         };
         let _ss = format!(
-            "template <> struct Thread{}<ND>{{\nconstexpr void tick \
+            "template <> struct Thread{}<ND>{{\ninline void tick \
 	     ({}){}}};",
             i, k1, _sbr
         );
@@ -310,7 +310,7 @@ pub fn _codegen(
         for j in k2 {
             let mm = j.get_string();
             let _ss = format!(
-                "template <> struct Thread{}<{}>{{\nconstexpr void tick \
+                "template <> struct Thread{}<{}>{{\ninline void tick \
 			  ({});}};",
                 i, mm, k1
             );
@@ -336,7 +336,7 @@ pub fn _codegen(
     let _inits = join(
         (0..*_nthreads).map(|x| {
             format!(
-                "constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
+                "inline void init{}(){{st{} = Thread{}<I> {{}};}}",
                 x, x, x
             )
         }),
@@ -370,13 +370,13 @@ pub fn _codegen(
         (0..*_nthreads).map(|i| {
             if _used_sigs_vec[i] != "" {
                 format!(
-                    "constexpr void visit{}(Thread{}State &ts, {}){{\
+                    "inline void visit{}(Thread{}State &ts, {}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
-                    "constexpr void visit{}(Thread{}State &ts{}){{\
+                    "inline void visit{}(Thread{}State &ts{}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
@@ -1238,7 +1238,7 @@ fn _walk_graph_code_gen<'a>(
     );
     // XXX: Here we need to put it inside the method!
     let __n = RcDoc::<()>::as_string(format!(
-        "constexpr void Thread{}<{}>::tick({}) {{",
+        "inline void Thread{}<{}>::tick({}) {{",
         _nodes[inode]._tid, _nodes[inode].label, _used_sigs_per_thread[_nodes[inode]._tid]
     ));
     // XXX: Here we close the method
