@@ -50,7 +50,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             let _m = format!("struct signal_{}", _sy.get_string());
             let _m = format!(
-                "{} {{bool tag = false; bool status; {} value = {}; {}<{}> op {{}};}};",
+                "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}};",
                 _m,
                 _type_string(_ty, *_pos, _ff),
                 _iv.to_string(),
@@ -140,6 +140,9 @@ pub fn _codegen(
         let __x = _x._get_doc();
         acc.append(__x)
     });
+    _ec = _ec
+        .append(RcDoc::as_string("char tick();"))
+        .append(RcDoc::hardline());
     _ec = _ec.append(_ecs).append("}").append(RcDoc::hardline());
     _ec.render(8, &mut w).unwrap();
 
@@ -336,7 +339,16 @@ pub fn _codegen(
     let _o = "template <class... Ts> struct overloaded: \
 	 Ts... {using Ts::operator()...;};"
         .to_string();
-    _n = _n.append(RcDoc::hardline()).append(_o);
+    let _oo = "// explicit deduction guide (not needed as of C++20)\n\
+	       template<class... Ts> \
+	       overloaded(Ts...) -> overloaded<Ts...>;"
+        .to_string();
+    _n = _n
+        .append(RcDoc::hardline())
+        .append(_o)
+        .append(RcDoc::hardline())
+        .append(_oo)
+        .append(RcDoc::hardline());
 
     // XXX: All the visits
     assert!(*_nthreads == _used_sigs_vec.len());
@@ -556,6 +568,8 @@ fn _make_main_code(_sigs: &[Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc {
         .append("pre_eq_curr();")
         .append(RcDoc::hardline())
         .append("reset_curr();")
+        .append(RcDoc::hardline())
+        .append("if (tick() == 'd') break;")
         .append(RcDoc::hardline())
         .append("}")
         .append("}");
@@ -816,7 +830,7 @@ fn _make_seq_code<'a>(
             //     .append(RcDoc::hardline());
             _avp = _avp
                 .append(format!(
-                    "assert(holds_alternative<Thread{}<E>>(st{}));",
+                    "assert(std::holds_alternative<Thread{}<E>>(st{}));",
                     i, i
                 ))
                 .append(RcDoc::hardline());
