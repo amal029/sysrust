@@ -83,7 +83,7 @@ fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _var {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
             let _m = format!(
-                "{} {}_{} = {};",
+                "static {} {}_{} = {};",
                 _type_string(_ty, *_pos, _ff),
                 _sy.get_string(),
                 _tid,
@@ -175,7 +175,7 @@ pub fn _codegen(
     for (_i, _s) in _vars.iter().enumerate() {
         for _ss in _s {
             let _m = _var_decl(_ss, _i, _ff);
-            _m.render(8, &mut w).expect("Cannot declare signal");
+            _m.render(8, &mut w).expect("Cannot declare variable");
         }
     }
 
