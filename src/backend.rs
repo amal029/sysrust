@@ -5,7 +5,7 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type};
+use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, IO};
 
 use crate::{
     error::print_bytes,
@@ -40,23 +40,36 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
-            let _m = format!("struct signal_{}", _sy.get_string());
-            let _m = format!("{} {{bool status;}};", _m);
+            let _m = format!("typedef struct signal_{}", _sy.get_string());
+            let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
             let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
             let sname = _sy.get_string();
+            // FIXME: This should be put in a different header for input
+            // signals. Remove the static for input signals too.
             let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
             _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
-            let _m = format!("struct signal_{}", _sy.get_string());
-            let _m = format!(
-                "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}};",
-                _m,
-                _type_string(_ty, *_pos, _ff),
-                _iv.to_string(),
-                _expr_op_std_op(_op, *_pos, _ff),
-                _type_string(_ty, *_pos, _ff)
-            );
+            let _m = format!("typedef struct signal_{}", _sy.get_string());
+            let _m = if let Some(IO::Output) = _io {
+                format!(
+                    "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}} signal_{};",
+                    _m,
+                    _type_string(_ty, *_pos, _ff),
+                    _iv.to_string(),
+                    _expr_op_std_op(_op, *_pos, _ff),
+                    _type_string(_ty, *_pos, _ff),
+		    _sy.get_string()
+                )
+            } else {
+                format!(
+                    "{} {{{} value = {}; bool status;}} signal_{};",
+                    _m,
+                    _type_string(_ty, *_pos, _ff),
+                    _iv.to_string(),
+                    _sy.get_string()
+                )
+            };
             let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
             let sname = _sy.get_string();
             let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
@@ -489,14 +502,20 @@ fn _make_curr_reset(_sigs: &[Vec<Stmt>]) -> RcDoc {
                     .append(format!("{}_curr.status = false;", _sy.get_string()))
                     .append(RcDoc::hardline())
             }
-            Stmt::DataSignal(_sy, _, _, _, _, _) => {
-                _n = _n
-                    .append(format!(
-                        "{}_curr.status = false; {}_curr.tag = false;",
-                        _sy.get_string(),
-                        _sy.get_string()
-                    ))
-                    .append(RcDoc::hardline())
+            Stmt::DataSignal(_sy, _io, _, _, _, _) => {
+                if let Some(IO::Output) = _io {
+                    _n = _n
+                        .append(format!(
+                            "{}_curr.status = false; {}_curr.tag = false;",
+                            _sy.get_string(),
+                            _sy.get_string()
+                        ))
+                        .append(RcDoc::hardline())
+                } else {
+                    _n = _n
+                        .append(format!("{}_curr.status = false;", _sy.get_string()))
+                        .append(RcDoc::hardline())
+                }
             }
             _ => panic!("Got a non signal building code for pre <- curr status update"),
         }

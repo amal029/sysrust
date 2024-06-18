@@ -1,5 +1,5 @@
 // This is a working example.
-input signal H;
+input int signal H;
 output signal FG;
 output signal K;
 output int signal J = 2 : +;
