@@ -2,7 +2,7 @@
 input signal H;
 output signal FG;
 output signal K;
-output int signal J = 0 : +;
+output int signal J = 2 : +;
 int h = 0;
 h = rcal(h + 100.8, ?J);
 S0: pause;
@@ -11,7 +11,7 @@ loop{
   {S2: sustain K;}
   ||
   {
-   {emit J(100);}||{S10: sustain FG;};
+   {emit J(100);}||{S10: sustain J(100);};
    S11: pause;
   };
  };

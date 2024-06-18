@@ -50,7 +50,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             let _m = format!("struct signal_{}", _sy.get_string());
             let _m = format!(
-                "{} {{bool status; {} value = {}; {}<{}> op {{}};}};",
+                "{} {{bool tag = false; bool status; {} value = {}; {}<{}> op {{}};}};",
                 _m,
                 _type_string(_ty, *_pos, _ff),
                 _iv.to_string(),
@@ -426,6 +426,8 @@ fn _make_print_ouputs<'a>(_osigs: Vec<(&'a str, Option<&'a Type>)>) -> RcDoc<'a>
     let mut _m = RcDoc::<()>::as_string("void print_outputs(){")
         .append(RcDoc::hardline())
         .append(_n)
+        .append("std::cout << \"----------------\\n\";")
+        .append(RcDoc::hardline())
         .append("}");
     _m
 }
@@ -452,6 +454,11 @@ fn _make_pre_eq_curr(_sigs: &[Vec<Stmt>]) -> RcDoc {
                         _sy.get_string(),
                     ))
                     .append(RcDoc::hardline())
+                    .append(format!(
+                        "{}_prev.value = {}_curr.value;",
+                        _sy.get_string(),
+                        _sy.get_string(),
+                    ))
             }
             _ => panic!("Got a non signal building code for pre <- curr status update"),
         }
@@ -472,7 +479,11 @@ fn _make_curr_reset(_sigs: &[Vec<Stmt>]) -> RcDoc {
             }
             Stmt::DataSignal(_sy, _, _, _, _, _) => {
                 _n = _n
-                    .append(format!("{}_curr.status = false;", _sy.get_string()))
+                    .append(format!(
+                        "{}_curr.status = false; {}_curr.tag = false;",
+                        _sy.get_string(),
+                        _sy.get_string()
+                    ))
                     .append(RcDoc::hardline())
             }
             _ => panic!("Got a non signal building code for pre <- curr status update"),
@@ -739,8 +750,8 @@ fn _make_seq_code<'a>(
                 "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
                 i, i
             ));
-	    let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
-	    _vp = _vp.append(_m);
+            let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
+            _vp = _vp.append(_m);
             // let _csigs = &_for_fsm_sigs_thread[i];
             // for _s in _csigs.iter() {
             //     _vp = _vp
@@ -794,7 +805,7 @@ fn _make_seq_code<'a>(
             //         _vp = _vp
             //             .append(format!(
             //                 "if ({_cs}_curr.status) \
-	    // 		 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
+            // 		 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
             //             ))
             //             .append(RcDoc::hardline());
             //     }
@@ -971,8 +982,10 @@ fn _make_stmts_for_fork_join<'a>(
         if _dsigs.contains(&_cs) {
             _vp = _vp
                 .append(format!(
-                    "if ({_cs}_curr.status) \
-			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);"
+                    "if ({_cs}_curr.status) {{\
+		     if({_cs}_curr.tag){{
+			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);}} 
+			 else {{ {_cs}_curr.value = {_cs}_{i}.value; {_cs}_curr.tag = true; }} }}"
                 ))
                 .append(RcDoc::hardline());
         }
