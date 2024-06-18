@@ -46,7 +46,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
             let sname = _sy.get_string();
             // FIXME: This should be put in a different header for input
             // signals. Remove the static for input signals too.
-            let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
+            let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
             _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
@@ -72,7 +72,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
             };
             let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
             let sname = _sy.get_string();
-            let u = format!("static signal_{} {}_curr, {}_prev;", sname, sname, sname);
+            let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
             a.append(u).append(RcDoc::hardline())
         }
         _ => panic!("Got a non signal when generating C++ backend"),
