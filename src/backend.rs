@@ -7,6 +7,8 @@ use itertools::{join, Itertools};
 use pretty::RcDoc;
 use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, IO};
 
+type Pos = (usize, usize);
+
 use crate::{
     error::print_bytes,
     rewrite::{GraphNode, NodeT},
@@ -40,19 +42,22 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
-            let _m = format!("typedef struct signal_{}", _sy.get_string());
-            let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
-            let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
-            let sname = _sy.get_string();
-            // FIXME: This should be put in a different header for input
-            // signals. Remove the static for input signals too.
-            let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-            _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+            if let Some(IO::Output) = _io {
+                let _m = format!("typedef struct signal_{}", _sy.get_string());
+                let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
+                let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+                let sname = _sy.get_string();
+                let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+            } else {
+                RcDoc::nil()
+            }
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
-            let _m = format!("typedef struct signal_{}", _sy.get_string());
-            let _m = if let Some(IO::Output) = _io {
-                format!(
+            if let Some(IO::Output) = _io {
+                let _m = format!("typedef struct signal_{}", _sy.get_string());
+                let _m =
+                    format!(
                     "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}} signal_{};",
                     _m,
                     _type_string(_ty, *_pos, _ff),
@@ -60,20 +65,14 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
                     _expr_op_std_op(_op, *_pos, _ff),
                     _type_string(_ty, *_pos, _ff),
 		    _sy.get_string()
-                )
+                );
+                let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+                let sname = _sy.get_string();
+                let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                a.append(u).append(RcDoc::hardline())
             } else {
-                format!(
-                    "{} {{{} value = {}; bool status;}} signal_{};",
-                    _m,
-                    _type_string(_ty, *_pos, _ff),
-                    _iv.to_string(),
-                    _sy.get_string()
-                )
-            };
-            let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
-            let sname = _sy.get_string();
-            let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-            a.append(u).append(RcDoc::hardline())
+                RcDoc::nil()
+            }
         }
         _ => panic!("Got a non signal when generating C++ backend"),
     }
@@ -119,7 +118,7 @@ pub fn _codegen(
     _sigs: &[Vec<Stmt>],
     _vars: &[Vec<Stmt>],
     _nthreads: &usize,
-    _states: &[Vec<Symbol>],
+    _states: &[Vec<(Symbol, Pos)>],
     _syref: &[Vec<Symbol>],
     _sref: &[Vec<SimpleDataExpr>],
     _vyref: &[Vec<Symbol>],
@@ -134,15 +133,35 @@ pub fn _codegen(
     _tidxs: Vec<(usize, usize)>,
     // XXX: These are the nodes with a valid ND state
     _ndtidxs: Vec<usize>,
+    // XXX: This is the external header file byte array
+    _ext_header: &mut Vec<u8>,
+    // XXX: The name of the cpp and header file
+    _pfile: &str,
+    // XXX: This is telling if a gui is needed
+    _gui: Option<bool>,
 ) -> Vec<u8> {
+    // XXX: Append #pragma once to the external header file
+    let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(RcDoc::hardline());
+    // XXX: Add the number of threads define in external header
+    _pragma = _pragma
+        .append(format!("#define NTHREADS {}", _nthreads))
+        .append(RcDoc::hardline());
+    _pragma = _pragma
+        .append(format!("long long unsigned _pos[NTHREADS][2];"))
+        .append(RcDoc::hardline());
+    // XXX: Write the output
+    _pragma.render(8, _ext_header).unwrap();
+
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
+    let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"", _pfile)).append(RcDoc::hardline());
     let r = h2
         .append(h3)
         .append(h4)
         .append(h5)
+        .append(h6)
         .append(RcDoc::hardline());
     let mut w = Vec::new();
     r.render(8, &mut w).unwrap();
@@ -166,6 +185,9 @@ pub fn _codegen(
         for _ss in _s {
             let _m = _sig_decl(_ss, _i, _ff).append(RcDoc::hardline());
             _m.render(8, &mut w).expect("Cannot declare signals");
+            let _k = _ss._input_rc_doc(_ff);
+            _k.render(8, _ext_header)
+                .expect("Cannot write to external header");
         }
     }
 
@@ -204,7 +226,7 @@ pub fn _codegen(
     let mut _n = RcDoc::<()>::line();
     for _i in _states {
         for _j in _i {
-            let k = format!("struct {} : State {{}};", _j.get_string());
+            let k = format!("struct {} : State {{}};", _j.0.get_string());
             _n = _n.append(RcDoc::as_string(k)).append(RcDoc::hardline());
         }
     }
@@ -228,7 +250,7 @@ pub fn _codegen(
     for (_k, _i) in _states.iter().enumerate() {
         let mut _vv: Vec<_> = _i
             .iter()
-            .map(|x| format!("Thread{}<{}>", _k, x.get_string()))
+            .map(|x| format!("Thread{}<{}>", _k, x.0.get_string()))
             .collect();
         _vv.push(format!("Thread{}<I>", _k));
         _vv.push(format!("Thread{}<E>", _k));
@@ -308,7 +330,7 @@ pub fn _codegen(
         );
         thread_prototypes.push(_ss);
         for j in k2 {
-            let mm = j.get_string();
+            let mm = j.0.get_string();
             let _ss = format!(
                 "template <> struct Thread{}<{}>{{\nconstexpr void tick \
 			  ({});}};",
@@ -327,6 +349,7 @@ pub fn _codegen(
         (0..*_nthreads).map(|x| format!("static Thread{}State st{};", x, x)),
         "\n ",
     );
+
     _n = _n
         .append(RcDoc::hardline())
         .append(_threadvar)
@@ -388,6 +411,37 @@ pub fn _codegen(
         .append(RcDoc::hardline())
         .append(RcDoc::as_string(_hh))
         .append(RcDoc::hardline());
+
+    // XXX: Attach production of position if the gui
+    _n = _n
+        .append(RcDoc::hardline())
+        .append("// position from state")
+        .append(RcDoc::hardline());
+    if let Some(_) = _gui {
+        for (_c, _i) in _states.iter().enumerate() {
+            _n = _n
+                .append(format!("constexpr bool _state_pos{}(){{", _c))
+                .append(RcDoc::hardline());
+            for (_sy, _j) in _i {
+                _n = _n
+                    .append(format!(
+                        "if (std::holds_alternative<Thread{}<{}>>(st{})){{",
+                        _c, _sy.get_string(), _c
+                    ))
+                    .append(RcDoc::hardline());
+                _n = _n
+                    .append(format!("_pos[{}][0] = {};", _c, _j.0))
+                    .append(RcDoc::hardline());
+                _n = _n
+                    .append(format!("_pos[{}][1] = {};", _c, _j.1))
+                    .append(RcDoc::hardline());
+                _n = _n.append("return true;").append(RcDoc::hardline());
+                _n = _n.append("}").append(RcDoc::hardline());
+            }
+            _n = _n.append("return false;").append(RcDoc::hardline());
+            _n = _n.append("}").append(RcDoc::hardline());
+        }
+    }
 
     // XXX: The real code from the FSM
     let _nn = _make_fsm_code(

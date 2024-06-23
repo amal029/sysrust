@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use pretty::RcDoc;
-
+use crate::error::print_bytes;
 use itertools::join;
+use pretty::RcDoc;
 type Pos = (usize, usize);
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
@@ -333,5 +333,55 @@ impl CallNameType {
         let _args = join(self._arg_types.iter().map(|x| x._to_string()), ", ");
         let _args = RcDoc::<()>::as_string(format!("({});", _args));
         _ret.append(" ").append(_toret).append(_args)
+    }
+}
+
+impl Type {
+    fn _type_string(&self, _pos: &Pos, ff: &str) -> &str {
+        match self {
+            Type::Int => "int",
+            Type::Float => "float",
+            Type::None => {
+                let _ = print_bytes(ff, _pos.0, _pos.1);
+                panic!("Cannot write an empty type")
+            }
+        }
+    }
+}
+
+impl Stmt {
+    pub fn _input_rc_doc(&self, _ff: &str) -> RcDoc {
+        match self {
+            Stmt::Signal(_sy, _io, _pos) => {
+                if let Some(IO::Input) = _io {
+                    let _m = format!("typedef struct signal_{}", _sy.get_string());
+                    let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
+                    let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+                    let sname = _sy.get_string();
+                    let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+                } else {
+                    RcDoc::nil()
+                }
+            }
+            Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
+                if let Some(IO::Input) = _io {
+                    let _m = format!("typedef struct signal_{}", _sy.get_string());
+                    let _m = format!(
+                        "{} {{{} value; unsigned char status;}} signal_{};",
+                        _m,
+                        _ty._type_string(_pos, _ff),
+                        _sy.get_string()
+                    );
+                    let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+                    let sname = _sy.get_string();
+                    let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    a.append(u).append(RcDoc::hardline())
+                } else {
+                    RcDoc::nil()
+                }
+            }
+            _ => panic!("Got a non signal when generating input signal type"),
+        }
     }
 }

@@ -19,12 +19,6 @@ type HT = HashMap<String, (Type, SignalVarType, Option<IO>)>;
 type Pos = (usize, usize);
 type Pos1 = (usize, usize, String);
 
-// pub fn symbol_string(s: &Symbol) -> String {
-//     match s {
-//         Symbol::Symbol(ss, _) => ss.clone(),
-//     }
-// }
-
 pub fn _analyse_var_signal_uses(
     ff: &str,
     _stmts: &[Stmt],
@@ -341,13 +335,18 @@ fn _get_num_threads(_num_threads: &mut usize, _ast: &Stmt) {
 }
 
 // XXX: Get all the states in each thread
-pub fn get_states(_state: &mut [Vec<Symbol>], _ast: &[Stmt], tid: &mut usize, tot: &mut usize) {
+pub fn get_states(
+    _state: &mut [Vec<(Symbol, Pos)>],
+    _ast: &[Stmt],
+    tid: &mut usize,
+    tot: &mut usize,
+) {
     _ast.iter().for_each(|x| _get_states(_state, x, tid, tot));
 }
 
-fn _get_states(_state: &mut [Vec<Symbol>], stmt: &Stmt, tid: &mut usize, tot: &mut usize) {
+fn _get_states(_state: &mut [Vec<(Symbol, Pos)>], stmt: &Stmt, tid: &mut usize, tot: &mut usize) {
     match stmt {
-        Stmt::Pause(_sy, _) => _state[*tid].push(_sy.clone()),
+        Stmt::Pause(_sy, _pos) => _state[*tid].push((_sy.clone(), *_pos)),
         Stmt::Block(_sts, _) => get_states(_state, _sts, tid, tot),
         Stmt::Present(_, _t, Some(_r), _) => {
             _get_states(_state, _t, tid, tot);

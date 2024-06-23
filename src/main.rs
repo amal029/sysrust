@@ -2,7 +2,6 @@ use analyse::{get_num_threads, get_states};
 // use error::print_bytes;
 use rewrite::NodeT;
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::process::{exit, Command};
@@ -22,9 +21,37 @@ mod rewrite;
 
 type StackType = HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>;
 
+// XXX: Make the clap parser
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(name = "sysrustc compiler")]
+#[command(version = "beta")]
+#[command(about = "Compiles .sysrs files to C++ code for execution")]
+#[command(long_about=None)]
+struct Args {
+    /// The .sysrs file to compile to C++-23 compatible code.
+    #[arg(short, long)]
+    file: Option<String>,
+    /// Bind to GUI for interactive simulation.
+    #[arg(short, long)]
+    _gui: Option<bool>,
+}
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let _ast = parse(&args[1]);
+    // XXX: Get the arguments from the Arg parser
+    let args = Args::parse();
+
+    // XXX: Get the file name
+    let file_to_compile = match args.file {
+        Some(x) => x,
+        None => {
+            eprintln!("Try --help for options");
+            exit(1);
+        }
+    };
+
+    let _ast = parse(&file_to_compile);
 
     // XXX: Analyse signa/var declaration and their uses
     let mut stack: Vec<StackType> = Vec::with_capacity(50);
@@ -35,13 +62,13 @@ fn main() {
     // XXX: Check the usage and declaration of signals and variables
     let tid = 0;
     stack.push(HashMap::with_capacity(50)); // pushed the first hashmap
-    stack = _analyse_var_signal_uses(&args[1], &_ast, stack, &mut rets, tid);
+    stack = _analyse_var_signal_uses(&file_to_compile, &_ast, stack, &mut rets, tid);
     stack.pop(); // removed the final hashmap
 
     // XXX: Print all the errors
     let bb = rets.is_empty();
     for i in rets {
-        print_bytes(&args[1], i.0, i.1).unwrap();
+        print_bytes(&file_to_compile, i.0, i.1).unwrap();
         println!("{} ", i.2);
     }
     if !bb {
@@ -54,7 +81,7 @@ fn main() {
     // println!("Num of threads in the program: {}", num_threads);
 
     // XXX: Get all the states in each thread
-    let mut _states: Vec<Vec<ast::Symbol>> = vec![vec![]; num_threads];
+    let mut _states: Vec<Vec<(ast::Symbol, (usize, usize))>> = vec![vec![]; num_threads];
     let mut tid = 0;
     let mut tot = 1;
     get_states(&mut _states, &_ast, &mut tid, &mut tot);
@@ -65,7 +92,6 @@ fn main() {
     let mut tot = 1;
     let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
-    // println!("{:?}", _signals);
 
     // XXX: Get all the vars in each thread
     let mut tid = 0;
@@ -78,7 +104,13 @@ fn main() {
     let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(50);
     let __signals = _signals.iter().flatten().collect::<Vec<_>>();
     let __vars = _vars.iter().flatten().collect::<Vec<_>>();
-    _type_infer_extern_calls(&__signals, &__vars, &_ast, &mut _extern_calls, &args[1]);
+    _type_infer_extern_calls(
+        &__signals,
+        &__vars,
+        &_ast,
+        &mut _extern_calls,
+        &file_to_compile,
+    );
     let _extern_calls = _extern_calls
         .into_iter()
         .collect::<HashSet<_>>()
@@ -124,7 +156,7 @@ fn main() {
     let mut _tidxs: Vec<(usize, usize)> = Vec::with_capacity(num_threads);
     let mut _ndtidxs: Vec<usize> = Vec::with_capacity(num_threads);
     let (_i, _e) = rewrite_to_graph_fsm(
-        &args[1],
+        &file_to_compile,
         &_ast,
         &mut tid,
         &mut tot,
@@ -160,13 +192,16 @@ fn main() {
     // dbg!("{:?} {:?} {:?}", &_nodes, _i, _e);
 
     // XXX: Now start making the backend
-    let ff = args[1].split('.').collect::<Vec<&str>>()[0];
+    let ff = file_to_compile.split('.').collect::<Vec<&str>>()[0];
     let _fname = format!("{}.{}", ff, "cpp");
+    let _fname_header = format!("{}.{}", ff, "h");
     let mut _file = File::create(&_fname).expect("Cannot create the cpp file");
+    let mut _file_header = File::create(&_fname_header).expect("Cannot create the h file");
 
+    let mut _ext_header: Vec<u8> = Vec::with_capacity(50);
     // XXX: First make the prolouge -- includes, threads, states,
     // signals, and vars
-    let _ftowrite = &backend::_codegen(
+    let _ftowrite = backend::_codegen(
         &_signals,
         &_vars,
         &num_threads,
@@ -175,7 +210,7 @@ fn main() {
         &_sref,
         &_vyref,
         &_vref,
-        &args[1],
+        &file_to_compile,
         // XXX: This is for external function in C
         &_extern_calls,
         // XXX: These are generating the actual code
@@ -186,11 +221,22 @@ fn main() {
         _tidxs,
         // XXX: These are the nodes that have a valid ND state
         _ndtidxs,
+        // XXX: This is the external header u8 vector
+        &mut _ext_header,
+	// XXX: The name of the compiled cpp and header file
+	ff,
+	// XXX: This is the _gui present?
+	args._gui,
     );
-    // XXX: Make all othre thread code as well.
+    // XXX: Make all other thread code as well.
     _file
-        .write_all(_ftowrite)
+        .write_all(&_ftowrite)
         .expect("Cannot write to cpp file");
+
+    // XXX: Write the external header file too
+    _file_header
+        .write_all(&_ext_header)
+        .expect("Cannot write to h file");
 
     // XXX: Format the generated Cpp file using clang-format
     let _clang_bin = Command::new("which")
@@ -210,6 +256,11 @@ fn main() {
             .arg(_fname)
             .output()
             .expect("failed to format the cpp file");
+        let _fmt_res = Command::new(_clang_bin_path)
+            .arg("-i")
+            .arg(_fname_header)
+            .output()
+            .expect("failed to format the h file");
     } else {
         println!("Could not find clang-format, the generated cpp file will not be formatted");
     }
