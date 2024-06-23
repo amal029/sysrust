@@ -148,6 +148,8 @@ pub fn _codegen(
         .append(RcDoc::hardline());
     _pragma = _pragma
         .append(format!("long long unsigned _pos[NTHREADS][2];"))
+        .append(RcDoc::hardline())
+        .append(format!("const char* _state[NTHREADS];"))
         .append(RcDoc::hardline());
     // XXX: Write the output
     _pragma.render(8, _ext_header).unwrap();
@@ -412,35 +414,59 @@ pub fn _codegen(
         .append(RcDoc::as_string(_hh))
         .append(RcDoc::hardline());
 
-    // XXX: Attach production of position if the gui
+    // XXX: Attach production of position and current state string.
     _n = _n
         .append(RcDoc::hardline())
-        .append("// position from state")
+        .append("// Position from state")
         .append(RcDoc::hardline());
-    if let Some(_) = _gui {
-        for (_c, _i) in _states.iter().enumerate() {
+    for (_c, _i) in _states.iter().enumerate() {
+        _n = _n
+            .append(format!("constexpr bool _state_pos{}(){{", _c))
+            .append(RcDoc::hardline());
+        for (_sy, _j) in _i {
             _n = _n
-                .append(format!("constexpr bool _state_pos{}(){{", _c))
+                .append(format!(
+                    "if (std::holds_alternative<Thread{}<{}>>(st{})){{",
+                    _c,
+                    _sy.get_string(),
+                    _c
+                ))
                 .append(RcDoc::hardline());
-            for (_sy, _j) in _i {
-                _n = _n
-                    .append(format!(
-                        "if (std::holds_alternative<Thread{}<{}>>(st{})){{",
-                        _c, _sy.get_string(), _c
-                    ))
-                    .append(RcDoc::hardline());
+            if let Some(_) = _gui {
                 _n = _n
                     .append(format!("_pos[{}][0] = {};", _c, _j.0))
                     .append(RcDoc::hardline());
                 _n = _n
                     .append(format!("_pos[{}][1] = {};", _c, _j.1))
                     .append(RcDoc::hardline());
-                _n = _n.append("return true;").append(RcDoc::hardline());
-                _n = _n.append("}").append(RcDoc::hardline());
             }
-            _n = _n.append("return false;").append(RcDoc::hardline());
+            _n = _n
+                .append(format!("_state[{}] = \"{}\";", _c, _sy.get_string()))
+                .append(RcDoc::hardline());
+            _n = _n.append("return true;").append(RcDoc::hardline());
             _n = _n.append("}").append(RcDoc::hardline());
         }
+        // XXX: Attach I, ND, and E states to string too!
+        _n = _n
+            .append(format!(
+                "if (std::holds_alternative<Thread{}<I>>(st{})) _state[{}] = \"I\";",
+                _c, _c, _c
+            ))
+            .append(RcDoc::hardline());
+        _n = _n
+            .append(format!(
+                "if (std::holds_alternative<Thread{}<E>>(st{})) _state[{}] = \"E\";",
+                _c, _c, _c
+            ))
+            .append(RcDoc::hardline());
+        _n = _n
+            .append(format!(
+                "if (std::holds_alternative<Thread{}<ND>>(st{})) _state[{}] = \"ND\";",
+                _c, _c, _c
+            ))
+            .append(RcDoc::hardline());
+        _n = _n.append("return false;").append(RcDoc::hardline());
+        _n = _n.append("}").append(RcDoc::hardline());
     }
 
     // XXX: The real code from the FSM
@@ -474,7 +500,7 @@ pub fn _codegen(
 
     // XXX: Now make the main function and input/output functions, which
     // are extern.
-    let _main = _make_main_code(_sigs, _for_main);
+    let _main = _make_main_code(_sigs, _for_main, *_nthreads, &_gui);
     let mut w2: Vec<u8> = Vec::with_capacity(5000);
     let _ = _main.render(8, &mut w2);
     let _ = _n.render(8, &mut w);
@@ -578,7 +604,12 @@ fn _make_curr_reset(_sigs: &[Vec<Stmt>]) -> RcDoc {
     _n
 }
 
-fn _make_main_code(_sigs: &[Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc {
+fn _make_main_code<'a>(
+    _sigs: &'a [Vec<Stmt>],
+    _vsigs: Vec<String>,
+    _nthreads: usize,
+    _gui: &'a Option<bool>,
+) -> RcDoc<'a> {
     let mut _n = RcDoc::nil();
     let sigs_0 = join(_vsigs.into_iter().map(|x| format!("{}_curr", x)), ", ");
     // XXX: Get all output signals
@@ -619,6 +650,16 @@ fn _make_main_code(_sigs: &[Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc {
     } else {
         RcDoc::as_string(format!("visit0(st0, {});", sigs_0))
     };
+    let __st = RcDoc::<()>::as_string(join(
+        (0.._nthreads).into_iter().map(|x| {
+            format!(
+                "bool _res{} = _state_pos{}(); std::cout << \"Thread{} in state: \"<< _state[{}] << \"\\n\";",
+                x, x, x, x
+            )
+        }),
+        "\n",
+    ))
+    .append(RcDoc::hardline());
     _n = _n
         .append(_make_print_ouputs(_osigs))
         .append(RcDoc::hardline())
@@ -636,6 +677,8 @@ fn _make_main_code(_sigs: &[Vec<Stmt>], _vsigs: Vec<String>) -> RcDoc {
         .append(RcDoc::hardline())
         .append(__m)
         .append(RcDoc::hardline())
+        // XXX: Add the call to _state_pos
+        .append(__st)
         .append("print_outputs();")
         .append(RcDoc::hardline())
         .append("pre_eq_curr();")
