@@ -350,7 +350,7 @@ impl Type {
 }
 
 impl Stmt {
-    pub fn _input_rc_doc(&self, _ff: &str) -> RcDoc {
+    pub fn _input_rc_doc(&self, _ff: &str) -> (RcDoc, RcDoc) {
         match self {
             Stmt::Signal(_sy, _io, _pos) => {
                 if let Some(IO::Input) = _io {
@@ -358,10 +358,14 @@ impl Stmt {
                     let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
                     let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
                     let sname = _sy.get_string();
-                    let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-                    _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+                    let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    (
+                        _a.append(RcDoc::as_string(u)).append(RcDoc::hardline()),
+                        RcDoc::as_string(u1),
+                    )
                 } else {
-                    RcDoc::nil()
+                    (RcDoc::nil(), RcDoc::nil())
                 }
             }
             Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
@@ -375,10 +379,11 @@ impl Stmt {
                     );
                     let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
                     let sname = _sy.get_string();
-                    let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-                    a.append(u).append(RcDoc::hardline())
+                    let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    (a.append(u).append(RcDoc::hardline()), RcDoc::as_string(u1))
                 } else {
-                    RcDoc::nil()
+                    (RcDoc::nil(), RcDoc::nil())
                 }
             }
             _ => panic!("Got a non signal when generating input signal type"),

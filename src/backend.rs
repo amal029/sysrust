@@ -147,9 +147,9 @@ pub fn _codegen(
         .append(format!("#define NTHREADS {}", _nthreads))
         .append(RcDoc::hardline());
     _pragma = _pragma
-        .append(format!("long long unsigned _pos[NTHREADS][2];"))
+        .append(format!("extern long long unsigned _pos[NTHREADS][2];"))
         .append(RcDoc::hardline())
-        .append(format!("const char* _state[NTHREADS];"))
+        .append(format!("extern const char* _state[NTHREADS];"))
         .append(RcDoc::hardline());
     // XXX: Write the output
     _pragma.render(8, _ext_header).unwrap();
@@ -178,6 +178,11 @@ pub fn _codegen(
         .append(RcDoc::as_string("char tick();"))
         .append(RcDoc::hardline());
     _ec = _ec.append(_ecs).append("}").append(RcDoc::hardline());
+    _ec = _ec
+        .append("long long unsigned _pos[NTHREADS][2];")
+        .append(RcDoc::hardline())
+        .append("const char * _state[NTHREADS];")
+        .append(RcDoc::hardline());
     _ec.render(8, &mut w).unwrap();
 
     // XXX: Declare all the signals in the program/thread
@@ -185,9 +190,10 @@ pub fn _codegen(
     _m_header.render(8, &mut w).expect("Cannot write signals");
     for (_i, _s) in _sigs.iter().enumerate() {
         for _ss in _s {
-            let _m = _sig_decl(_ss, _i, _ff).append(RcDoc::hardline());
+            let mut _m = _sig_decl(_ss, _i, _ff).append(RcDoc::hardline());
+            let (_k, _k1) = _ss._input_rc_doc(_ff);
+            _m = _m.append(_k1).append(RcDoc::hardline());
             _m.render(8, &mut w).expect("Cannot declare signals");
-            let _k = _ss._input_rc_doc(_ff);
             _k.render(8, _ext_header)
                 .expect("Cannot write to external header");
         }
