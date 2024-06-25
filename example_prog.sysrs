@@ -1,19 +1,30 @@
 // This is a working example.
-input int signal H;
+signal H;
 output signal FG;
 output signal K;
 output int signal J = 2 : +;
-int h = 0;
-h = rcal(h + 100.8, ?J);
-S0: pause;
-loop{
- abort (immediate H) {
-  {S2: sustain K;}
-  ||
-  {
-   {emit J(100);}||{S10: sustain J(100);};
-   S11: pause;
+{
+ int h = 0;
+ h = rcal(h + 100.8, ?J);
+ S0: pause;			//Thread 1
+ loop {
+  abort (immediate H) {
+   {S2: sustain K;		//Thread 2
+   }
+   ||
+   {				//Thread 3
+    {emit J(100);}		//Thread 4
+    ||
+    {S10: sustain J(100);};	//Thread 5
+    S11: pause;
+   };
   };
+  S1: pause;
  };
- S1: pause;
+}
+||
+{ 				//Thread 6
+ nothing;
+ T1: pause;
+ emit H;
 };

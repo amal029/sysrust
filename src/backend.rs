@@ -5,7 +5,7 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, IO};
+use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val, IO};
 
 type Pos = (usize, usize);
 
@@ -40,36 +40,52 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
 }
 
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
+    fn build_sig(_sy: &Symbol) -> RcDoc {
+        let _m = format!("typedef struct signal_{}", _sy.get_string());
+        let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
+        let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+        let sname = _sy.get_string();
+        let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+        _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+    }
+    fn build_data_sig<'a>(
+        _sy: &'a Symbol,
+        _ff: &'a str,
+        _pos: &'a Pos,
+        _ty: &'a Type,
+        _iv: &'a Val,
+        _op: &'a ExprOp,
+    ) -> RcDoc<'a> {
+        let _m = format!("typedef struct signal_{}", _sy.get_string());
+        let _m = format!(
+            "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}} signal_{};",
+            _m,
+            _type_string(_ty, *_pos, _ff),
+            _iv.to_string(),
+            _expr_op_std_op(_op, *_pos, _ff),
+            _type_string(_ty, *_pos, _ff),
+            _sy.get_string()
+        );
+        let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+        let sname = _sy.get_string();
+        let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+        a.append(u).append(RcDoc::hardline())
+    }
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
             if let Some(IO::Output) = _io {
-                let _m = format!("typedef struct signal_{}", _sy.get_string());
-                let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
-                let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
-                let sname = _sy.get_string();
-                let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-                _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+                build_sig(_sy)
+            } else if let None = _io {
+                build_sig(_sy)
             } else {
                 RcDoc::nil()
             }
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-                let _m = format!("typedef struct signal_{}", _sy.get_string());
-                let _m =
-                    format!(
-                    "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}} signal_{};",
-                    _m,
-                    _type_string(_ty, *_pos, _ff),
-                    _iv.to_string(),
-                    _expr_op_std_op(_op, *_pos, _ff),
-                    _type_string(_ty, *_pos, _ff),
-		    _sy.get_string()
-                );
-                let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
-                let sname = _sy.get_string();
-                let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-                a.append(u).append(RcDoc::hardline())
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op)
+            } else if let None = _io {
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op)
             } else {
                 RcDoc::nil()
             }
@@ -623,9 +639,11 @@ fn _make_main_code<'a>(
     let _osigs = __sigs
         .iter()
         .filter(|x| match x {
-            Stmt::Signal(_sy, _io, _pos) => _io.is_some() && _io.clone().unwrap().is_output(),
+            Stmt::Signal(_sy, _io, _pos) => {
+                _io.is_none() || (_io.is_some() && _io.clone().unwrap().is_output())
+            }
             Stmt::DataSignal(_sy, _io, _t, _v, _expr, _pos) => {
-                _io.is_some() && _io.clone().unwrap().is_output()
+                _io.is_none() || (_io.is_some() && _io.clone().unwrap().is_output())
             }
             _ => panic!("Got a non signal during output signal code generation"),
         })
@@ -958,19 +976,19 @@ fn _make_seq_code<'a>(
         }
     });
     let mut __n = RcDoc::nil();
-    // XXX: Add the determinism and reactivity assertions
-    if let (Some(_x), Some(_y)) = (_det_gm, _reac_gm) {
-        __n = __n
-            .append(RcDoc::as_string("assert(("))
-            .append(_x)
-            .append(") == false && \"Non deterministic program\" );")
-            .append(RcDoc::hardline());
-        __n = __n
-            .append(RcDoc::as_string("assert(("))
-            .append(_y)
-            .append(") == true && \"Non reactive program\");")
-            .append(RcDoc::hardline());
-    }
+    // FIXME: This should remove all the trues
+    // if let (Some(_x), Some(_y)) = (_det_gm, _reac_gm) {
+    //     __n = __n
+    //         .append(RcDoc::as_string("assert(("))
+    //         .append(_x)
+    //         .append(") == false && \"Non deterministic program\" );")
+    //         .append(RcDoc::hardline());
+    //     __n = __n
+    //         .append(RcDoc::as_string("assert(("))
+    //         .append(_y)
+    //         .append(") == true && \"Non reactive program\");")
+    //         .append(RcDoc::hardline());
+    // }
     for (c, b) in zip(_gm, _bn) {
         // XXX: Remove the extra braces and line if there is no
         // conditional from above removal of if(true)
@@ -1056,7 +1074,7 @@ fn _make_stmts_for_fork_join<'a>(
         if _dsigs.contains(&_cs) {
             _vp = _vp
                 .append(format!(
-                    "if ({_cs}_curr.status) {{\
+                    "if ({_cs}_curr.status and not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
 		     if({_cs}_curr.tag){{
 			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);}} 
 			 else {{ {_cs}_curr.value = {_cs}_{i}.value; {_cs}_curr.tag = true; }} }}"

@@ -5,14 +5,14 @@ CFLAGS=-c
 CFILE=tt.c
 CXXFILES=example_prog.cpp example_prog.h
 
-all:	clean br bc
-	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o prog
+all:	br bc
 
 br:
 	cargo run -- -f example_prog.sysrs -g true
 
 bc:
 	$(CC) $(CFLAGS) $(CFILE)
+	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o prog
 
 
 run:
