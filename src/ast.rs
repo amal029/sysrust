@@ -355,7 +355,11 @@ impl Stmt {
             Stmt::Signal(_sy, _io, _pos) => {
                 if let Some(IO::Input) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
-                    let _m = format!("{} {{bool status;}} signal_{};", _m, _sy.get_string());
+                    let _m = format!(
+                        "{} {{unsigned char status;}} signal_{};",
+                        _m,
+                        _sy.get_string()
+                    );
                     let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
                     let sname = _sy.get_string();
                     let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);

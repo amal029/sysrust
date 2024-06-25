@@ -1,14 +1,15 @@
 CC=gcc-m
 CXX=g++-m
-CXXFLAGS=-O3 -std=c++26
+CXXFLAGS=-O3 -std=c++23
 CFLAGS=-c
 CFILE=tt.c
-CXXFILES=example_prog.cpp example_prog.h
+CXXFILES=$(FNAME).cpp $(FNAME).h
 
+ifdef	FNAME 
 all:	br bc
 
 br:
-	cargo run -- -f example_prog.sysrs -g true
+	cargo run -- -f $(FNAME).sysrs -g true
 
 bc:
 	$(CC) $(CFLAGS) $(CFILE)
@@ -20,3 +21,8 @@ run:
 
 clean:
 	rm -rf prog $(CXXFILES) *.o
+else
+PHONY:
+	@echo "Provide file name FNAME=<>"
+endif
+
