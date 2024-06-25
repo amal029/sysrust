@@ -1,0 +1,13 @@
+input signal A;
+input signal B;
+input signal R;
+output signal O;
+
+
+loop{
+ abort(R){
+  {nothing; S0: await (A);}||{nothing; S1: await (B);};
+  emit O;
+ };
+ S2: halt;
+};

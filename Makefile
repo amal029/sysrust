@@ -1,17 +1,18 @@
 CC=gcc-m
 CXX=g++-m
-CXXFLAGS=-O3 -std=c++23
+CXXFLAGS=-O3 -std=c++23 -fno-exceptions -march=native
 CFLAGS=-c
 CFILE=tt.c
 CXXFILES=$(FNAME).cpp $(FNAME).h
 
 ifdef	FNAME 
-all:	br bc
+all:	bc
 
 br:
-	cargo run -- -f $(FNAME).sysrs -g true
+	cargo build --release
 
 bc:
+	./target/release/sysrust -f $(FNAME).sysrs
 	$(CC) $(CFLAGS) $(CFILE)
 	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o $(FNAME)
 
@@ -20,7 +21,7 @@ run:
 	./$(FNAME)
 
 clean:
-	rm -rf prog $(CXXFILES) *.o
+	rm -rf $(FNAME) $(CXXFILES) *.o
 else
 PHONY:
 	@echo "Provide file name FNAME=<>"
