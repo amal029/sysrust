@@ -13,11 +13,11 @@ br:
 
 bc:
 	$(CC) $(CFLAGS) $(CFILE)
-	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o prog
+	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o $(FNAME)
 
 
 run:
-	./prog
+	./$(FNAME)
 
 clean:
 	rm -rf prog $(CXXFILES) *.o
