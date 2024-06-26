@@ -798,3 +798,67 @@ fn _get_type<'a>(
         }
     }
 }
+
+fn _print_error(_ff: &str, _pos: &Pos, hp: &HashMap<&String, Pos>, _sy: &Symbol) {
+    let _ = print_bytes(_ff, _pos.0, _pos.1);
+    let _ = print_bytes(
+        _ff,
+        hp.get(_sy.get_string()).unwrap().0,
+        hp.get(_sy.get_string()).unwrap().1,
+    );
+    eprintln!("Signal/State names have to be unique throughout program");
+}
+
+pub fn _check_state_repeats<'a>(
+    _states: &'a [Vec<(Symbol, Pos)>],
+    _ff: &'a str,
+    hp: HashMap<&'a String, Pos>,
+) {
+    let mut hp = hp;
+    let mut _exit = false;
+    _states.iter().for_each(|x| {
+        x.iter().for_each(|y| {
+            if !hp.contains_key(y.0.get_string()) {
+                hp.insert(y.0.get_string(), y.1);
+            } else {
+                _print_error(_ff, &y.1, &hp, &y.0);
+                _exit = true;
+            }
+        })
+    });
+    if _exit {
+        exit(1);
+    }
+}
+
+pub fn _check_signal_repeats<'a>(_sigs: &'a [Vec<Stmt>], _ff: &'a str) -> HashMap<&'a String, Pos> {
+    let mut hp: HashMap<&String, Pos> =
+        HashMap::with_capacity(_sigs.iter().fold(0, |acc, x| acc + x.len()));
+    let mut _exit = false;
+    _sigs.iter().for_each(|x| {
+        x.iter().for_each(|y| match y {
+            Stmt::Signal(_sy, _, _pos) => {
+                if !hp.contains_key(_sy.get_string()) {
+                    hp.insert(_sy.get_string(), *_pos);
+                } else {
+                    _print_error(_ff, _pos, &hp, _sy);
+                    _exit = true;
+                }
+            }
+            Stmt::DataSignal(_sy, _, _, _, _, _pos) => {
+                if !hp.contains_key(_sy.get_string()) {
+                    hp.insert(_sy.get_string(), *_pos);
+                } else {
+                    _print_error(_ff, &_pos, &hp, _sy);
+                    _exit = true;
+                }
+            }
+            _ => panic!("Got a non signal when detecting signal overlap"),
+        });
+    });
+    if _exit {
+        exit(1);
+    } else {
+        hp
+    }
+}

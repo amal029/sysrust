@@ -1,4 +1,4 @@
-use analyse::{get_num_threads, get_states};
+use analyse::{_check_signal_repeats, _check_state_repeats, get_num_threads, get_states};
 // use error::print_bytes;
 use rewrite::NodeT;
 use std::collections::{HashMap, HashSet};
@@ -53,7 +53,7 @@ fn main() {
 
     let _ast = parse(&file_to_compile);
 
-    // XXX: Analyse signa/var declaration and their uses
+    // XXX: Analyse signal/var declaration and their uses
     let mut stack: Vec<StackType> = Vec::with_capacity(50);
 
     // XXX: The errors in the program are collected here.
@@ -92,6 +92,14 @@ fn main() {
     let mut tot = 1;
     let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
+
+    // XXX: Check that the signals are not repeated between different
+    // concurrent threads
+    let _hp = _check_signal_repeats(&_signals, &file_to_compile);
+
+    // XXX: Check that the states and signal do not overlap. Moreover,
+    // the states also do not overlap with each other.
+    _check_state_repeats(&_states, &file_to_compile, _hp);
 
     // XXX: Get all the vars in each thread
     let mut tid = 0;
@@ -223,10 +231,10 @@ fn main() {
         _ndtidxs,
         // XXX: This is the external header u8 vector
         &mut _ext_header,
-	// XXX: The name of the compiled cpp and header file
-	ff,
-	// XXX: This is the _gui present?
-	args._gui,
+        // XXX: The name of the compiled cpp and header file
+        ff,
+        // XXX: This is the _gui present?
+        args._gui,
     );
     // XXX: Make all other thread code as well.
     _file
