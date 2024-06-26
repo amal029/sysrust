@@ -1,0 +1,61 @@
+// What this conversion states is that there exists no state in, which
+// VIOLATED is emitted to the environment and hence, the system
+// satisfies the property!
+
+input signal START;
+input signal STOP;
+input signal DOOR_OPEN;
+input signal  MINUTE;
+output signal HEAT;
+output signal LIGHT;
+
+// Extra signals for observer based verification
+output signal SAT; 	//signal stating the the property is verified
+output signal VIOLATED;	//signal emitted when the property is violated
+
+signal S;
+{
+  nothing;
+    // Reaction - 1
+    loop {
+      S0: await(START);
+      abort(MINUTE) {
+	abort(DOOR_OPEN or STOP) {
+	  {S1: sustain HEAT;} || {S2: sustain LIGHT;};
+	};
+      };
+    }; 
+}
+||
+{
+  nothing;
+      // Reaction - 2
+      loop{
+	if (DOOR_OPEN){
+	  abort(!DOOR_OPEN){
+	    S3: sustain LIGHT;
+	  };
+	} else {nothing;};
+	S4: pause;
+      };
+}
+// Safety property via observers!!
+||
+{
+  nothing;
+	loop{
+	  if ((!HEAT) or LIGHT){
+	    emit S;
+	  } else {nothing;};
+	  S5: pause;
+	};
+}
+||
+{
+  nothing;
+  S8: pause;	//This pause is needed because of pre semantics.
+  loop{
+    if (S) { emit SAT; S6: pause;}
+    else {emit VIOLATED; S7: pause;};
+  };
+};
