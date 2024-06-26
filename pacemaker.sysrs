@@ -1,0 +1,109 @@
+signal VP;
+signal AP;
+signal oAP;
+signal AS;
+signal VS;
+output signal resetTimer;
+
+{
+  nothing;
+  // LRI CD
+  signal TLRITAVI;
+  signal sVP;
+
+  {
+    nothing;
+    emit resetTimer;
+    {
+      loop{
+	if(TLRITAVI){
+	  emit AP;
+	  emit oAP;
+	}; 
+	if(AS){
+	  S0: await(sVP or VS);
+	  emit resetTimer;
+	  S1: pause;
+	};
+	if(sVP or VS){
+	  emit resetTimer;
+	};
+	S15: pause;
+      };
+    }
+    ||
+    {
+        nothing;
+	loop{
+	  // VP?;
+	  S2: await (VP);
+	  emit sVP;
+	  S3: pause;
+	};
+    };
+  }
+  ||
+  {
+      nothing;
+      //Environment
+      emit TLRITAVI;
+      S4: pause;
+  };
+}
+||
+{
+  nothing;
+  signal TAVI;
+  signal TURI;
+
+  output signal oVP;
+  signal sAP;
+
+  // Observer signals 
+  signal sus2;
+  signal mytest;
+  {
+    nothing;
+    {
+      nothing;
+      loop{
+        S5: await(AS or sAP);
+	emit resetTimer;
+
+	S6: await(TAVI);
+	if(TURI){
+	  emit VP;
+	  emit oVP;
+	}
+	else{
+	  abort(VS){
+	    S7: await(TURI);
+	    emit VP;
+	    emit oVP;
+	  };
+	};
+	S8: pause;
+      };
+    }
+    ||
+    {
+        nothing;
+	loop{
+	  S9: await (AP);
+	  emit sAP;
+	  S10: pause;
+	};
+    };
+  }
+  ||
+  {
+      nothing;
+      //Environment
+      S11: await (sAP);
+      S12: pause;
+      S13: pause;
+      emit TAVI;
+      emit TURI;
+      S14: pause;
+  };
+};

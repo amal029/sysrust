@@ -1,4 +1,4 @@
-#include "microwave.h"
+/* #include "microwave.h" */
 #include <stdio.h>
 
 int rcal(float x, int y) { return x + y; }
