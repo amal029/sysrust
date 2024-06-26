@@ -155,6 +155,8 @@ pub fn _codegen(
     _pfile: &str,
     // XXX: This is telling if a gui is needed
     _gui: Option<bool>,
+    // XXX: This is for benchmarking
+    _bench: Option<usize>,
 ) -> Vec<u8> {
     // XXX: Append #pragma once to the external header file
     let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(RcDoc::hardline());
@@ -522,7 +524,7 @@ pub fn _codegen(
 
     // XXX: Now make the main function and input/output functions, which
     // are extern.
-    let _main = _make_main_code(_sigs, _for_main, *_nthreads, &_gui);
+    let _main = _make_main_code(_sigs, _for_main, *_nthreads, &_gui, &_bench);
     let mut w2: Vec<u8> = Vec::with_capacity(5000);
     let _ = _main.render(8, &mut w2);
     let _ = _n.render(8, &mut w);
@@ -631,6 +633,7 @@ fn _make_main_code<'a>(
     _vsigs: Vec<String>,
     _nthreads: usize,
     _gui: &'a Option<bool>,
+    _bench: &'a Option<usize>,
 ) -> RcDoc<'a> {
     let mut _n = RcDoc::nil();
     let sigs_0 = join(_vsigs.into_iter().map(|x| format!("{}_curr", x)), ", ");
@@ -674,7 +677,8 @@ fn _make_main_code<'a>(
     } else {
         RcDoc::as_string(format!("visit0(st0, {});", sigs_0))
     };
-    let __st = RcDoc::<()>::as_string(join(
+    let __st = if let None = _bench {
+        RcDoc::<()>::as_string(join(
         (0.._nthreads).into_iter().map(|x| {
             format!(
                 "bool _res{} = _state_pos{}(); std::cout << \"Thread{} in state: \"<< _state[{}] << \"\\n\";",
@@ -682,8 +686,24 @@ fn _make_main_code<'a>(
             )
         }),
         "\n",
-    ))
-    .append(RcDoc::hardline());
+    )).append(RcDoc::hardline()).append("print_outputs();")
+    } else {
+        RcDoc::nil()
+    };
+    // XXX: The loop counter for bench
+    let _count = if let None = _bench {
+        RcDoc::<()>::as_string("while(1){")
+    } else {
+        let _c = _bench.unwrap();
+        RcDoc::as_string("int counter = 0;")
+            .append(RcDoc::hardline())
+            .append(format!("while (counter++ < {_c}){{"))
+    };
+    let _tick = if let None = _bench {
+        RcDoc::<()>::as_string("if (tick() == 'd') break;")
+    } else {
+        RcDoc::nil()
+    };
     _n = _n
         .append(_make_print_ouputs(_osigs))
         .append(RcDoc::hardline())
@@ -695,7 +715,10 @@ fn _make_main_code<'a>(
         .append(RcDoc::hardline())
         .append("init0();")
         .append(RcDoc::hardline())
-        .append("while(1){")
+        .append(_count)
+        // .append("int counter = 0;")
+        // .append(RcDoc::hardline())
+        // .append("while(1){")
         .append(RcDoc::hardline())
         .append("//read_inputs();")
         .append(RcDoc::hardline())
@@ -703,13 +726,14 @@ fn _make_main_code<'a>(
         .append(RcDoc::hardline())
         // XXX: Add the call to _state_pos
         .append(__st)
-        .append("print_outputs();")
+        // .append("print_outputs();")
         .append(RcDoc::hardline())
         .append("pre_eq_curr();")
         .append(RcDoc::hardline())
         .append("reset_curr();")
         .append(RcDoc::hardline())
-        .append("if (tick() == 'd') break;")
+        .append(_tick)
+        // .append("if (tick() == 'd') break;")
         .append(RcDoc::hardline())
         .append("}")
         .append("}");

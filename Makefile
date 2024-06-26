@@ -16,16 +16,16 @@ br:
 	cargo build --release
 
 bc:
-	./target/release/sysrust -f $(FNAME).sysrs
+	./target/release/sysrust -f $(FNAME).sysrs -b 100000000
 	$(CC) $(CFLAGS) $(CFILE)
-	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o
+	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o $(FNAME)
 
 
 run:
 	./a.out
 
 clean:
-	rm -rf a.out $(CXXFILES) *.o
+	rm -rf a.out $(FNAME) $(CXXFILES) *.o
 else
 PHONY:
 	@echo "Provide file name FNAME=<>"
