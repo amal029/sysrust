@@ -1,0 +1,40 @@
+// Paper: Scheduling Globally Asynchronous Locally Synchronous Programs
+// for Guaranteed Response Times
+
+signal C1;
+signal O;
+signal C2;
+{
+ //Camera controller
+ signal objectfound;
+ {
+  nothing;
+  loop {
+   S0: await (objectfound);
+   emit C1;
+   emit C2;
+  };
+ }
+ ||
+ {
+  nothing;
+  S1: pause;
+  S2: pause;
+  emit objectfound;
+  S3: pause;
+ };
+}
+||
+{
+ // Motion controller
+ output signal objectpicked;
+ signal SC1;
+ signal SC2;
+ loop {
+  {nothing; S4: await (C1);}||{nothing; S5: await (C2);};
+  emit SC1;
+  emit SC2;
+  PICKOBJECT: pause;
+  emit objectpicked;
+ };
+};

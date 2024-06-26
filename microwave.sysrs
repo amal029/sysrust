@@ -1,6 +1,4 @@
-// What this conversion states is that there exists no state in, which
-// VIOLATED is emitted to the environment and hence, the system
-// satisfies the property!
+// Paper: A FORMAL TELECOMMUNICATIONS APPLICATION IN ESTEREL
 
 input signal START;
 input signal STOP;
