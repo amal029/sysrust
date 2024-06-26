@@ -1,0 +1,41 @@
+// Paper: Verification of communicating reactive state machines
+//[Master's thesis]. Indian Institute of Technology; 2003.
+signal wash_on;
+signal wash_off;
+signal spin_on;
+signal spin_off;
+
+signal WASHING;
+signal DRYING;
+{
+  nothing;
+  loop{
+    S0: await(wash_on);
+    abort(wash_off){S1: sustain WASHING;};
+  };
+}
+||
+{
+  nothing;
+  loop{
+    S2: await(spin_on);
+    abort(WASHING){
+	S3: pause;
+	abort(spin_off){S4: sustain DRYING;};
+    };
+  };
+}||
+{
+  nothing;
+  loop{
+    S5: pause;
+    S6: pause;
+    emit wash_on;
+    S7: pause;
+    S8: pause;
+    emit spin_on;
+    S9: pause;
+    emit spin_off;
+    emit wash_off;
+  };
+};
