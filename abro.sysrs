@@ -1,13 +1,27 @@
-input signal A;
-input signal B;
-input signal R;
+signal A;
+signal B;
+signal R;
 output signal O;
 
-
-loop{
- abort(R){
-  {nothing; S0: await (A);}||{nothing; S1: await (B);};
-  emit O;
+{
+ nothing;
+ loop{
+  abort(R){
+   {nothing; S0: await (A);}||{nothing; S1: await (B);};
+   emit O;
+   S2: halt;
+  };
  };
- S2: halt;
+}
+||
+{
+ nothing;
+ loop{
+  S3: pause;
+  S4: pause;
+  emit A;
+  emit B;
+  S5: pause;
+  emit R;
+ };
 };
