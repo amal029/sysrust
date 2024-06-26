@@ -1,0 +1,80 @@
+// Paper: Programming a Reex Game in Esterel v3 (1989)
+int LIMIT_TIME = 3;
+int MEASURE_NUMBER = 3;
+int PAUSE_LENGTH = 2;
+// function RANDOM():integer; 
+
+input signal MS;
+input signal COIN;
+input signal READY;
+input signal STOP;
+
+output int signal DISPLAY = 0 : +;
+output signal GO_ON;
+output signal GO_OFF;
+output signal GAME_OVER_ON;
+output signal GAME_OVER_OFF;
+output signal TILT_ON;
+output signal TILT_OFF;
+output signal RING_BELL;
+
+// overall initializations 
+emit DISPLAY(0); 
+emit GO_OFF; 
+emit GAME_OVER_ON; 
+emit TILT_OFF; 
+
+// loop over a single game 
+loop {
+      S0: await(COIN);
+
+      // initializations 
+      emit DISPLAY(0); 
+      emit GO_OFF; 
+      emit GAME_OVER_OFF; 
+      emit TILT_OFF; 
+
+      // exception handling 
+      abort(ERROR) { 
+          int TOTAL_TIME = 0;
+	  repeat MEASURE_NUMBER times 
+	          % phase 1 
+		  do 
+		    do 
+		      every STOP do emit RING_BELL end 
+		    upto READY 
+		  watching LIMIT_TIME MS timeout exit ERROR end; 
+		  % phases 2 and 3 
+		  trap END_MEASURE in 
+		     [
+		        every READY do emit RING_BELL end 
+		      ||
+		        % phase 2 
+			do 
+			  await RANDOM() MS 
+			watching STOP timeout exit ERROR end; 
+			emit GO_ON; 
+			% phase 3 
+			do 
+			  var TIME:=0:integer in 
+			     do 
+			        every MS do TIME:=TIME+1 end 
+			     upto STOP; 
+			     emit DISPLAY(TIME); 
+			     TOTAL_TIME := TOTAL_TIME + TIME 
+			     end 
+			watching LIMIT_TIME MS timeout exit ERROR end; 
+			emit GO_OFF; 
+			exit END_MEASURE
+		     ]
+
+	   / final display 
+	   await (PAUSE_LENGTH);
+	   emit DISPLAY(TOTAL_TIME / MEASURE_NUMBER);
+    };
+    emit TILT_ON; 
+    emit GO_OFF;
+
+    // end of the game 
+    emit GAME_OVER_ON 
+};
