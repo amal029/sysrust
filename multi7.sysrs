@@ -1,0 +1,151 @@
+signal A;
+signal AA;
+signal AB;
+signal AC;
+signal AD;
+signal AE;
+signal AF;
+signal AG;
+signal AH;
+signal B;
+signal C;
+signal D;
+signal E;
+signal F;
+signal G;
+input signal H;
+output signal X;
+output signal Y;
+output signal Z;
+
+{
+  nothing;
+  loop{
+    S0: await (A);
+    S1: pause;
+    if (!AA and AB and AC and AE and AF and AG and AH or AA and !AB and AC and !AD and AE and !AF and AH or AB and !AC and AD and !AE and !AG and !AH or AC and AD and AE and !AF and !AG and !AH or AC and !AE and AD or !AF and !AH and AC and AD and AE) {
+      emit X;
+    };
+  };
+}
+||
+{
+  nothing;
+  abort (X) {
+    loop{
+      S2: await (AA);
+      S3: pause;
+      if (B) {
+        emit Y;
+      };
+      S4: pause;
+    };
+  };
+}
+||
+{
+  nothing;
+  abort (Y) {
+    loop {
+      S5: await (AB);
+      S6: pause;
+      if (C) {
+        emit Z;
+      };
+      S7: pause;
+    };
+  };
+}
+||
+{
+  nothing;
+  loop {
+    S8: pause;
+    emit AA;
+    emit AB;
+    S9: pause;
+    emit AC;
+    S10: pause;
+    emit AD;
+    S11: pause;
+    emit AE;
+    emit AF;
+    S12: pause;
+    emit AG;
+    S13: pause;
+    emit AH;
+  };
+}
+||
+{
+  nothing;
+  loop{
+    emit AB;
+    S14: pause;
+    emit AE;
+    emit AF;
+    S15: pause;
+    emit AF;
+    S16: pause;
+    emit AH;
+    emit AC;
+    S17: pause;
+    emit AB;
+    S18: pause;
+    emit Z;
+    emit AC;
+    S19: pause;
+    emit AA;
+    emit AD;
+    S20: pause;
+    emit AA;
+    emit AE;
+  };
+}
+||
+{
+  nothing;
+  loop{
+    S21: await (D);
+    emit Y;
+    S22: pause;
+    S23: pause;
+    emit Y;
+  };
+}
+||
+{
+  nothing;
+  loop{
+    S24: await (E);
+    emit C;
+    S25: pause;
+    emit C;
+  };
+}
+||
+{
+ // 0111111101100101
+ emit AA;
+ emit AB;
+ emit AC;
+ emit AD;
+ emit AE;
+ emit AF;
+ emit AG;
+ S26: pause;
+ // 0100101101111011
+ emit B;
+ emit C;
+ emit D;
+ emit E;
+ emit AF; emit AG;
+ emit AD;
+ emit AA;
+ emit F; emit G;
+ S27: pause;
+ // 1010001010011100
+ emit A; emit AB;
+ emit AF; emit AH;
+ emit D; emit E; emit F;
+};

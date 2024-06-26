@@ -1,0 +1,191 @@
+signal T;
+signal S;
+signal S0;
+signal S1;
+signal S2;
+signal S3;
+
+output signal B0;
+output signal B1;
+output signal B2;
+output signal B3;
+output signal ALARM;
+
+signal R;
+signal T5;
+signal C0;
+signal C1;
+signal C2;
+signal A0;
+signal A1;
+signal A2;
+
+{
+ nothing;
+ loop{
+  // Every 5 ticks emit T5
+   MS0: pause;
+   MS1: pause;
+   MS2: pause;
+   MS3: pause;
+   MS4: pause;
+   emit T5;
+ };
+}
+||
+{
+ nothing;
+ // run Bit [ signal T5/CLK, B0/B, C0/CY ]
+ loop{
+  abort(R){
+   loop{
+    S0: await (T5);
+    abort(T5){
+     S1: sustain B0;
+    };
+    emit C0;
+    abort(T5){
+     S2: sustain B0;
+    };
+    S3: await (T5);
+    emit C0;
+   };
+   S4: halt;
+  };
+ };
+}
+||
+{
+ // run Bit [ signal C0/CLK, B1/B, C1/CY ]
+ nothing; 
+ loop{
+  abort(R){
+   loop{
+   S5: await (C0);
+   abort (C0){
+    S6: sustain B1;
+   };
+   emit C1;
+   abort (C0){
+    S7: sustain B1;
+   };
+   S8: await (C0);
+   emit C1;
+   };
+   S9: halt;
+  };
+ };
+}
+||
+{
+ // run Bit [ signal C1/CLK, B2/B, C2/CY ]
+ nothing;
+ loop{
+ abort(R){
+  loop{
+   S10: await (C1);
+   abort (C1){
+    S11: sustain B2;
+   };
+   emit C2;
+   abort (C1){
+    S12: sustain B2;
+   };
+   S13: await (C1);
+   emit C2;
+   };
+   S14: halt;
+  };
+ };
+}
+||
+{
+ signal ASMEM;
+ signal ASMEM1;
+ // run BitAlarm [signal B0/B, S0/SX, tick/ACI, A0/ACO]
+ {
+  nothing;
+  loop{
+   if (ASMEM) { emit ASMEM1;}; S15: pause;
+  };
+ }
+ ||
+ {
+  nothing;
+  loop{
+   if (S) {
+    if (S0) {emit ASMEM;};
+   } else{
+    if (ASMEM1) {emit ASMEM;};
+   };
+   if (ASMEM and B0 or (!ASMEM) and (!B0) ) { emit A0; };
+   S16: pause;
+  };
+ };
+}
+||
+{
+ signal SMEM;
+ signal SMEM1;
+ // run BitAlarm [signal B1/B, S1/SX, A0/ACI, A1/ACO]
+ {
+  nothing;
+  loop{
+   if (SMEM) { emit SMEM1;}; S17: pause;
+  };
+ }
+ ||
+ {
+  nothing;
+  loop{
+   if (S) {
+    if (S1) { emit SMEM;};
+   } else{
+    if (SMEM1) { emit SMEM;};
+   };
+   if (A0 and SMEM and B1 or (!SMEM) and (!B1)) {emit A1;};
+   S18: pause;
+  };
+ };
+}
+||
+{
+ signal CSMEM;
+ signal CSMEM1;
+ // run BitAlarm [signal B2/B, S2/SX, A1/ACI, A2/ACO]
+ {
+  nothing;
+  loop {
+   if (CSMEM) { emit CSMEM1;}; S19: pause;
+  };
+ }
+ ||
+ {
+  nothing;
+  loop {
+   if (S) {
+     if (S2) { emit CSMEM; };
+   } else {
+     if (CSMEM1) {emit CSMEM;};
+   };
+   if (A1 and CSMEM and B2 or (!CSMEM) and (!B2) ) {emit A2;};
+   S20: pause;
+  };
+ };
+}
+||
+{
+ //  The test bench
+ emit S0;
+ emit S2;
+ S21: pause;
+ emit T;
+ S22: pause;
+ emit T;
+ emit S0;
+ emit S2;
+ emit S3;
+ S23: pause;
+ emit R;			//reset the bit!
+};
+
