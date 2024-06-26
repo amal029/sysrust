@@ -1,0 +1,197 @@
+signal A;
+signal B;
+signal C;
+signal D;
+signal LOCK;
+
+output signal A_PRESELECTED_ON;
+output signal B_PRESELECTED_ON;
+output signal C_PRESELECTED_ON;
+output signal D_PRESELECTED_ON;
+output signal A_PRESELECTED_OFF;
+output signal B_PRESELECTED_OFF;
+output signal C_PRESELECTED_OFF;
+output signal D_PRESELECTED_OFF;
+output signal A_LOCKED_ON;
+output signal B_LOCKED_ON;
+output signal C_LOCKED_ON;
+output signal D_LOCKED_ON;
+output signal A_LOCKED_OFF;
+output signal B_LOCKED_OFF;
+output signal C_LOCKED_OFF;
+output signal D_LOCKED_OFF;
+
+signal PRESELECTED;
+signal LOCKED;
+signal UNLOCKED;
+
+
+{
+ // Trap signals
+ signal PRESELECTED_T_A;
+ signal BACK_TO_MAIN_LOOP_A;
+
+ emit A_PRESELECTED_OFF;
+ emit A_LOCKED_OFF;
+
+ loop {
+  abort (BACK_TO_MAIN_LOOP_A) {
+    abort (PRESELECTED_T_A) {
+      loop{
+        abort (LOCKED) {
+          S0: await (A);
+          emit PRESELECTED_T_A;
+	  S1: halt;
+        };
+        S2: await (UNLOCKED);
+      };
+    };
+    loop {
+      emit PRESELECTED;
+      emit A_PRESELECTED_ON;
+      abort(LOCK) {
+        S3: await (A or PRESELECTED);
+        emit A_PRESELECTED_OFF;
+        emit BACK_TO_MAIN_LOOP_A;
+      };
+      emit A_PRESELECTED_OFF;
+      emit LOCKED;
+      emit A_LOCKED_ON;
+      S4: await (LOCK);
+      emit A_LOCKED_OFF;
+      emit UNLOCKED;
+    };
+  };
+ };
+}
+||
+{
+ // Trap signals
+ signal PRESELECTED_T_B;
+ signal BACK_TO_MAIN_LOOP_B;
+
+ emit B_PRESELECTED_OFF;
+ emit B_LOCKED_OFF;
+
+ loop {
+  abort (BACK_TO_MAIN_LOOP_B) {
+    abort (PRESELECTED_T_B) {
+      loop{
+        abort (LOCKED) {
+          S5: await (B);
+          emit PRESELECTED_T_B;
+	  S6: halt;
+        };
+        S7: await (UNLOCKED);
+      };
+    };
+    loop {
+      emit PRESELECTED;
+      emit B_PRESELECTED_ON;
+      abort(LOCK) {
+        S8: await (B or PRESELECTED);
+        emit B_PRESELECTED_OFF;
+        emit BACK_TO_MAIN_LOOP_B;
+      };
+      emit B_PRESELECTED_OFF;
+      emit LOCKED;
+      emit B_LOCKED_ON;
+      S9: await (LOCK);
+      emit B_LOCKED_OFF;
+      emit UNLOCKED;
+    };
+  };
+ };
+}
+||
+{
+ // Trap signals
+ signal PRESELECTED_T_C;
+ signal BACK_TO_MAIN_LOOP_C;
+
+ emit C_PRESELECTED_OFF;
+ emit C_LOCKED_OFF;
+
+ loop {
+  abort (BACK_TO_MAIN_LOOP_C) {
+    abort (PRESELECTED_T_C) {
+      loop{
+        abort (LOCKED) {
+          S10: await (C);
+          emit PRESELECTED_T_C;
+	  S11: halt;
+        };
+        S12: await (UNLOCKED);
+      };
+    };
+    loop {
+      emit PRESELECTED;
+      emit C_PRESELECTED_ON;
+      abort(LOCK) {
+        S13: await (C or PRESELECTED);
+        emit C_PRESELECTED_OFF;
+        emit BACK_TO_MAIN_LOOP_C;
+      };
+      emit C_PRESELECTED_OFF;
+      emit LOCKED;
+      emit C_LOCKED_ON;
+      S14: await (LOCK);
+      emit C_LOCKED_OFF;
+      emit UNLOCKED;
+    };
+  };
+ };
+}
+||
+{
+ // Trap signals
+ signal PRESELECTED_T_D;
+ signal BACK_TO_MAIN_LOOP_D;
+
+ emit D_PRESELECTED_OFF;
+ emit D_LOCKED_OFF;
+
+ loop {
+  abort (BACK_TO_MAIN_LOOP_D) {
+    abort (PRESELECTED_T_D) {
+      loop{
+        abort (LOCKED) {
+          S15: await (D);
+          emit PRESELECTED_T_D;
+	  S16: halt;
+        };
+        S17: await (UNLOCKED);
+      };
+    };
+    loop {
+      emit PRESELECTED;
+      emit D_PRESELECTED_ON;
+      abort(LOCK) {
+        S18: await (D or PRESELECTED);
+        emit D_PRESELECTED_OFF;
+        emit BACK_TO_MAIN_LOOP_D;
+      };
+      emit D_PRESELECTED_OFF;
+      emit LOCKED;
+      emit D_LOCKED_ON;
+      S19: await (LOCK);
+      emit D_LOCKED_OFF;
+      emit UNLOCKED;
+    };
+  };
+ };
+}
+||
+{
+ emit A; emit B; emit D; emit LOCK;
+ S20: pause;
+ emit A; emit B; emit C; emit D; emit LOCK;
+ S21: pause;
+ emit B; emit LOCK;
+ S22: pause;
+ emit D; emit LOCK;
+ S23: pause;
+ S24: pause;
+ emit B; emit C;
+ S25: pause;
+};
