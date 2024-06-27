@@ -1,123 +1,373 @@
-// Move robot forward
+signal go_forward;
+signal go_turn;
+
+output int signal MOTOR_A_DIR = 0 : +;
+output int signal MOTOR_A_SPEED = 0 : +;
+output int signal MOTOR_B_DIR = 0: +;
+output int signal MOTOR_B_SPEED = 0 : +;
+output int signal LCD_INT = 0 : + ;
+
+float signal execute_route = 0.0 : +;
+
+// These were sensors
+int signal LIGHT_1 = 0 : +;
+int signal LIGHT_2 = 1 : +;
+int signal LIGHT_3 = 2 : +;
+
+int signal direction = 0 : +;
+int signal num_turns = 0 : +;
+
+int signal move_forward = 0 : +;
+
+signal forklift_op_complete;
 
 {
+ // Move robot forward
  int MAX_SPEED = 20;
  int OFF = 0;
  int FWD = 1;
  int REV = 2;
  int BRAKE = 3;
+
  int grey = 43;
  int black = 33;
 
- output int signal MOTOR_A_DIR;
- output int MOTOR_A_SPEED = 0 : +; 
- output int MOTOR_B_DIR = 0 : +;
- output int MOTOR_B_SPEED = 0 : +;
- output int LCD_INT = 0 : +;
-
- // These were sensors
- input int signal LIGHT_1;
- input int signal LIGHT_2;
- input int signal LIGHT_3;
+ // output int signal MOTOR_A_DIR;
+ // output int MOTOR_A_SPEED = 0 : +; 
+ // output int MOTOR_B_DIR = 0 : +;
+ // output int MOTOR_B_SPEED = 0 : +;
+ // output int LCD_INT = 0 : +;
 
  // input signal
- input int signal move_forward;
 
  // Trap signal
  signal dest_reached_t;
  signal on_line_t;
 
+ S0: await (go_forward);
  abort(dest_reached_t) {
   signal dest_reached;
   emit MOTOR_A_SPEED(120);
   emit MOTOR_B_SPEED(30);
-  emit MOTOR_A_DIR(FWD);
-  emit MOTOR_B_DIR(OFF);		
+  emit MOTOR_A_DIR(1);
+  emit MOTOR_B_DIR(0);		
  {
+  nothing;
   loop{
-   if (?LIGHT_1 < grey or ?LIGHT_3 < black) {
-    %turning too far left
-    emit MOTOR_B_DIR(FWD);
+   if (?LIGHT_1 < 43 or ?LIGHT_3 < 33) {
+    // turning too far left
+    emit MOTOR_B_DIR(1);
     abort(on_line_t) {
      loop{
-      if (?LIGHT_1 > grey or ?LIGHT_3 > black){
+      if (?LIGHT_1 > 43 or ?LIGHT_3 > 33){
 	emit on_line_t;
       };
-      pause;
+      S1: pause;
      };
     };
-    emit MOTOR_B_DIR(OFF);
+    emit MOTOR_B_DIR(0);
    };
 
-   if (?LIGHT_3 < grey or ?LIGHT_1 < black){
-    %turning too far right
-    emit MOTOR_B_DIR(REV);
+   if (?LIGHT_3 < 43 or ?LIGHT_1 < 33){
+    // turning too far right
+    emit MOTOR_B_DIR(2);
     abort(on_line_t){
      loop{
-      if (?LIGHT_3 > grey or ?LIGHT_1 > black){
+      if (?LIGHT_3 > 43 or ?LIGHT_1 > 33){
 	emit on_line_t;
       };
-      pause;
+      S2: pause;
      };
     };
-    emit MOTOR_B_DIR(OFF);
+    emit MOTOR_B_DIR(0);
    };
-   pause;
+   S3: pause;
   };
  }
  ||
  {
    //trap signal
-   signal off_white_t;
-   signal on_white_t;
+   signal off_white_t1;
+   signal on_white_t1;
    signal on_dark_colour_t;
  
    int count = 0;
    // This should be 40 pauses!
-   pause;
-   pause;
-   pause;
-   pause;
+   S4: pause;
+   S5: pause;
+   S6: pause;
+   S7: pause;
 					
-   abort(off_white){
+   abort(off_white_t1){
     loop{
-     if (?LIGHT_2 < 49) { %so light2 is over a black square...
-	exit off_white;
+     if (?LIGHT_2 < 49) { // so light2 is over a black square...
+	emit off_white_t1;
      };
-     pause;
+     S8: pause;
     };
    };
 									
    loop {
-    abort(on_white_t){
+    abort(on_white_t1){
       loop{
-	if (?LIGHT_2 > 49) { %so light2 is over a white square...
-          emit on_white_t;
+	if (?LIGHT_2 > 49) { // so light2 is over a white square...
+          emit on_white_t1;
 	};
-        pause;
+        S9: pause;
       };
     };
 
     abort(on_dark_colour_t){
       loop {
-	if (?LIGHT_2 < 49) { %so light2 is over a black square...
+	if (?LIGHT_2 < 49) { // so light2 is over a black square...
           emit on_dark_colour_t;
 	};
-	pause;
+	S10: pause;
       };
     };
 
     count = count+1;
-    if (count = ?move_forward) {
-      exit dest_reached;
+    if (count == ?move_forward) {
+      emit dest_reached_t;
     };
-    pause;
+    S11: pause;
    };
   };
  };
  if (dest_reached_t){
-   pause;
+   S12: pause;
    emit MOTOR_A_DIR(BRAKE);
    emit MOTOR_B_DIR(BRAKE);
- }
+ };
 }
+||
+{
+  // Turn robot
+  int MAX_SPEED = 20;
+  int OFF = 0;
+  int FWD = 1;
+  int REV = 2;
+  int BRAKE = 3;
+
+	
+  int grey = 43;
+  int black = 33;
+
+
+  // These are sensors
+  // input int signal light_sensor;
+  // intput int signal secondary_light_sensor;
+
+  S13: await (go_turn);
+  emit MOTOR_B_DIR(?direction);
+  int counter = 0;
+  // Repeat signal
+  signal REPEAT_END;
+
+  // Trap signals
+  signal on_white_t;
+  signal moved_off_line_t;
+  signal hit_white_line_t;
+  signal hit_both_white_lines_t;
+
+  abort (REPEAT_END) {
+   loop {
+    emit MOTOR_B_SPEED(200);
+    if (?LIGHT_1 < black) {
+
+     abort(on_white_t){
+      loop{
+	if (?LIGHT_1 > grey) {
+       	 emit on_white_t;
+	};
+	S14: pause;
+      };
+     };
+    };
+
+    abort(moved_off_line_t) {
+     loop{
+      if (?LIGHT_1 < grey){
+	emit moved_off_line_t;
+      };
+      S15: pause;
+     };
+    };
+
+    abort(hit_white_line_t){
+     loop {
+      if (?LIGHT_1 > grey){
+	emit hit_white_line_t;
+      };
+      S16: pause;
+     };
+    };
+
+    abort(moved_off_line_t) {
+     loop{
+      if (?LIGHT_1 < grey){
+	emit moved_off_line_t;
+      };
+      S17: pause;
+     };
+    };
+    emit MOTOR_B_SPEED(50);
+
+    abort(hit_both_white_lines_t) {
+     loop{
+      if (?LIGHT_1 > grey and ?LIGHT_3 > grey){
+	emit hit_both_white_lines_t;
+      };
+      S18: pause;
+     };
+    };
+
+    S19: pause;
+
+    if(counter == ?num_turns) {
+     emit REPEAT_END;
+    } else {counter = counter + 1;};
+   };
+  };
+  emit MOTOR_B_DIR(BRAKE);
+}
+||
+{
+ // Warehouse_rcx1
+ int MAX_SPEED = 20;
+ int OFF = 0;
+ int FWD = 1;
+ int REV = 2;
+ int BRAKE = 3;
+
+ // output int signal MOTOR_A_DIR = OFF : +;
+ // output int signal MOTOR_A_SPEED = 0 : +;
+ // output int signal MOTOR_B_DIR = OFF : +;
+ // output int signal MOTOR_B_SPEED = 0 : +;
+
+ // output int signal MOTOR_C_DIR = OFF : +;
+ // output int signal MOTOR_C_SPEED = 0 : +;
+ // output int signal LCD_INT = 0 : +;
+
+ output float signal CPUTS = 0.0 : +;
+
+ // These are input signals
+ // input int signal LIGHT_1;
+ // input int signal LIGHT_2;
+ // input int signal LIGHT_3;
+
+ // These are the extern functions
+ // int get_op(float, int);
+ // int get_param(float, int);
+ // int get_num_ops(float);
+	
+ int MOVE_FORWARD = 102;
+
+ output signal route_complete;
+	
+ output int signal pickup_item = 0 : +;
+ output int signal drop_item = 0 : +;	
+
+ // local signal
+ // int signal move_forward;
+ int signal turn_left = 0 : +;
+ int signal turn_right = 0 : +;
+ signal movement_op_complete;
+ // int REPEAT_COUNT = 0;
+ {
+  int TURN_LEFT_C = 108;
+  int TURN_RIGHT_C = 114;
+  int PICKUP_ITEM_C = 112;
+  int DROP_ITEM_C = 100;
+  loop {
+   S20: await (execute_route);
+   // int op_num = 0;
+   int op_type = 0;
+   int op_param = 0;
+   int op_num = 0;
+
+   loop {
+    //repeat get_num_ops(?execute_route) times
+    op_type = get_op(?execute_route, op_num);
+    op_param = get_param(?execute_route, op_num);
+
+    if (op_type == 102) {
+     emit CPUTS(1.0);		//"for is 1.0"
+     emit LCD_INT(op_param);							
+     emit move_forward(op_param);
+     S21: await (movement_op_complete);							
+    }
+    else {
+     if (op_type == TURN_LEFT_C) {
+	emit CPUTS(5.0);	//"left is 5.0"
+	emit LCD_INT(op_param);											
+	emit turn_left(op_param);
+	S22: await (movement_op_complete);
+     }
+     else {
+      if (op_type == TURN_RIGHT_C) {
+	emit CPUTS(2.0);	//"right is 2.0"
+	emit LCD_INT(op_param);											
+	emit turn_right(op_param);
+	S23: await (movement_op_complete);
+      }
+      else {
+       if (op_type == PICKUP_ITEM_C) {
+	emit CPUTS(3.0);	//"pick is 3.0"
+	emit LCD_INT(op_param);									
+	emit pickup_item(op_param);							
+	S24: await (forklift_op_complete);
+       }
+       else {
+        if (op_type == DROP_ITEM_C) {
+	 emit CPUTS(4.0);	//"drop is 4.0"
+	 emit LCD_INT(op_param);
+	 emit drop_item(op_param);
+	 S25: await (forklift_op_complete);	
+        };
+       };
+      };
+     };
+    };
+    op_num = op_num+1;
+    S26: pause;
+   }; //end repeat;
+   S27: pause;
+   emit route_complete;
+  };
+ }
+ ||
+ {
+   nothing;
+   loop{
+    S28: await(move_forward or turn_left or turn_right);
+    if (move_forward){
+       emit go_forward;
+    } else {
+      if(turn_left){
+       emit num_turns(?turn_left/90);
+       emit direction(1);
+       emit go_turn;
+      } else {
+        emit num_turns(?turn_left/90);
+	emit direction(2);
+	emit go_turn;
+      };
+    };
+    S29: pause;
+    emit movement_op_complete;
+   };
+ };
+}
+||
+{
+ nothing;
+ loop {
+  emit execute_route(2.0);
+  emit LIGHT_1;
+  S30: pause;
+  emit LIGHT_3;
+  S31: pause;
+  emit forklift_op_complete;
+ };
+};
