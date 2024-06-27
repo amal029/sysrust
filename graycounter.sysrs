@@ -39,15 +39,15 @@ signal A2;
  loop{
   abort(R){
    loop{
-    S0: await (T5);
+    S01: await (T5);
     abort(T5){
-     S1: sustain B0;
+     S111: sustain B0;
     };
     emit C0;
     abort(T5){
-     S2: sustain B0;
+     S211: sustain B0;
     };
-    S3: await (T5);
+    S311: await (T5);
     emit C0;
    };
    S4: halt;
