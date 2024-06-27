@@ -1,0 +1,123 @@
+// Move robot forward
+
+{
+ int MAX_SPEED = 20;
+ int OFF = 0;
+ int FWD = 1;
+ int REV = 2;
+ int BRAKE = 3;
+ int grey = 43;
+ int black = 33;
+
+ output int signal MOTOR_A_DIR;
+ output int MOTOR_A_SPEED = 0 : +; 
+ output int MOTOR_B_DIR = 0 : +;
+ output int MOTOR_B_SPEED = 0 : +;
+ output int LCD_INT = 0 : +;
+
+ // These were sensors
+ input int signal LIGHT_1;
+ input int signal LIGHT_2;
+ input int signal LIGHT_3;
+
+ // input signal
+ input int signal move_forward;
+
+ // Trap signal
+ signal dest_reached_t;
+ signal on_line_t;
+
+ abort(dest_reached_t) {
+  signal dest_reached;
+  emit MOTOR_A_SPEED(120);
+  emit MOTOR_B_SPEED(30);
+  emit MOTOR_A_DIR(FWD);
+  emit MOTOR_B_DIR(OFF);		
+ {
+  loop{
+   if (?LIGHT_1 < grey or ?LIGHT_3 < black) {
+    %turning too far left
+    emit MOTOR_B_DIR(FWD);
+    abort(on_line_t) {
+     loop{
+      if (?LIGHT_1 > grey or ?LIGHT_3 > black){
+	emit on_line_t;
+      };
+      pause;
+     };
+    };
+    emit MOTOR_B_DIR(OFF);
+   };
+
+   if (?LIGHT_3 < grey or ?LIGHT_1 < black){
+    %turning too far right
+    emit MOTOR_B_DIR(REV);
+    abort(on_line_t){
+     loop{
+      if (?LIGHT_3 > grey or ?LIGHT_1 > black){
+	emit on_line_t;
+      };
+      pause;
+     };
+    };
+    emit MOTOR_B_DIR(OFF);
+   };
+   pause;
+  };
+ }
+ ||
+ {
+   //trap signal
+   signal off_white_t;
+   signal on_white_t;
+   signal on_dark_colour_t;
+ 
+   int count = 0;
+   // This should be 40 pauses!
+   pause;
+   pause;
+   pause;
+   pause;
+					
+   abort(off_white){
+    loop{
+     if (?LIGHT_2 < 49) { %so light2 is over a black square...
+	exit off_white;
+     };
+     pause;
+    };
+   };
+									
+   loop {
+    abort(on_white_t){
+      loop{
+	if (?LIGHT_2 > 49) { %so light2 is over a white square...
+          emit on_white_t;
+	};
+        pause;
+      };
+    };
+
+    abort(on_dark_colour_t){
+      loop {
+	if (?LIGHT_2 < 49) { %so light2 is over a black square...
+          emit on_dark_colour_t;
+	};
+	pause;
+      };
+    };
+
+    count = count+1;
+    if (count = ?move_forward) {
+      exit dest_reached;
+    };
+    pause;
+   };
+  };
+ };
+ if (dest_reached_t){
+   pause;
+   emit MOTOR_A_DIR(BRAKE);
+   emit MOTOR_B_DIR(BRAKE);
+ }
+}
