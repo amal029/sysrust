@@ -4,7 +4,8 @@ endif
 ifndef CXX
 CXX=g++-m
 endif
-CXXFLAGS=-Ofast -std=c++26 -fno-exceptions -march=native
+CXXFLAGS=-Ofast -std=c++26 -fno-exceptions -march=native --param max-inline-insns-single=100000 --param large-function-growth=1000000 --param large-stack-frame-growth=1000000 --param inline-unit-growth=1000000
+
 CFLAGS=-c
 CFILE=tt.c
 CXXFILES=$(FNAME).cpp $(FNAME).h
