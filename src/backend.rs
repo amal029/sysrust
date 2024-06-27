@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    fs::ReadDir,
     iter::zip,
 };
 
@@ -341,13 +340,13 @@ pub fn _codegen(
     for (i, (k1, k2)) in zip(_used_sigs, _states).enumerate() {
         // XXX: First make I, ND, and D states
         let _ss = format!(
-            "template <> struct Thread{}<E>{{\nconstexpr void tick \
+            "template <> struct Thread{}<E>{{\ninline constexpr void tick \
 	     ({}){{}}}};",
             i, k1
         );
         thread_prototypes.push(_ss);
         let _ss = format!(
-            "template <> struct Thread{}<I>{{\nconstexpr void tick \
+            "template <> struct Thread{}<I>{{\ninline constexpr void tick \
 			  ({});}};",
             i, k1
         );
@@ -359,7 +358,7 @@ pub fn _codegen(
             "{}"
         };
         let _ss = format!(
-            "template <> struct Thread{}<ND>{{\nconstexpr void tick \
+            "template <> struct Thread{}<ND>{{\ninline constexpr void tick \
 	     ({}){}}};",
             i, k1, _sbr
         );
@@ -367,7 +366,7 @@ pub fn _codegen(
         for j in k2 {
             let mm = j.0.get_string();
             let _ss = format!(
-                "template <> struct Thread{}<{}>{{\nconstexpr void tick \
+                "template <> struct Thread{}<{}>{{\ninline constexpr void tick \
 			  ({});}};",
                 i, mm, k1
             );
@@ -394,7 +393,7 @@ pub fn _codegen(
     let _inits = join(
         (0..*_nthreads).map(|x| {
             format!(
-                "constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
+                "inline __attribute__((always_inline)) constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
                 x, x, x
             )
         }),
@@ -410,15 +409,15 @@ pub fn _codegen(
     let _o = "template <class... Ts> struct overloaded: \
 	 Ts... {using Ts::operator()...;};"
         .to_string();
-    let _oo = "// explicit deduction guide (not needed as of C++20)\n\
-	       template<class... Ts> \
-	       overloaded(Ts...) -> overloaded<Ts...>;"
-        .to_string();
+    // let _oo = "// explicit deduction guide (not needed as of C++20)\n\
+    // 	       template<class... Ts> \
+    // 	       overloaded(Ts...) -> overloaded<Ts...>;"
+    //     .to_string();
     _n = _n
         .append(RcDoc::hardline())
         .append(_o)
         .append(RcDoc::hardline())
-        .append(_oo)
+        // .append(_oo)
         .append(RcDoc::hardline());
 
     // XXX: All the visits
@@ -428,13 +427,13 @@ pub fn _codegen(
         (0..*_nthreads).map(|i| {
             if _used_sigs_vec[i] != "" {
                 format!(
-                    "constexpr void visit{}(Thread{}State &ts, {}){{\
+                    "inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts, {}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
-                    "constexpr void visit{}(Thread{}State &ts{}){{\
+                    "inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts{}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
@@ -447,59 +446,61 @@ pub fn _codegen(
         .append(RcDoc::as_string(_hh))
         .append(RcDoc::hardline());
 
-    // XXX: Attach production of position and current state string.
-    _n = _n
-        .append(RcDoc::hardline())
-        .append("// Position from state")
-        .append(RcDoc::hardline());
-    for (_c, _i) in _states.iter().enumerate() {
+    if let None = _bench {
+        // XXX: Attach production of position and current state string.
         _n = _n
-            .append(format!("constexpr bool _state_pos{}(){{", _c))
+            .append(RcDoc::hardline())
+            .append("// Position from state")
             .append(RcDoc::hardline());
-        for (_sy, _j) in _i {
+        for (_c, _i) in _states.iter().enumerate() {
+            _n = _n
+                .append(format!("constexpr bool _state_pos{}(){{", _c))
+                .append(RcDoc::hardline());
+            for (_sy, _j) in _i {
+                _n = _n
+                    .append(format!(
+                        "if (std::holds_alternative<Thread{}<{}>>(st{})){{",
+                        _c,
+                        _sy.get_string(),
+                        _c
+                    ))
+                    .append(RcDoc::hardline());
+                if let Some(_) = _gui {
+                    _n = _n
+                        .append(format!("_pos[{}][0] = {};", _c, _j.0))
+                        .append(RcDoc::hardline());
+                    _n = _n
+                        .append(format!("_pos[{}][1] = {};", _c, _j.1))
+                        .append(RcDoc::hardline());
+                }
+                _n = _n
+                    .append(format!("_state[{}] = \"{}\";", _c, _sy.get_string()))
+                    .append(RcDoc::hardline());
+                _n = _n.append("return true;").append(RcDoc::hardline());
+                _n = _n.append("}").append(RcDoc::hardline());
+            }
+            // XXX: Attach I, ND, and E states to string too!
             _n = _n
                 .append(format!(
-                    "if (std::holds_alternative<Thread{}<{}>>(st{})){{",
-                    _c,
-                    _sy.get_string(),
-                    _c
+                    "if (std::holds_alternative<Thread{}<I>>(st{})) _state[{}] = \"I\";",
+                    _c, _c, _c
                 ))
                 .append(RcDoc::hardline());
-            if let Some(_) = _gui {
-                _n = _n
-                    .append(format!("_pos[{}][0] = {};", _c, _j.0))
-                    .append(RcDoc::hardline());
-                _n = _n
-                    .append(format!("_pos[{}][1] = {};", _c, _j.1))
-                    .append(RcDoc::hardline());
-            }
             _n = _n
-                .append(format!("_state[{}] = \"{}\";", _c, _sy.get_string()))
+                .append(format!(
+                    "if (std::holds_alternative<Thread{}<E>>(st{})) _state[{}] = \"E\";",
+                    _c, _c, _c
+                ))
                 .append(RcDoc::hardline());
-            _n = _n.append("return true;").append(RcDoc::hardline());
+            _n = _n
+                .append(format!(
+                    "if (std::holds_alternative<Thread{}<ND>>(st{})) _state[{}] = \"ND\";",
+                    _c, _c, _c
+                ))
+                .append(RcDoc::hardline());
+            _n = _n.append("return false;").append(RcDoc::hardline());
             _n = _n.append("}").append(RcDoc::hardline());
         }
-        // XXX: Attach I, ND, and E states to string too!
-        _n = _n
-            .append(format!(
-                "if (std::holds_alternative<Thread{}<I>>(st{})) _state[{}] = \"I\";",
-                _c, _c, _c
-            ))
-            .append(RcDoc::hardline());
-        _n = _n
-            .append(format!(
-                "if (std::holds_alternative<Thread{}<E>>(st{})) _state[{}] = \"E\";",
-                _c, _c, _c
-            ))
-            .append(RcDoc::hardline());
-        _n = _n
-            .append(format!(
-                "if (std::holds_alternative<Thread{}<ND>>(st{})) _state[{}] = \"ND\";",
-                _c, _c, _c
-            ))
-            .append(RcDoc::hardline());
-        _n = _n.append("return false;").append(RcDoc::hardline());
-        _n = _n.append("}").append(RcDoc::hardline());
     }
 
     // XXX: The real code from the FSM
@@ -543,31 +544,38 @@ pub fn _codegen(
     w
 }
 
-fn _make_print_ouputs<'a>(_osigs: Vec<(&'a str, Option<&'a Type>)>) -> RcDoc<'a> {
-    let mut _n = RcDoc::<()>::nil();
-    for (i, j) in _osigs {
-        _n = _n
-            .append(format!(
-                "std::cout << \"Status of signal {}: \" << {}_curr.status << \"\\n\";",
-                i, i
-            ))
-            .append(RcDoc::hardline());
-        if j.is_some() {
+fn _make_print_ouputs<'a>(
+    _osigs: Vec<(&'a str, Option<&'a Type>)>,
+    _bench: &Option<usize>,
+) -> RcDoc<'a> {
+    if let None = _bench {
+        let mut _n = RcDoc::<()>::nil();
+        for (i, j) in _osigs {
             _n = _n
                 .append(format!(
-                    "std::cout << \"Value of signal {}: \" << {}_curr.value << \"\\n\";",
+                    "std::cout << \"Status of signal {}: \" << {}_curr.status << \"\\n\";",
                     i, i
                 ))
                 .append(RcDoc::hardline());
+            if j.is_some() {
+                _n = _n
+                    .append(format!(
+                        "std::cout << \"Value of signal {}: \" << {}_curr.value << \"\\n\";",
+                        i, i
+                    ))
+                    .append(RcDoc::hardline());
+            }
         }
+        let mut _m = RcDoc::<()>::as_string("void print_outputs(){")
+            .append(RcDoc::hardline())
+            .append(_n)
+            .append("std::cout << \"----------------\\n\";")
+            .append(RcDoc::hardline())
+            .append("}");
+        _m
+    } else {
+        RcDoc::nil()
     }
-    let mut _m = RcDoc::<()>::as_string("void print_outputs(){")
-        .append(RcDoc::hardline())
-        .append(_n)
-        .append("std::cout << \"----------------\\n\";")
-        .append(RcDoc::hardline())
-        .append("}");
-    _m
 }
 
 fn _make_pre_eq_curr(_sigs: &[Vec<Stmt>]) -> RcDoc {
@@ -719,13 +727,15 @@ fn _make_main_code<'a>(
         RcDoc::<()>::hardline()
             .append("std::time_t _end = std::time(nullptr);")
             .append(RcDoc::hardline())
-            .append(format!("std::cout << std::difftime(_end, _start) << \"(sec)\\n\";"))
+            .append(format!(
+                "std::cout << std::difftime(_end, _start) << \"(sec)\\n\";"
+            ))
             .append(RcDoc::hardline())
     } else {
         RcDoc::nil()
     };
     _n = _n
-        .append(_make_print_ouputs(_osigs))
+        .append(_make_print_ouputs(_osigs, _bench))
         .append(RcDoc::hardline())
         .append(_make_pre_eq_curr(_sigs))
         .append(RcDoc::hardline())
@@ -1405,7 +1415,7 @@ fn _walk_graph_code_gen<'a>(
     );
     // XXX: Here we need to put it inside the method!
     let __n = RcDoc::<()>::as_string(format!(
-        "constexpr void Thread{}<{}>::tick({}) {{",
+        "inline constexpr void Thread{}<{}>::tick({}) {{",
         _nodes[inode]._tid, _nodes[inode].label, _used_sigs_per_thread[_nodes[inode]._tid]
     ));
     // XXX: Here we close the method
