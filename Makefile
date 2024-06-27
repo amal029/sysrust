@@ -16,13 +16,13 @@ br:
 	cargo build --release
 
 bc:
-	./target/release/sysrust -f $(FNAME).sysrs -b 100000000
+	./target/release/sysrust -f $(FNAME).sysrs -b 1000000000
 	$(CC) $(CFLAGS) $(CFILE)
 	$(CXX) $(CXXFLAGS) $(CXXFILES) *.o -o $(FNAME)
 
 
 run:
-	./a.out
+	./$(FNAME)
 
 clean:
 	rm -rf a.out $(FNAME) $(CXXFILES) *.o

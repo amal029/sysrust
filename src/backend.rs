@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    fs::ReadDir,
     iter::zip,
 };
 
@@ -177,12 +178,20 @@ pub fn _codegen(
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
     let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"", _pfile)).append(RcDoc::hardline());
+    let h7 = if let Some(_) = _bench {
+        RcDoc::<()>::as_string("#include <ctime>").append(RcDoc::hardline())
+    } else {
+        RcDoc::nil()
+    };
     let r = h2
         .append(h3)
         .append(h4)
         .append(h5)
         .append(h6)
+        .append(RcDoc::hardline())
+        .append(h7)
         .append(RcDoc::hardline());
+
     let mut w = Vec::new();
     r.render(8, &mut w).unwrap();
 
@@ -695,12 +704,23 @@ fn _make_main_code<'a>(
         RcDoc::<()>::as_string("while(1){")
     } else {
         let _c = _bench.unwrap();
-        RcDoc::as_string("int counter = 0;")
+        RcDoc::as_string("unsigned long long counter = 0;")
+            .append(RcDoc::hardline())
+            .append("std::time_t _start = std::time(nullptr);")
             .append(RcDoc::hardline())
             .append(format!("while (counter++ < {_c}){{"))
     };
     let _tick = if let None = _bench {
         RcDoc::<()>::as_string("if (tick() == 'd') break;")
+    } else {
+        RcDoc::nil()
+    };
+    let _tend = if let Some(_) = _bench {
+        RcDoc::<()>::hardline()
+            .append("std::time_t _end = std::time(nullptr);")
+            .append(RcDoc::hardline())
+            .append(format!("std::cout << std::difftime(_end, _start) << \"(sec)\\n\";"))
+            .append(RcDoc::hardline())
     } else {
         RcDoc::nil()
     };
@@ -736,6 +756,8 @@ fn _make_main_code<'a>(
         // .append("if (tick() == 'd') break;")
         .append(RcDoc::hardline())
         .append("}")
+        // XXX: here we add the printf for benchmark
+        .append(_tend)
         .append("}");
     _n
 }
