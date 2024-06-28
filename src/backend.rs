@@ -393,7 +393,8 @@ pub fn _codegen(
     let _inits = join(
         (0..*_nthreads).map(|x| {
             format!(
-                "static inline __attribute__((always_inline)) constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
+                "static inline __attribute__((always_inline)) constexpr \
+		 void init{}(){{st{} = Thread{}<I> {{}};}}",
                 x, x, x
             )
         }),
@@ -954,7 +955,7 @@ fn _make_seq_code<'a>(
             .filter(|&&_x| _nodes[_x]._tid != _nodes[_i]._tid)
             .map(|&x| _nodes[x]._tid);
         let mut _vp = RcDoc::<()>::nil();
-        let mut _avp = RcDoc::as_string("//Parent threads done?").append(RcDoc::hardline());
+        // let mut _avp = RcDoc::as_string("//Parent threads done?").append(RcDoc::hardline());
         for i in _ptids {
             _vp = _vp.append(format!(
                 "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
@@ -962,17 +963,17 @@ fn _make_seq_code<'a>(
             ));
             let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
             _vp = _vp.append(_m);
-            _avp = _avp
-                .append(format!(
-                    "assert(std::holds_alternative<Thread{}<E>>(st{}));",
-                    i, i
-                ))
-                .append(RcDoc::hardline());
+            // _avp = _avp
+            //     .append(format!(
+            //         "assert(std::holds_alternative<Thread{}<E>>(st{}));",
+            //         i, i
+            //     ))
+            //     .append(RcDoc::hardline());
         }
 
         // XXX: This is needed for later attachment to _bn for abort,
         // etc statements.
-        __vp = _vp.clone().append(_avp);
+        // __vp = _vp.clone().append(_avp);
 
         // XXX: Add _vp to _am[0] and also to all non normal exit nodes.
         if _am.is_empty() {
