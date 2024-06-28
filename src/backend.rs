@@ -393,7 +393,7 @@ pub fn _codegen(
     let _inits = join(
         (0..*_nthreads).map(|x| {
             format!(
-                "inline __attribute__((always_inline)) constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
+                "static inline __attribute__((always_inline)) constexpr void init{}(){{st{} = Thread{}<I> {{}};}}",
                 x, x, x
             )
         }),
@@ -427,13 +427,13 @@ pub fn _codegen(
         (0..*_nthreads).map(|i| {
             if _used_sigs_vec[i] != "" {
                 format!(
-                    "inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts, {}){{\
+                    "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts, {}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
-                    "inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts{}){{\
+                    "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts{}){{\
 		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
