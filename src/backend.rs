@@ -406,17 +406,17 @@ pub fn _codegen(
         .append(RcDoc::hardline());
 
     // XXX: Make the overloaded template metaprogramming
-    let _o = "template <class... Ts> struct overloaded: \
-	 Ts... {using Ts::operator()...;};"
-        .to_string();
+    // let _o = "template <class... Ts> struct overloaded: \
+    // 	 Ts... {using Ts::operator()...;};"
+    //     .to_string();
     // let _oo = "// explicit deduction guide (not needed as of C++20)\n\
     // 	       template<class... Ts> \
     // 	       overloaded(Ts...) -> overloaded<Ts...>;"
     //     .to_string();
     _n = _n
         .append(RcDoc::hardline())
-        .append(_o)
-        .append(RcDoc::hardline())
+        // .append(_o)
+        // .append(RcDoc::hardline())
         // .append(_oo)
         .append(RcDoc::hardline());
 
@@ -428,13 +428,13 @@ pub fn _codegen(
             if _used_sigs_vec[i] != "" {
                 format!(
                     "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts, {}){{\
-		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
+		 std::visit([{}](auto &t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
                     "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts{}){{\
-		 std::visit(overloaded{{[{}](auto &t){{return t.tick({});}}}}, ts);}}",
+		 std::visit([{}](auto &t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             }
