@@ -30,14 +30,15 @@ use clap::Parser;
 #[command(about = "Compiles .sysrs files to C++ code for execution")]
 #[command(long_about=None)]
 struct Args {
-    /// The .sysrs file to compile to C++-23 compatible code.
+    /// The .sysrs file to compile to C++-26 compatible code.
     #[arg(short, long)]
     file: Option<String>,
     /// Bind to GUI for interactive simulation.
     #[arg(short, long)]
     _gui: Option<bool>,
+    /// For benchmarking the application runtime
     #[arg(short, long)]
-    _bench: Option<usize>
+    _bench: Option<usize>,
 }
 
 fn main() {
@@ -237,8 +238,8 @@ fn main() {
         ff,
         // XXX: This is the _gui present?
         args._gui,
-	// XXX: This is for benchmarking
-	args._bench,
+        // XXX: This is for benchmarking
+        args._bench,
     );
     // XXX: Make all other thread code as well.
     _file

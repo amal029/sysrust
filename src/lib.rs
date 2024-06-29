@@ -10,7 +10,7 @@ lalrpop_mod!(pub og);
 use og::ScriptParser;
 
 pub fn parse(s: &str) -> Vec<ast::Stmt> {
-    let source_code = std::fs::read_to_string(s).unwrap();
+    let source_code = std::fs::read_to_string(s).expect("File could not be opened");
     // println!("source code: {} {}", source_code, source_code.len());
     let lexer = lexer::Lexer::new(&source_code);
     let parser = ScriptParser::new();
