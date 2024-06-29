@@ -428,14 +428,14 @@ pub fn _codegen(
         (0..*_nthreads).map(|i| {
             if _used_sigs_vec[i] != "" {
                 format!(
-                    "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts, {}){{\
-		 std::visit([{}](auto &t){{return t.tick({});}}, ts);}}",
+                    "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &&ts, {}){{\
+		 std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
-                    "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &ts{}){{\
-		 std::visit([{}](auto &t){{return t.tick({});}}, ts);}}",
+                    "static inline __attribute__((always_inline)) constexpr void visit{}(Thread{}State &&ts{}){{\
+		 std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             }
@@ -691,9 +691,9 @@ fn _make_main_code<'a>(
         })
         .collect::<Vec<_>>();
     let __m: RcDoc<()> = if sigs_0.is_empty() {
-        RcDoc::as_string("visit0(st0);".to_string())
+        RcDoc::as_string("visit0(std::move(st0));".to_string())
     } else {
-        RcDoc::as_string(format!("visit0(st0, {});", sigs_0))
+        RcDoc::as_string(format!("visit0(std::move(st0), {});", sigs_0))
     };
     let __st = if let None = _bench {
         RcDoc::<()>::as_string(join(
@@ -1096,11 +1096,11 @@ fn _make_stmts_for_fork_join<'a>(
         .collect::<Vec<_>>();
     if _vsigs.is_empty() {
         _vp = _vp
-            .append(format!("visit{}(st{});", i, i))
+            .append(format!("visit{}(std::move(st{}));", i, i))
             .append(RcDoc::hardline());
     } else {
         _vp = _vp
-            .append(format!("visit{}(st{}, {});", i, i, _vsigs.join(", ")))
+            .append(format!("visit{}(std::move(st{}), {});", i, i, _vsigs.join(", ")))
             .append(RcDoc::hardline());
     }
     // XXX: Update the status of the signal copies being sent!
@@ -1221,10 +1221,10 @@ fn _make_fork_code<'a>(
         })
         .collect::<Vec<_>>();
     let _nj = if _vsigs.is_empty() {
-        format!("visit{}(st{});", _nodes[_i]._tid, _nodes[_i]._tid)
+        format!("visit{}(std::move(st{}));", _nodes[_i]._tid, _nodes[_i]._tid)
     } else {
         format!(
-            "visit{}(st{}, {});",
+            "visit{}(std::move(st{}), {});",
             _nodes[_i]._tid,
             _nodes[_i]._tid,
             _vsigs.join(", ")
