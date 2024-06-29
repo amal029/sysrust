@@ -183,6 +183,7 @@ signal UNLOCKED;
 }
 ||
 {
+ loop{
  emit A; emit B; emit D; emit LOCK;
  S20: pause;
  emit A; emit B; emit C; emit D; emit LOCK;
@@ -194,4 +195,5 @@ signal UNLOCKED;
  S24: pause;
  emit B; emit C;
  S25: pause;
+ };
 };
