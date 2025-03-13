@@ -1,0 +1,40 @@
+module robot
+
+output objectpicked;
+
+signal C1 in
+signal O
+signal C2
+
+ signal objectfound in
+  loop
+   await (objectfound);
+   emit C1;
+   emit C2
+  end loop
+ ||
+  pause;
+  pause;
+  emit objectfound;
+  pause
+ ||
+  signal SC1 in
+  signal SC2 in
+   [
+    await C1
+    ||
+    await C2
+   ];
+   emit SC1;
+   emit SC2;
+   pause;
+   emit objectpicked
+  end signal
+  end signal
+ end signal
+
+end signal
+end signal
+end signal
+
+end module

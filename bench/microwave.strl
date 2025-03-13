@@ -1,0 +1,44 @@
+% This is the microwave example
+module example4 : 
+input START, STOP, DOOR_OPEN, MINUTE;
+output HEAT, LIGHT;
+output SAT, VIOLATED;
+
+signal S in
+[
+    loop 
+     await START;
+     abort
+      abort
+       [sustain HEAT || suatain LIGHT]
+      when [DOOR_OPEN or STOP]
+     when MINUTE
+    end loop
+||
+   loop 
+    present DOOR_OPEN then
+     abort
+      sustain LIGHT
+     when not DOOR_OPEN
+    end present
+   end loop
+||
+   loop
+    present [ not HEAT or LIGHT ] then
+     emit S;
+     pause
+    end present
+   end loop
+||
+   pause;
+   loop
+    present (S) then
+     emit SAT;
+    else
+     emit VIOLATED
+    end present;
+    pause
+   end loop
+]
+end signal
+end module

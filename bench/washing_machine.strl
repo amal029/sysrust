@@ -1,0 +1,46 @@
+% This is the washing machine example
+module waching_machine : 
+
+signal wash_on in
+signal wash_off in
+signal spin_on in
+signal spin_off in
+signal WASHING in
+signal DRYING in
+
+ [
+ loop
+  await wash_on;
+  abort
+   sustain WASHING
+  when wash_off
+ end loop
+ ||
+ loop
+  await spin_on;
+  abort
+   pause;
+   abort
+    sustain DRYING
+   when spin_off
+  when WASHING
+ end loop
+ ]
+ ||
+ loop
+  await [2 tick];
+  emit wash_on;
+  await [4 tick];
+  emit spin_on;
+  await [6 tick];
+  emit spin_off
+ end loop
+
+end signal
+end signal
+end signal
+end signal
+end signal
+end signal
+
+end module
