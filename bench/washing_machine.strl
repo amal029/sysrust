@@ -28,11 +28,11 @@ signal DRYING in
  ]
  ||
  loop
-  await [2 tick];
+  pause; pause;
   emit wash_on;
-  await [4 tick];
+  pause; pause; pause; pause;
   emit spin_on;
-  await [6 tick];
+  pause;pause;pause;pause;pause;pause;
   emit spin_off
  end loop
 

@@ -1,14 +1,14 @@
-module robot
+module robot:
 
 output objectpicked;
 
 signal C1 in
-signal O
-signal C2
+signal O in
+signal C2 in
 
  signal objectfound in
   loop
-   await (objectfound);
+   await objectfound;
    emit C1;
    emit C2
   end loop
