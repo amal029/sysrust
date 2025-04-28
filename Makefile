@@ -1,6 +1,7 @@
 CC=gcc-m
 CXX=g++-m
-CXXFLAGS=-Ofast -std=c++26 -fomit-frame-pointer -fno-exceptions -march=native --param max-inline-insns-single=100000 --param large-function-growth=1000000 --param large-stack-frame-growth=1000000 --param inline-unit-growth=1000000 -flto
+# CXXFLAGS=-Ofast -std=c++26 -fomit-frame-pointer -fno-exceptions -march=native --param max-inline-insns-single=100000 --param large-function-growth=1000000 --param large-stack-frame-growth=1000000 --param inline-unit-growth=1000000 -flto
+CXXFLAGS=-std=c++26
 
 CFLAGS=-c
 CFILE=tt.c

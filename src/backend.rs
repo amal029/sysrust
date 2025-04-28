@@ -58,7 +58,8 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     ) -> RcDoc<'a> {
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!(
-            "{} {{{} value = {}; {}<{}> op {{}}; bool tag = false; bool status;}} signal_{};",
+            "{} {{{} value = {}; {}<{}> op {{}}; \n //tag is for fresh value updates \
+	     \nbool tag = false; bool status;}} signal_{};",
             _m,
             _type_string(_ty, *_pos, _ff),
             _iv.to_string(),
@@ -635,7 +636,8 @@ fn _make_curr_reset(_sigs: &[Vec<Stmt>]) -> RcDoc {
                         .append(RcDoc::hardline())
                 } else {
                     _n = _n
-                        .append(format!("{}_curr.status = false;", _sy.get_string()))
+                        .append(format!("{}_curr.status = false; {}_curr.tag = false;"
+					, _sy.get_string(), _sy.get_string()))
                         .append(RcDoc::hardline())
                 }
             }
@@ -1085,7 +1087,8 @@ fn _make_stmts_for_fork_join<'a>(
             .append(RcDoc::hardline())
             .append(format!("//Copy of signal {}", _s))
             .append(RcDoc::hardline());
-        _vp = _vp.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+        // _vp = _vp.append(format!("signal_{} {}_{} = {}_curr;", _s, _s, i, _s));
+	_vp = _vp.append(format!("signal_{} {}_{};", _s, _s, i));
         _vp = _vp.append(RcDoc::hardline());
     }
     // XXX: Now make the input signals to visit
@@ -1131,7 +1134,7 @@ fn _make_stmts_for_fork_join<'a>(
         if _dsigs.contains(&_cs) {
             _vp = _vp
                 .append(format!(
-                    "if ({_cs}_curr.status and not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
+                    "if ({_cs}_{i}.status and not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
 		     if({_cs}_curr.tag){{
 			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);}} 
 			 else {{ {_cs}_curr.value = {_cs}_{i}.value; {_cs}_curr.tag = true; }} }}"

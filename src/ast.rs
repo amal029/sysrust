@@ -259,7 +259,8 @@ impl ExprOp {
     }
 }
 
-fn _get_string_arg<'a>(_s: &'a str, _smpt: &'a HashMap<&str, usize>) -> Option<&'a usize> {
+fn _get_string_arg<'a>(_s: &'a str, _smpt: &'a HashMap<&str, usize>) ->
+    Option<&'a usize> {
     if _smpt.contains_key(_s) {
         _smpt.get(_s)
     } else {

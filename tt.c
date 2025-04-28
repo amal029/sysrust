@@ -3,10 +3,11 @@
 
 int rcal(float x, int y) { return x + y; }
 
-int get_op(float , int) {return 0;}
-int get_param(float, int) {return 2;}
+int get_op(float t, int m) {return 0;}
+int get_param(float k, int j) {return 2;}
 
-char tick() {
+
+char tick(int wash_status) {
   char b = '\0';
   scanf("%c", &b);
   /* static int counter = 0; */
