@@ -123,6 +123,7 @@ pub Statement: ast::Stmt = {
    <a:Abort> ";" => a,
    <a:Suspend> ";" => a,
    <a:Await> ";" => a,
+   <b:Block> => b,
    <a:Sustain> ";" => a,
    <a:Halt> ";" => a,
    <a:IOSignal> ";" => a,
