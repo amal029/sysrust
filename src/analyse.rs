@@ -344,7 +344,8 @@ pub fn get_states(
     _ast.iter().for_each(|x| _get_states(_state, x, tid, tot));
 }
 
-fn _get_states(_state: &mut [Vec<(Symbol, Pos)>], stmt: &Stmt, tid: &mut usize, tot: &mut usize) {
+fn _get_states(_state: &mut [Vec<(Symbol, Pos)>], stmt: &Stmt, tid: &mut usize,
+	       tot: &mut usize) {
     match stmt {
         Stmt::Pause(_sy, _pos) => _state[*tid].push((_sy.clone(), *_pos)),
         Stmt::Block(_sts, _) => get_states(_state, _sts, tid, tot),

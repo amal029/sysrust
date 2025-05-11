@@ -25,7 +25,8 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str
     }
 }
 
-fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) -> &'a str {
+fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
+    &'a str {
     match _expr {
         ExprOp::Plus => "std::plus",
         ExprOp::Minus => "std::minus",
@@ -42,7 +43,8 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     fn build_sig(_sy: &Symbol) -> RcDoc {
         let _m = format!("typedef struct signal_{}", _sy.get_string());
-        let _m = format!("{} {{bool status = false;}} signal_{};", _m, _sy.get_string());
+        let _m = format!("{} {{bool status = false;}} signal_{};",
+			 _m, _sy.get_string());
         let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
         let sname = _sy.get_string();
         let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
@@ -150,6 +152,7 @@ pub fn _codegen(
     _tidxs: Vec<(usize, usize)>,
     // XXX: These are the nodes with a valid ND state
     _ndtidxs: Vec<usize>,
+    _ndtidlabs: Vec<String>,
     // XXX: This is the external header file byte array
     _ext_header: &mut Vec<u8>,
     // XXX: The name of the cpp and header file
@@ -160,7 +163,8 @@ pub fn _codegen(
     _bench: Option<usize>,
 ) -> Vec<u8> {
     // XXX: Append #pragma once to the external header file
-    let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(RcDoc::hardline());
+    let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(
+	RcDoc::hardline());
     // XXX: Add the number of threads define in external header
     _pragma = _pragma
         .append(format!("#define NTHREADS {}", _nthreads))
@@ -176,8 +180,10 @@ pub fn _codegen(
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
-    let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
-    let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"", _pfile)).append(RcDoc::hardline());
+    let h5 = RcDoc::<()>::as_string("#include <functional>").append(
+	RcDoc::hardline());
+    let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"",
+					    _pfile)).append(RcDoc::hardline());
     let h7 = if let Some(_) = _bench {
         RcDoc::<()>::as_string("#include <ctime>").append(RcDoc::hardline())
     } else {
@@ -267,6 +273,16 @@ pub fn _codegen(
     }
     let _ = _n.render(8, &mut w);
 
+    // Added the extra not done states
+    let mut _n = RcDoc::<()>::line();
+    _n = _n.append(RcDoc::as_string("//Extra ND states")).append(RcDoc::hardline());
+    for _i in &_ndtidlabs {
+        let k = format!("struct {} : State {{}};", _i);
+        _n = _n.append(RcDoc::as_string(k)).append(RcDoc::hardline());
+    }
+    let _ = _n.render(8, &mut w);
+
+
     // XXX: Now make the thread classes
     let mut _n = RcDoc::<()>::hardline();
     _n = _n
@@ -283,6 +299,9 @@ pub fn _codegen(
         .append(RcDoc::as_string("//Variant decl"))
         .append(RcDoc::hardline());
     for (_k, _i) in _states.iter().enumerate() {
+	// This the zip iterator of _ndtidlabs and _ndtidxs
+	let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+
         let mut _vv: Vec<_> = _i
             .iter()
             .map(|x| format!("Thread{}<{}>", _k, x.0.get_string()))
@@ -290,6 +309,13 @@ pub fn _codegen(
         _vv.push(format!("Thread{}<I>", _k));
         _vv.push(format!("Thread{}<E>", _k));
         _vv.push(format!("Thread{}<ND>", _k));
+	// We want to add the extra ND states here if they exist for
+	// this thread.
+	for (_h, _j) in _ntidxl {
+	    if _h == _k {
+		_vv.push(format!("Thread{}<{}>", _k, _j));
+	    }
+	}
         let _vv = _vv.join(", ");
         let _vv = format!("using Thread{}State = std::variant<{}>;", _k, _vv);
         _n = _n.append(RcDoc::as_string(_vv)).append(RcDoc::hardline());
@@ -364,6 +390,16 @@ pub fn _codegen(
             i, k1, _sbr
         );
         thread_prototypes.push(_ss);
+	// Add the extra NDs here
+	// This the zip iterator of _ndtidlabs and _ndtidxs
+	let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+	for (_h, _j) in _ntidxl {
+	    if _h == i {
+		let _ss = format!("template <> struct Thread{}<{}>\
+				   {{\ninline  void tick ({});}};", i, _j, k1);
+		thread_prototypes.push(_ss);
+	    }
+	}
         for j in k2 {
             let mm = j.0.get_string();
             let _ss = format!(
@@ -429,13 +465,15 @@ pub fn _codegen(
         (0..*_nthreads).map(|i| {
             if _used_sigs_vec[i] != "" {
                 format!(
-                    "static inline __attribute__((always_inline))  void visit{}(Thread{}State &&ts, {}){{\
+                    "static inline __attribute__((always_inline))  \
+		     void visit{}(Thread{}State &&ts, {}){{\
 		 std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
-                    "static inline __attribute__((always_inline))  void visit{}(Thread{}State &&ts{}){{\
+                    "static inline __attribute__((always_inline))  \
+		     void visit{}(Thread{}State &&ts{}){{\
 		 std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
@@ -484,22 +522,37 @@ pub fn _codegen(
             // XXX: Attach I, ND, and E states to string too!
             _n = _n
                 .append(format!(
-                    "if (std::holds_alternative<Thread{}<I>>(st{})) _state[{}] = \"I\";",
+                    "if (std::holds_alternative<Thread{}<I>>(st{})) _state[{}]\
+		     = \"I\";",
                     _c, _c, _c
                 ))
                 .append(RcDoc::hardline());
             _n = _n
                 .append(format!(
-                    "if (std::holds_alternative<Thread{}<E>>(st{})) _state[{}] = \"E\";",
+                    "if (std::holds_alternative<Thread{}<E>>(st{})) _state[{}]\
+		     = \"E\";",
                     _c, _c, _c
                 ))
                 .append(RcDoc::hardline());
             _n = _n
                 .append(format!(
-                    "if (std::holds_alternative<Thread{}<ND>>(st{})) _state[{}] = \"ND\";",
+                    "if (std::holds_alternative<Thread{}<ND>>(st{})) _state[{}]\
+		     = \"ND\";",
                     _c, _c, _c
                 ))
                 .append(RcDoc::hardline());
+	    
+	    // Add extra ND nodes too
+	    let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+	    for (_h, _j) in _ntidxl {
+		if _h == _c {
+		    _n = _n.append(format!(
+			"if (std::holds_alternative<Thread{}<{}>>(st{})) _state[{}]\
+			 = \"{}\";",
+			_c, _j, _c, _c, _j
+                    ))
+		}
+	    }
             _n = _n.append("return false;").append(RcDoc::hardline());
             _n = _n.append("}").append(RcDoc::hardline());
         }
@@ -963,7 +1016,8 @@ fn _make_seq_code<'a>(
                 "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
                 i, i
             ));
-            let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
+            let _m = _make_stmts_for_fork_join(_nodes, _i,
+					       _for_fsm_sigs_thread, i, _all_sigs);
             _vp = _vp.append(_m);
             // _avp = _avp
             //     .append(format!(
@@ -1076,6 +1130,8 @@ fn _make_seq_code<'a>(
 }
 
 fn _make_stmts_for_fork_join<'a>(
+    _nodes: &'a [GraphNode],
+    _i : usize,
     _for_fsm_sigs_thread: &'a [Vec<String>],
     i: usize,
     _all_sigs: &'a [Vec<Stmt>],
@@ -1133,11 +1189,15 @@ fn _make_stmts_for_fork_join<'a>(
     for _cs in _csigs {
         if _dsigs.contains(&_cs) {
             _vp = _vp
+		// FIXME: This ND need to be fixed with || with other NDs
                 .append(format!(
-                    "if ({_cs}_{i}.status and not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
+                    "if ({_cs}_{i}.status and \
+		     not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
 		     if({_cs}_curr.tag){{
-			 {_cs}_curr.value = {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);}} 
-			 else {{ {_cs}_curr.value = {_cs}_{i}.value; {_cs}_curr.tag = true; }} }}"
+			 {_cs}_curr.value = \
+			 {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);}} 
+			 else {{ {_cs}_curr.value = \
+			 {_cs}_{i}.value; {_cs}_curr.tag = true; }} }}"
                 ))
                 .append(RcDoc::hardline());
         }
@@ -1174,7 +1234,8 @@ fn _make_fork_code<'a>(
 
     let mut _n = _n;
     let mut _gnn: Vec<RcDoc<()>> = Vec::with_capacity(_nodes[_i].guards.len());
-    let mut _same_tid_indices: Vec<usize> = Vec::with_capacity(_nodes[_i].guards.len());
+    let mut _same_tid_indices: Vec<usize> =
+	Vec::with_capacity(_nodes[_i].guards.len());
     let mut _other_tids: Vec<usize> = Vec::with_capacity(_nodes[_i].guards.len());
     for (j, &c) in _nodes[_i].children.iter().enumerate() {
         let i = _nodes[c]._tid; // The child thread id
@@ -1191,7 +1252,8 @@ fn _make_fork_code<'a>(
             _n = _n.append(_ifgn);
             // 1. Then build the code for init.
             _n = _n.append(format!("init{}();", i));
-            let _m = _make_stmts_for_fork_join(_for_fsm_sigs_thread, i, _all_sigs);
+            let _m = _make_stmts_for_fork_join(_nodes, _i,
+					       _for_fsm_sigs_thread, i, _all_sigs);
             _n = _n.append(_m);
         } else {
             // XXX: This is when a child is in the same _tid.
@@ -1242,8 +1304,11 @@ fn _make_fork_code<'a>(
         .append(format!(
             // XXX: Calling visit this thread when all internal threads
             // are done!
-            "if({}){{ st{} = Thread{}<ND>{{}}; {_nj} }} else {{ st{} = Thread{}<ND>{{}};}}",
-            _holds_alternative, _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i]._tid
+            "if({}){{ st{} = Thread{}<{}>{{}}; {_nj} }} \
+	     else {{ st{} = Thread{}<{}>{{}};}}",
+            _holds_alternative, _nodes[_i]._tid, _nodes[_i]._tid,
+	    _nodes[_i].label, _nodes[_i]._tid, _nodes[_i]._tid,
+	    _nodes[_i].label
         ))
         .append("}")
         .append(RcDoc::hardline());
@@ -1307,7 +1372,8 @@ fn _gen_code<'a>(
             let _join = match _nodes[_i].tt {
                 NodeT::PauseStart => false,
                 NodeT::SparJoin(_) => true,
-                _ => panic!("Got a non pause stop state: {:?}, l: {:?}", _nodes[_i], _l),
+                _ => panic!("Got a non pause stop state: \
+			    {:?}, l: {:?}", _nodes[_i], _l),
             };
             if !_join {
                 let mut _rets = _rets;
@@ -1325,8 +1391,8 @@ fn _gen_code<'a>(
                 let mut _n = _n;
                 _n = _n
                     .append(RcDoc::as_string(format!(
-                        "st{} = Thread{}<ND>{{}};",
-                        _nodes[_i]._tid, _nodes[_i]._tid
+                        "st{} = Thread{}<{}>{{}};",
+                        _nodes[_i]._tid, _nodes[_i]._tid, _nodes[_i].label
                     )))
                     .append(RcDoc::hardline());
                 return (_n, _rets);
@@ -1418,12 +1484,18 @@ fn _walk_graph_code_gen<'a>(
         _all_sigs,
     );
     // XXX: Here we need to put it inside the method!
+    println!("thread id: {:?}, node type: {:?}", _nodes[inode]._tid,
+	     _nodes[inode].label);
     let __n = RcDoc::<()>::as_string(format!(
         "inline void Thread{}<{}>::tick({}) {{",
-        _nodes[inode]._tid, _nodes[inode].label, _used_sigs_per_thread[_nodes[inode]._tid]
+        _nodes[inode]._tid, _nodes[inode].label,
+	_used_sigs_per_thread[_nodes[inode]._tid]
     ));
     // XXX: Here we close the method
-    let __n = __n
+    let __n =
+	RcDoc::as_string("// Methods defined")
+	.append(RcDoc::hardline())
+	.append(__n)
         .append(RcDoc::hardline())
         .append(_n)
         .append(RcDoc::hardline())

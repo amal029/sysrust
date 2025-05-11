@@ -84,7 +84,8 @@ fn main() {
     // println!("Num of threads in the program: {}", num_threads);
 
     // XXX: Get all the states in each thread
-    let mut _states: Vec<Vec<(ast::Symbol, (usize, usize))>> = vec![vec![]; num_threads];
+    let mut _states: Vec<Vec<(ast::Symbol, (usize, usize))>>
+	= vec![vec![]; num_threads];
     let mut tid = 0;
     let mut tot = 1;
     get_states(&mut _states, &_ast, &mut tid, &mut tot);
@@ -166,6 +167,7 @@ fn main() {
     let mut tot = 1;
     let mut _tidxs: Vec<(usize, usize)> = Vec::with_capacity(num_threads);
     let mut _ndtidxs: Vec<usize> = Vec::with_capacity(num_threads);
+    let mut _ndtidlabs: Vec<String> = Vec::with_capacity(num_threads);
     let (_i, _e) = rewrite_to_graph_fsm(
         &file_to_compile,
         &_ast,
@@ -175,7 +177,11 @@ fn main() {
         &mut _nodes,
         &mut _tidxs,
         &mut _ndtidxs,
+	&mut _ndtidlabs,
     );
+    assert!(_ndtidxs.len() == _ndtidlabs.len(), "number of join threads ids,\
+						 and their labels is not equal");
+    println!("{:?}, {:?}", _ndtidlabs, _ndtidxs);
     // XXX: Make the label for _i and _e
     if let NodeT::PauseStart = _nodes[_i].tt {
         panic!("Please add a nothing before the first pause in the program");
@@ -183,7 +189,8 @@ fn main() {
     // XXX: Fix labels for _tidxs
     _tidxs.iter().for_each(|(i, e)| {
         match _nodes[*i].tt {
-            NodeT::PauseStart => panic!("Please add a nothing at start of each thread"),
+            NodeT::PauseStart =>
+		panic!("Please add a nothing at start of each thread"),
             _ => _nodes[*i].label = String::from("I"),
         }
         let _etid = _nodes[*e]._tid;
@@ -207,7 +214,8 @@ fn main() {
     let _fname = format!("{}.{}", ff, "cpp");
     let _fname_header = format!("{}.{}", ff, "h");
     let mut _file = File::create(&_fname).expect("Cannot create the cpp file");
-    let mut _file_header = File::create(&_fname_header).expect("Cannot create the h file");
+    let mut _file_header =
+	File::create(&_fname_header).expect("Cannot create the h file");
 
     let mut _ext_header: Vec<u8> = Vec::with_capacity(50);
     // XXX: First make the prolouge -- includes, threads, states,
@@ -232,6 +240,7 @@ fn main() {
         _tidxs,
         // XXX: These are the nodes that have a valid ND state
         _ndtidxs,
+	_ndtidlabs,
         // XXX: This is the external header u8 vector
         &mut _ext_header,
         // XXX: The name of the compiled cpp and header file
