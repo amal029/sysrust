@@ -300,7 +300,7 @@ pub fn _codegen(
         .append(RcDoc::hardline());
     for (_k, _i) in _states.iter().enumerate() {
 	// This the zip iterator of _ndtidlabs and _ndtidxs
-	let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+	let _ntidxl = zip(&_ndtidxs, &_ndtidlabs);
 
         let mut _vv: Vec<_> = _i
             .iter()
@@ -312,7 +312,7 @@ pub fn _codegen(
 	// We want to add the extra ND states here if they exist for
 	// this thread.
 	for (_h, _j) in _ntidxl {
-	    if _h == _k {
+	    if *_h == _k {
 		_vv.push(format!("Thread{}<{}>", _k, _j));
 	    }
 	}
@@ -392,9 +392,9 @@ pub fn _codegen(
         thread_prototypes.push(_ss);
 	// Add the extra NDs here
 	// This the zip iterator of _ndtidlabs and _ndtidxs
-	let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+	let _ntidxl = zip(&_ndtidxs, &_ndtidlabs);
 	for (_h, _j) in _ntidxl {
-	    if _h == i {
+	    if *_h == i {
 		let _ss = format!("template <> struct Thread{}<{}>\
 				   {{\ninline  void tick ({});}};", i, _j, k1);
 		thread_prototypes.push(_ss);
@@ -543,9 +543,9 @@ pub fn _codegen(
                 .append(RcDoc::hardline());
 	    
 	    // Add extra ND nodes too
-	    let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+	    let _ntidxl = zip(&_ndtidxs, &_ndtidlabs);
 	    for (_h, _j) in _ntidxl {
-		if _h == _c {
+		if *_h == _c {
 		    _n = _n.append(format!(
 			"if (std::holds_alternative<Thread{}<{}>>(st{})) _state[{}]\
 			 = \"{}\";",
@@ -1524,8 +1524,8 @@ fn _walk_graph_code_gen<'a>(
 	_ndtidlabs
     );
     // XXX: Here we need to put it inside the method!
-    println!("thread id: {:?}, node type: {:?}", _nodes[inode]._tid,
-	     _nodes[inode].label);
+    // println!("thread id: {:?}, node type: {:?}", _nodes[inode]._tid,
+    // 	     _nodes[inode].label);
     let __n = RcDoc::<()>::as_string(format!(
         "inline void Thread{}<{}>::tick({}) {{",
         _nodes[inode]._tid, _nodes[inode].label,

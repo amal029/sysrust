@@ -181,7 +181,7 @@ fn main() {
     );
     assert!(_ndtidxs.len() == _ndtidlabs.len(), "number of join threads ids,\
 						 and their labels is not equal");
-    println!("{:?}, {:?}", _ndtidlabs, _ndtidxs);
+    // println!("{:?}, {:?}", _ndtidlabs, _ndtidxs);
     // XXX: Make the label for _i and _e
     if let NodeT::PauseStart = _nodes[_i].tt {
         panic!("Please add a nothing before the first pause in the program");
