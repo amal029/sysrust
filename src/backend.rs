@@ -387,7 +387,7 @@ pub fn _codegen(
         let _ss = format!(
             "template <> struct Thread{}<ND>{{\ninline  void tick \
 	     ({}){}}};",
-            i, k1, _sbr
+            i, k1, "{}"
         );
         thread_prototypes.push(_ss);
 	// Add the extra NDs here
@@ -568,6 +568,8 @@ pub fn _codegen(
         &_sigs_map_per_thread,
         &_for_fsm,
         _sigs,
+	&_ndtidxs,
+	&_ndtidlabs
     );
     let mut w1: Vec<u8> = Vec::with_capacity(5000);
     let _ = _nn.render(8, &mut w1);
@@ -583,6 +585,8 @@ pub fn _codegen(
             &_sigs_map_per_thread,
             &_for_fsm,
             _sigs,
+	    &_ndtidxs,
+	    &_ndtidlabs
         );
         let _ = _nn.render(8, &mut w1);
     });
@@ -842,6 +846,8 @@ fn _make_seq_code<'a>(
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
     _same_tid_indices: Vec<usize>,
+    _ndtidxs: &Vec<usize>,
+    _ndtidlabs: &Vec<String>,
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: First do a map of each child branch
     let _cbm = _nodes[_i]
@@ -863,6 +869,8 @@ fn _make_seq_code<'a>(
                     _sigs_map_per_threads,
                     _for_fsm_sigs_thread,
                     _all_sigs,
+		    _ndtidxs,
+		    _ndtidlabs
                 ))
             } else {
                 None
@@ -1016,8 +1024,9 @@ fn _make_seq_code<'a>(
                 "if (not (std::holds_alternative<Thread{}<E>>(st{}))){{",
                 i, i
             ));
-            let _m = _make_stmts_for_fork_join(_nodes, _i,
-					       _for_fsm_sigs_thread, i, _all_sigs);
+            let _m = _make_stmts_for_fork_join(_nodes,
+					       _for_fsm_sigs_thread, i, _all_sigs,
+					       _ndtidxs, _ndtidlabs);
             _vp = _vp.append(_m);
             // _avp = _avp
             //     .append(format!(
@@ -1038,7 +1047,7 @@ fn _make_seq_code<'a>(
             _am = _am
                 .into_iter()
                 .enumerate()
-                // XXX: Add to child 0 and any other child that is not _neidx
+            // XXX: Add to child 0 and any other child that is not _neidx
                 .map(|(_j, x)| if _j == 0 { x.append(_vp.clone()) } else { x })
                 .collect::<Vec<_>>();
         }
@@ -1131,10 +1140,11 @@ fn _make_seq_code<'a>(
 
 fn _make_stmts_for_fork_join<'a>(
     _nodes: &'a [GraphNode],
-    _i : usize,
     _for_fsm_sigs_thread: &'a [Vec<String>],
     i: usize,
     _all_sigs: &'a [Vec<Stmt>],
+    _ndtidxs: &Vec<usize>,
+    _ndtidlabs: &Vec<String>,
 ) -> RcDoc<'a> {
     let mut _vp = RcDoc::<()>::nil();
     let _csigs = &_for_fsm_sigs_thread[i];
@@ -1188,11 +1198,25 @@ fn _make_stmts_for_fork_join<'a>(
         .collect::<Vec<_>>();
     for _cs in _csigs {
         if _dsigs.contains(&_cs) {
+	    // XXX: This ND fixes many not done nodes occuring in
+	    // sequence with || with other NDs Make a vector of
+	    // holds_alternative<...> for each ND in this thread.
+	    let mut holdvec = Vec::with_capacity(10);
+	    holdvec.push(format!("std::holds_alternative<Thread{i}<ND>>(st{i})"));
+	    // holdvec.push(format!("false"));
+	    let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
+	    for (_h, _j) in _ntidxl {
+		if _h == i {
+		    holdvec.push(format!("std::holds_alternative<Thread{i}<{}>>(st{i})",
+					 _j));
+		}
+	    }
+	    let _holds = holdvec.join("||");
+	    // not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
             _vp = _vp
-		// FIXME: This ND need to be fixed with || with other NDs
                 .append(format!(
                     "if ({_cs}_{i}.status and \
-		     not (std::holds_alternative<Thread{i}<ND>>(st{i}))) {{\
+		     not ({_holds})) {{\
 		     if({_cs}_curr.tag){{
 			 {_cs}_curr.value = \
 			 {_cs}_curr.op({_cs}_curr.value, {_cs}_{i}.value);}} 
@@ -1222,6 +1246,9 @@ fn _make_fork_code<'a>(
     _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
+    _ndtidxs: &Vec<usize>,
+    _ndtidlabs: &Vec<String>
+
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: This is for the fork node
     let _jnode_idx = match _nodes[_i].tt {
@@ -1252,8 +1279,9 @@ fn _make_fork_code<'a>(
             _n = _n.append(_ifgn);
             // 1. Then build the code for init.
             _n = _n.append(format!("init{}();", i));
-            let _m = _make_stmts_for_fork_join(_nodes, _i,
-					       _for_fsm_sigs_thread, i, _all_sigs);
+            let _m = _make_stmts_for_fork_join(_nodes,
+					       _for_fsm_sigs_thread, i, _all_sigs,
+					       _ndtidxs, _ndtidlabs);
             _n = _n.append(_m);
         } else {
             // XXX: This is when a child is in the same _tid.
@@ -1329,6 +1357,8 @@ fn _make_fork_code<'a>(
         _for_fsm_sigs_thread,
         _all_sigs,
         _same_tid_indices,
+	_ndtidxs,
+	_ndtidlabs
     );
 
     _n = _n.append(_sn);
@@ -1353,6 +1383,8 @@ fn _gen_code<'a>(
     _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
+    _ndtidxs: &Vec<usize>,
+    _ndtidlabs: &Vec<String>
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     if _nodes[_i]._tid != _ptid {
         // println!("ptid != tid {_ptid} {:?}", _nodes[_i]._tid);
@@ -1427,6 +1459,8 @@ fn _gen_code<'a>(
             _for_fsm_sigs_thread,
             _all_sigs,
             _same_tid_indices,
+	    _ndtidxs,
+	    _ndtidlabs
         )
     } else {
         // XXX: This is for the fork node
@@ -1443,6 +1477,8 @@ fn _gen_code<'a>(
             _sigs_map_per_threads,
             _for_fsm_sigs_thread,
             _all_sigs,
+	    _ndtidxs,
+	    _ndtidlabs
         )
     }
 }
@@ -1458,6 +1494,8 @@ fn _walk_graph_code_gen<'a>(
     _sigs_map_per_threads: &Vec<HashMap<&str, usize>>,
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
+    _ndtidxs: &Vec<usize>,
+    _ndtidlabs: &Vec<String>,
 ) -> (RcDoc<'a>, VecDeque<usize>, usize) {
     let mut _rets = _rets;
     let inode = _rets.pop_front().unwrap();
@@ -1482,6 +1520,8 @@ fn _walk_graph_code_gen<'a>(
         _sigs_map_per_threads,
         _for_fsm_sigs_thread,
         _all_sigs,
+	_ndtidxs,
+	_ndtidlabs
     );
     // XXX: Here we need to put it inside the method!
     println!("thread id: {:?}, node type: {:?}", _nodes[inode]._tid,
@@ -1513,6 +1553,8 @@ fn _make_fsm_code<'a>(
     _sigs_map_per_threads: &'a Vec<HashMap<&str, usize>>,
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
+    _ndtidxs: &Vec<usize>,
+    _ndtidlabs: &Vec<String>,
 ) -> RcDoc<'a> {
     // XXX: Walk graph and generate code
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
@@ -1533,6 +1575,8 @@ fn _make_fsm_code<'a>(
             _sigs_map_per_threads,
             _for_fsm_sigs_thread,
             _all_sigs,
+	    _ndtidxs,
+	    _ndtidlabs
         );
         _res.push(_n);
         _done_nodes.push(_inode);
