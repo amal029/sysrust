@@ -387,7 +387,7 @@ pub fn _codegen(
         let _ss = format!(
             "template <> struct Thread{}<ND>{{\ninline  void tick \
 	     ({}){}}};",
-            i, k1, "{}"
+            i, k1, "{throw \"Can never reach here\";}"
         );
         thread_prototypes.push(_ss);
 	// Add the extra NDs here
@@ -1207,8 +1207,9 @@ fn _make_stmts_for_fork_join<'a>(
 	    let _ntidxl = zip(_ndtidxs.clone(), _ndtidlabs.clone());
 	    for (_h, _j) in _ntidxl {
 		if _h == i {
-		    holdvec.push(format!("std::holds_alternative<Thread{i}<{}>>(st{i})",
-					 _j));
+		    holdvec.push(
+			format!("std::holds_alternative<Thread{i}<{}>>(st{i})",
+				_j));
 		}
 	    }
 	    let _holds = holdvec.join("||");
