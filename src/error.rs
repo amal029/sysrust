@@ -19,7 +19,7 @@ pub fn print_bytes(ff: &str, start: usize, end: usize) -> io::Result<()> {
     f.seek(SeekFrom::Start(start as u64))?;
     let mut contents = vec![0; end - start];
     f.read_exact(&mut contents)?;
-    print!("\x1B[41mError Line {}\x1B[0m : ", nl);
+    print!("\x1b[1m\x1b[4m\x1b[31mError Line {}\x1B[0m : ", nl);
     contents.into_iter().for_each(|x| print!("{}", x as char));
     println!("\n\t\t^^^^^^^^^^^^^^^^^^^");
     Ok(())
