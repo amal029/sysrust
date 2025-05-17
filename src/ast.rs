@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::error::print_bytes;
 use itertools::join;
 use pretty::RcDoc;
-type Pos = (usize, usize);
+pub type Pos = (usize, usize);
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Symbol {
@@ -35,6 +35,42 @@ pub enum SimpleDataExpr {
     ConstI(i64, Pos),
     ConstF(f64, Pos),
     Call(Symbol, Vec<SimpleDataExpr>, Pos),
+}
+
+// The array size/dims for defining an array
+#[derive(Clone, Debug, PartialEq)]
+pub enum ArrayAccessType {
+    ArrayAccessInt(i64, Pos),
+    ArrayAccessSymbol(Symbol, Pos),
+}
+
+// ArrayType
+#[derive(Clone, Debug, PartialEq)]
+pub enum ArrayType {
+    ArrayPrimTypeT(Type, Vec<ArrayAccessType>, Pos),
+    ArrayStructTypeT(Symbol, Vec<ArrayAccessType>, Pos),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StructTypeT {
+    StructTypeT(Symbol, Pos)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum PrimitiveAndStructAndArraytype {
+    PrimitiveType(Type, Pos),
+    StructType(StructTypeT, Pos),
+    ArrayType(ArrayType, Pos)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum InitializerList {
+    AggregateAssign(Vec<SimpleDataExpr>, Pos)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StructDef {
+    Struct(Symbol, Vec<(PrimitiveAndStructAndArraytype, Symbol, Pos)>, Pos)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -117,6 +153,9 @@ pub enum Stmt {
     Assign(Symbol, SimpleDataExpr, Pos),
     Spar(Vec<Stmt>, Pos),
     Noop(Pos),
+    StructDecl(Symbol, InitializerList, Pos),
+    ArrayDecl(Symbol, ArrayType, InitializerList, Pos),
+    StructDef(StructDef),
 }
 
 impl Symbol {

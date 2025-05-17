@@ -42,9 +42,11 @@ pub Suspend: ast::Stmt = {
 
 pub Await : ast::Stmt = {
     <l:@L> <la: Symbol> ":" "await" "(" <s:Expr> ")" <r:@R> =>
-    ast::Stmt::Abort(s, None, Box::new(ast::Stmt::Loop (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
+    ast::Stmt::Abort(s, None, Box::new(ast::Stmt::Loop
+    (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
    <l:@L> <la: Symbol> ":" "await" "(" "immediate" <s:Expr> ")" <r:@R> =>
-    ast::Stmt::Abort(s, Some(ast::ASQual::Immediate), Box::new(ast::Stmt::Loop (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
+    ast::Stmt::Abort(s, Some(ast::ASQual::Immediate), Box::new(ast::Stmt::Loop
+    (Box::new(ast::Stmt::Pause (la, (l, r))), (l, r))), (l, r)),
 
 }
 
@@ -64,8 +66,7 @@ pub Sustain : ast::Stmt = {
 }
 
 pub Spar: Vec<ast::Stmt> = {
-    <ss:Spar> "||" <bb:Block> =>
-    	   {let mut mm = ss; mm.push(bb); mm},
+    <ss:Spar> "||" <bb:Block> => {let mut mm = ss; mm.push(bb); mm},
     <lb:Block> "||" <rb:Block> => vec![lb, rb],
 }
 
@@ -126,6 +127,9 @@ pub Statement: ast::Stmt = {
    <b:Block> => b,
    <a:Sustain> ";" => a,
    <a:Halt> ";" => a,
+   <a:StructDecl> ";" => a,
+   <a:ArrayDecl> ";" => a,
+   <a:StructDef> ";" => ast::Stmt::StructDef(a),
    <a:IOSignal> ";" => a,
    <l:@L> "integer" <s:Symbol> <r:@R> "=" <iv:"i64"> ";" =>
    ast::Stmt::Variable(s, ast::Type::Int, ast::Val::VInt(iv), (l, r)),
@@ -215,6 +219,82 @@ pub SimpleDataExprList : Vec<ast::SimpleDataExpr> = {
  <e: SimpleDataExpr> => vec![e],
 }
 
+// ArrayDeclaration
+pub ArrayDecl: ast::Stmt = {
+ <l:@L> <a: ArrayType> <s:Symbol> "=" <il:InitializerList> <r:@R> =>
+ ast::Stmt::ArrayDecl(s, a, il, (l, r))
+}
+
+// Now StructDeclaration
+pub StructDecl: ast::Stmt = {
+ <l:@L> "struct" <s:Symbol> "=" <il: InitializerList> <r:@R> =>
+ ast::Stmt::StructDecl(s, il, (l, r))
+}
+
+// Initializer list for arrays and structs
+pub InitializerList: ast::InitializerList = {
+ <l:@L> "{" <sdl: SimpleDataExprList> "}" <r:@R> =>
+ ast::InitializerList::AggregateAssign(sdl, (l, r))
+}
+
+// These are all the types put together
+pub PrimitiveAndStructAndArraytype : ast::PrimitiveAndStructAndArraytype = {
+ <l:@L> "integer" <r:@R> =>
+ ast::PrimitiveAndStructAndArraytype::PrimitiveType(ast::Type::Int, (l, r)),
+ <l:@L> "float" <r:@R> =>
+ ast::PrimitiveAndStructAndArraytype::PrimitiveType(ast::Type::Float, (l, r)),
+ <l:@L> <aat: ArrayType> <r:@R> =>
+ ast::PrimitiveAndStructAndArraytype::ArrayType(aat, (l, r)),
+ <l:@L> <st: StructType> <r:@R> =>
+ ast::PrimitiveAndStructAndArraytype::StructType(st, (l, r)),
+}
+
+pub StructDef : ast::StructDef = {
+ <l:@L> "struct" <s: Symbol> "{" <sc:StructComponent>  "}" <r:@R> =>
+ ast::StructDef::Struct(s, sc, (l, r)),
+}
+
+pub StructComponent: Vec<(ast::PrimitiveAndStructAndArraytype, ast::Symbol,
+                          ast::Pos)> = {
+ <sc: StructComponent>  <l:@L> <p:PrimitiveAndStructAndArraytype> <s:Symbol>
+ <r:@R> ";" =>
+ {let mut mm = sc; mm.push((p, s, (l, r))); mm},
+ <l:@L> <p:PrimitiveAndStructAndArraytype> <s:Symbol> <r:@R> ";" =>
+  vec![(p, s, (l, r))],
+}
+
+// This is structTypeVar
+pub StructType: ast::StructTypeT = {
+ <l:@L> "struct" <s:Symbol> <r:@R> => ast::StructTypeT::StructTypeT(s, (l, r)),
+}
+
+// Now make the declaration of an array
+pub ArrayType: ast::ArrayType = {
+ <l:@L> "integer" <aat: ArrayAccessType> <r:@R> =>
+  ast::ArrayType::ArrayPrimTypeT(ast::Type::Int, aat, (l, r)),
+ <l:@L> "float" <aat: ArrayAccessType> <r:@R> =>
+  ast::ArrayType::ArrayPrimTypeT(ast::Type::Float, aat, (l, r)),
+  <l:@L> "struct" <s:Symbol> <aat: ArrayAccessType> <r:@R> =>
+  ast::ArrayType::ArrayStructTypeT(s, aat, (l, r)),
+}
+
+// Now make the arraytype
+pub ArrayAccessType: Vec<ast::ArrayAccessType> = {
+ <aa: ArrayAccessType>
+ <l:@L> "[" <s:Symbol> "]" <r:@R> => {
+   let mut mm = aa; mm.push(ast::ArrayAccessType::ArrayAccessSymbol(s, (l, r))); mm},
+
+ <aa: ArrayAccessType>
+ <l:@L> "[" <i:"i64"> "]" <r:@R> => {
+   let mut mm = aa; mm.push(ast::ArrayAccessType::ArrayAccessInt(i, (l, r))); mm},
+   
+ <l:@L> "[" <i:"i64"> "]" <r:@R> =>
+ vec![ast::ArrayAccessType::ArrayAccessInt(i, (l, r))],
+ 
+ <l:@L> "[" <s:Symbol> "]" <r:@R> =>
+ vec![ast::ArrayAccessType::ArrayAccessSymbol(s, (l, r))],
+}
+
 extern {
        type Location = usize;
        type Error = LexicalError;
@@ -268,5 +348,8 @@ enum Token {
     "integer" => Token::TInt,
     "float" => Token::TFloat,
     "extern" => Token::TExtern,
+    "[" => Token::LSquareBracket,
+    "]" => Token::RSquareBracket,
+    "struct" => Token::TStruct,
     }
 }

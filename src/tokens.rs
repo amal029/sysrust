@@ -82,6 +82,10 @@ pub enum Token {
     LBrace,
     #[token("}")]
     RBrace,
+    #[token("[")]
+    LSquareBracket,
+    #[token("]")]
+    RSquareBracket,
 
     // XXX: Semicolon for statement completion
     #[token(";")]
@@ -140,6 +144,9 @@ pub enum Token {
     TFloat,
     #[token("extern")]
     TExtern,
+    #[token("struct")]
+    TStruct,
+
 }
 
 impl fmt::Display for Token {

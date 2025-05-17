@@ -552,6 +552,9 @@ fn rewrite_stmt_to_graph_fsm(
 
             (r1, r2)
         }
+	Stmt::StructDecl(_, _, _) => todo!(),
+	Stmt::StructDef(_) => todo!(),
+	Stmt::ArrayDecl(_, _, _, _) => todo!(),
     }
 }
 

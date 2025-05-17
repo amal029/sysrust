@@ -306,6 +306,10 @@ pub fn _analyse_var_signal_use(
             );
             _stack
         }
+	Stmt::StructDecl(_, _, _) => todo!(),
+	Stmt::StructDef(_) => todo!(),
+	Stmt::ArrayDecl(_, _, _, _) => todo!(),
+
     }
 }
 
