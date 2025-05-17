@@ -68,13 +68,16 @@ fn _check_sym_in_map(
         if map.contains_key(s.get_string()) {
             let _svt2 = &map.get(s.get_string()).unwrap().1;
             let _svt3 = &map.get(s.get_string()).unwrap().2;
-            if match_signal_var_type(&_svt, _svt2) && match_signal_io_type(&_io, _svt3) {
+            if match_signal_var_type(&_svt, _svt2) &&
+		match_signal_io_type(&_io, _svt3) {
                 // XXX: Check if the signal ref being used is a valued signal.
                 _dcheck = match _dvt {
                     ValuedSignalDataCheck::Check => {
                         let _dvt2 = &map.get(s.get_string()).unwrap().0;
                         match _dvt2 {
                             Type::Float | Type::Int => true,
+			    Type::Struct(_) => todo!(),
+			    | Type::Array(_,_) => todo!(),
                             Type::None => false,
                         }
                     }
@@ -138,6 +141,10 @@ fn _check_sym_in_simple_expr(
             .iter()
             .for_each(|x| _check_sym_in_simple_expr(_ff, x, _vmap, _pos, rets, tid)),
         SimpleDataExpr::ConstI(_, _) | SimpleDataExpr::ConstF(_, _) => (),
+	SimpleDataExpr::AggregateAssign(_, _) => todo!(),
+	SimpleDataExpr::StructRef(_) => todo!(),
+	SimpleDataExpr::ArrayRef(_) => todo!(),
+	SimpleDataExpr::Cast(_, _, _) => todo!()
     }
 }
 
@@ -306,10 +313,13 @@ pub fn _analyse_var_signal_use(
             );
             _stack
         }
-	Stmt::StructDecl(_, _, _) => todo!(),
+	Stmt::StructDecl(_, _, _, _) => todo!(),
 	Stmt::StructDef(_) => todo!(),
 	Stmt::ArrayDecl(_, _, _, _) => todo!(),
-
+	// Stmt::StructAssign(_, _, _,) => todo!(),
+	Stmt::StructMemberAssign(_, _, _) => todo!(),
+	// Stmt::ArrayAssign(_, _, _) => todo!(),
+	Stmt::ArrayIndexAssign(_, _, _) => todo!(),
     }
 }
 
@@ -735,6 +745,7 @@ fn _union(_lt: &Type, _rt: &Type, _pos: Pos) -> Type {
         (Type::Int, Type::Float) => Type::Float,
         (Type::None, _) => panic!("Cannot have None type in arithmetic operations"),
         (_, Type::None) => panic!("Cannot have None type in arithmetic operations"),
+	(_, _) => todo!()
     }
 }
 
@@ -749,8 +760,10 @@ fn _get_type<'a>(
     match _expr {
         SimpleDataExpr::VarRef(_sy, _pos) => {
             let _t = _vars.iter().find(|x| match x {
-                Stmt::Variable(__sy, _t, _, _) => __sy.get_string() == _sy.get_string(),
-                _ => panic!("Non variable found in _vars during type inference: {:?}", x),
+                Stmt::Variable(__sy, _t, _, _) =>
+		    __sy.get_string() == _sy.get_string(),
+                _ => panic!("Non variable found in _vars during type inference: \
+			    {:?}", x),
             });
             if _t.is_none() {
                 panic!(
@@ -801,6 +814,10 @@ fn _get_type<'a>(
             }
             _union(&_lt, &_rt, *_pos)
         }
+	SimpleDataExpr::AggregateAssign(_, _) => todo!(),
+	SimpleDataExpr::StructRef(_) => todo!(),
+	SimpleDataExpr::ArrayRef(_) => todo!(),
+	SimpleDataExpr::Cast(_, _, _) => todo!(),
     }
 }
 

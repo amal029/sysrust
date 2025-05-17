@@ -22,6 +22,8 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str
             let _ = print_bytes(ff, _pos.0, _pos.1);
             panic!("Cannot write an empty type")
         }
+	Type::Struct(_) => todo!(),
+	Type::Array(_, _) => todo!(),
     }
 }
 
@@ -36,7 +38,9 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
         ExprOp::Pow => {
             let _ = print_bytes(_ff, _pos.0, _pos.1);
             panic!("Power operator not yet supported in C++ backend")
-        }
+        },
+	ExprOp::RShift => todo!(),
+	ExprOp::LShift => todo!()
     }
 }
 

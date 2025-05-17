@@ -14,6 +14,8 @@ pub enum Symbol {
 pub enum Type {
     Int,
     Float,
+    Struct(StructTypeT),
+    Array(Box<Type>, ArrayAccessType),
     None,
 }
 
@@ -25,6 +27,18 @@ pub enum ExprOp {
     Div,
     Mod,
     Pow,
+    LShift,
+    RShift
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StructRefT {
+    StructRef(Symbol, Symbol, Pos)
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ArrayRefT{
+    ArrayRef(Symbol, Vec<SimpleDataExpr>, Pos)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -35,10 +49,14 @@ pub enum SimpleDataExpr {
     ConstI(i64, Pos),
     ConstF(f64, Pos),
     Call(Symbol, Vec<SimpleDataExpr>, Pos),
+    AggregateAssign(InitializerList, Pos),
+    StructRef(StructRefT),
+    ArrayRef(ArrayRefT),
+    Cast(Type, Box<SimpleDataExpr>, Pos),
 }
 
 // The array size/dims for defining an array
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum ArrayAccessType {
     ArrayAccessInt(i64, Pos),
     ArrayAccessSymbol(Symbol, Pos),
@@ -51,7 +69,7 @@ pub enum ArrayType {
     ArrayStructTypeT(Symbol, Vec<ArrayAccessType>, Pos),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum StructTypeT {
     StructTypeT(Symbol, Pos)
 }
@@ -127,6 +145,7 @@ pub enum ASQual {
 pub enum Val {
     VInt(i64),
     VFloat(f64),
+    InitList(InitializerList),
 }
 
 impl Val {
@@ -134,6 +153,7 @@ impl Val {
         match self {
             Val::VFloat(x) => x.to_string(),
             Val::VInt(x) => x.to_string(),
+	    Val::InitList(_) => todo!()
         }
     }
 }
@@ -153,8 +173,18 @@ pub enum Stmt {
     Assign(Symbol, SimpleDataExpr, Pos),
     Spar(Vec<Stmt>, Pos),
     Noop(Pos),
-    StructDecl(Symbol, InitializerList, Pos),
+    // The next 2 are definition of a new struct and array variable
+    StructDecl(Symbol, StructTypeT, InitializerList, Pos),
     ArrayDecl(Symbol, ArrayType, InitializerList, Pos),
+    // The next 2 are assigning to structure and member of struct of
+    // some defined variable.
+    // StructAssign(Symbol, SimpleDataExpr, Pos),
+    StructMemberAssign(StructRefT, SimpleDataExpr, Pos),
+    // The next 2 are array assign or assigning to index/slice of an
+    // already defined array variable.
+    // ArrayAssign(Symbol, SimpleDataExpr, Pos),
+    ArrayIndexAssign(ArrayRefT, SimpleDataExpr, Pos),
+    // This is definition of a new struct type
     StructDef(StructDef),
 }
 
@@ -281,6 +311,10 @@ impl SimpleDataExpr {
                 let _as = RcDoc::intersperse(_vrs, RcDoc::as_string(", ")).group();
                 _s.append("(").append(_as).append(")")
             }
+	    SimpleDataExpr::AggregateAssign(_, _) => todo!(),
+	    SimpleDataExpr::StructRef(_) => todo!(),
+	    SimpleDataExpr::ArrayRef(_) => todo!(),
+	    SimpleDataExpr::Cast(_, _, _) => todo!()
         }
     }
 }
@@ -294,6 +328,8 @@ impl ExprOp {
             ExprOp::Mul => RcDoc::as_string(" * "),
             ExprOp::Mod => RcDoc::as_string(" % "),
             ExprOp::Pow => todo!("Pow currently not supported"),
+	    ExprOp::LShift => todo!(),
+	    ExprOp::RShift => todo!()
         }
     }
 }
@@ -362,6 +398,8 @@ impl Type {
             Type::Int => "int",
             Type::Float => "float",
             Type::None => "void",
+	    Type::Struct(_) => todo!(),
+	    Type::Array(_, _) => todo!()
         }
     }
 }
@@ -384,7 +422,9 @@ impl Type {
             Type::None => {
                 let _ = print_bytes(ff, _pos.0, _pos.1);
                 panic!("Cannot write an empty type")
-            }
+            },
+	    Type::Array(_, _) => todo!(),
+	    Type::Struct(_) => todo!()
         }
     }
 }

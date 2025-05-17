@@ -68,7 +68,7 @@ pub enum Token {
     Symbol(String),
 
     // XXX: Numbers
-    #[regex("-?[0-9]+\\.[0-9]+", |lex| lex.slice().parse())]
+    #[regex("-?[0-9]+\\.[0-9]*", |lex| lex.slice().parse())]
     Float(f64),
     #[regex("-?[0-9]+", |lex| lex.slice().parse())]
     Integer(i64),
@@ -76,6 +76,9 @@ pub enum Token {
     // XXX: Braces
     #[token("(")]
     LParen,
+    #[token(".")]
+    Dot,
+
     #[token(")")]
     RParen,
     #[token("{")]

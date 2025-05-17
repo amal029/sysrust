@@ -74,23 +74,23 @@ pub IOSignal: ast::Stmt = {
    <l:@L> <i:IOT> "signal" <s:Symbol> <r:@R> => ast::Stmt::Signal(s, Some(i), (l, r)),
    <l:@L> "signal" <s:Symbol> <r:@R> => ast::Stmt::Signal(s, None, (l, r)),
 
-   <l:@L> <i:"output"> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "+" <r:@R> =>
+   <l:@L> "output" "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Int,
 	  ast::Val::VInt(iv), ast::ExprOp::Plus, (l, r)),
-   <l:@L> <i:"output"> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "*" <r:@R> =>
+   <l:@L> "output" "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Int,
 	  ast::Val::VInt(iv), ast::ExprOp::Mul, (l, r)),
-   <l:@L> <i:"output"> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "+" <r:@R> =>
+   <l:@L> "output" "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Plus, (l, r)),
-   <l:@L> <i:"output"> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "*" <r:@R> =>
+   <l:@L> "output" "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
 
-   <l:@L> <i:"input"> "integer" "signal" <s:Symbol> <r:@R> =>
+   <l:@L> "input" "integer" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Int,
 	  ast::Val::VInt(0_i64), ast::ExprOp::Plus, (l, r)),
-   <l:@L> <i:"input"> "float" "signal" <s:Symbol> <r:@R> =>
+   <l:@L> "input" "float" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Float,
 	  ast::Val::VFloat(0_f64), ast::ExprOp::Plus, (l, r)),
 
@@ -106,6 +106,18 @@ pub IOSignal: ast::Stmt = {
    <l:@L> "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
+
+   <l:@L> <sts:StructType> "signal" <s:Symbol> "=" <iv:InitializerList>
+   ":" "+" <r:@R> =>
+	  ast::Stmt::DataSignal(s, None, ast::Type::Struct(sts),
+	  ast::Val::InitList(iv), ast::ExprOp::Plus, (l, r)),
+
+   <l:@L> <sts:StructType> "signal" <s:Symbol> "=" <iv:InitializerList>
+   ":" "*" <r:@R> =>
+	  ast::Stmt::DataSignal(s, None, ast::Type::Struct(sts),
+	  ast::Val::InitList(iv), ast::ExprOp::Mul, (l, r)),
+
+
 }
 
 pub Statement: ast::Stmt = {
@@ -113,7 +125,7 @@ pub Statement: ast::Stmt = {
    	  return ast::Stmt::Noop((l, r)),
    <l:@L> <s:Symbol> "=" <e:SimpleDataExpr> ";" <r:@R> =>
    	 ast::Stmt::Assign(s, e, (l,r)),
-   <l:@L> <la:Symbol> ":" <s:"pause"> ";" <r:@R> => ast::Stmt::Pause(la, (l,r)),
+   <l:@L> <la:Symbol> ":" "pause" ";" <r:@R> => ast::Stmt::Pause(la, (l,r)),
    <l:@L> "emit" <s:Symbol> "(" <e:SimpleDataExpr> ")" ";" <r:@R> =>
    	 ast::Stmt::Emit(s, Some(e), (l,r)),
    <l:@L> "emit" <s:Symbol> ";" <r:@R> =>
@@ -136,11 +148,17 @@ pub Statement: ast::Stmt = {
    <l:@L> "float" <s:Symbol> <r:@R> "=" <iv:"f64"> ";" =>
    ast::Stmt::Variable(s, ast::Type::Float, ast::Val::VFloat(iv), (l, r)),
    <l:@L> <ss:Spar> ";" <r:@R> => ast::Stmt::Spar(ss, (l, r)),
+   // Add the assignment to struct
+   <l:@L> <sr:StructRef> "=" <sde:SimpleDataExpr> <r:@R> ";" =>
+   ast::Stmt::StructMemberAssign(sr, sde, (l, r)),
+   // Add the assignment to array index
+   <l:@L> <ar: ArrayRef> "=" <sde:SimpleDataExpr> <r:@R> ";" =>
+   ast::Stmt::ArrayIndexAssign(ar, sde, (l, r))
 }
 
 pub IOT : ast::IO =  {
-    <l:@L> "input" <r:@R> => ast::IO::Input,
-    <l:@L> "output" <r:@R> => ast::IO::Output,
+    "input" => ast::IO::Input,
+    "output" => ast::IO::Output,
 }
 
 pub Symbol: ast::Symbol = {
@@ -149,8 +167,8 @@ pub Symbol: ast::Symbol = {
 
 pub Expr: ast::Expr = {
     #[precedence(level="0")] // Highest precedence
-    <l:@L> <i:"true"> <r:@R> => ast::Expr::True((l,r)),
-    <l:@L> <i:"false"> <r:@R> => ast::Expr::False((l,r)),
+    <l:@L> "true" <r:@R> => ast::Expr::True((l,r)),
+    <l:@L> "false" <r:@R> => ast::Expr::False((l,r)),
     <l:@L> <s:Symbol> <r:@R> =>
     	   ast::Expr::Esymbol(s, (l, r)),
     <l:@L> "!" <le:Expr> <r:@R> =>
@@ -184,6 +202,16 @@ pub SimpleDataExpr: ast::SimpleDataExpr = {
     <l:@L> <i:"i64"> <r:@R> => ast::SimpleDataExpr::ConstI(i, (l,r)),
     <l:@L> <i:"f64"> <r:@R> => ast::SimpleDataExpr::ConstF(i, (l,r)),
     <l:@L> <i:Symbol> <r:@R> => ast::SimpleDataExpr::VarRef(i, (l,r)),
+    <l:@L> <il:InitializerList> <r:@R>
+    => ast::SimpleDataExpr::AggregateAssign(il, (l, r)),
+    <structref: StructRef> => ast::SimpleDataExpr::StructRef(structref),
+    <arrref: ArrayRef> => ast::SimpleDataExpr::ArrayRef(arrref),
+    <l:@L> "(" "integer" ")" <sde:SimpleDataExpr> <r:@R> =>
+    ast::SimpleDataExpr::Cast(ast::Type::Int, Box::new(sde), (l, r)),
+    <l:@L> "(" "float" ")" <sde:SimpleDataExpr> <r:@R> =>
+    ast::SimpleDataExpr::Cast(ast::Type::Float, Box::new(sde), (l, r)),
+    <l:@L> "(" <st: StructType> ")" <sde:SimpleDataExpr> <r:@R> =>
+    ast::SimpleDataExpr::Cast(ast::Type::Struct(st), Box::new(sde), (l, r)),
     <l:@L> "?" <i:Symbol> <r:@R> => ast::SimpleDataExpr::SignalRef(i, (l,r)),
     <l:@L> <i:Symbol> "(" <ll:SimpleDataExprList> ")" <r:@R> =>
            ast::SimpleDataExpr::Call(i, ll, (l, r)),
@@ -212,6 +240,25 @@ pub SimpleDataExpr: ast::SimpleDataExpr = {
 	   Box::new(e2), (l, r)),
 }
 
+// This is the structref
+pub StructRef: ast::StructRefT = {
+ <l:@L> <s:Symbol> "." <sm: Symbol> <r:@R> =>
+ ast::StructRefT::StructRef(s, sm, (l, r))
+}
+
+// This is the arrayrefT
+pub ArrayRef: ast::ArrayRefT = {
+ <l:@L> <s:Symbol> <aa:ArrayAccessExpr> <r:@R> =>
+ ast::ArrayRefT::ArrayRef(s, aa, (l, r))
+}
+
+// This is array access ref
+pub ArrayAccessExpr: Vec<ast::SimpleDataExpr> = {
+ <ar:ArrayAccessExpr> "[" <sde:SimpleDataExpr> "]" =>
+ {let mut mm = ar; mm.push(sde); mm},
+ "[" <sde:SimpleDataExpr> "]" => vec![sde]
+}
+
 // Simple data expr
 pub SimpleDataExprList : Vec<ast::SimpleDataExpr> = {
  <e1: SimpleDataExprList> "," <e2:SimpleDataExpr> =>
@@ -227,8 +274,8 @@ pub ArrayDecl: ast::Stmt = {
 
 // Now StructDeclaration
 pub StructDecl: ast::Stmt = {
- <l:@L> "struct" <s:Symbol> "=" <il: InitializerList> <r:@R> =>
- ast::Stmt::StructDecl(s, il, (l, r))
+ <l:@L> <sts:StructType> <s:Symbol> "=" <il: InitializerList> <r:@R> =>
+ ast::Stmt::StructDecl(s, sts, il, (l, r))
 }
 
 // Initializer list for arrays and structs
@@ -351,5 +398,6 @@ enum Token {
     "[" => Token::LSquareBracket,
     "]" => Token::RSquareBracket,
     "struct" => Token::TStruct,
+    "." => Token::Dot,
     }
 }
