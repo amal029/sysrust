@@ -23,7 +23,7 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str
             panic!("Cannot write an empty type")
         }
 	Type::Struct(_) => todo!(),
-	Type::Array(_, _) => todo!(),
+	// Type::Array(_, _) => todo!(),
     }
 }
 

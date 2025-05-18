@@ -15,7 +15,7 @@ pub enum Type {
     Int,
     Float,
     Struct(StructTypeT),
-    Array(Box<Type>, ArrayAccessType),
+    // Array(Box<Type>, ArrayAccessType),
     None,
 }
 
@@ -399,7 +399,7 @@ impl Type {
             Type::Float => "float",
             Type::None => "void",
 	    Type::Struct(_) => todo!(),
-	    Type::Array(_, _) => todo!()
+	    // Type::Array(_, _) => todo!()
         }
     }
 }
@@ -423,7 +423,7 @@ impl Type {
                 let _ = print_bytes(ff, _pos.0, _pos.1);
                 panic!("Cannot write an empty type")
             },
-	    Type::Array(_, _) => todo!(),
+	    // Type::Array(_, _) => todo!(),
 	    Type::Struct(_) => todo!()
         }
     }

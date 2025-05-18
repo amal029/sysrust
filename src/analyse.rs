@@ -70,28 +70,30 @@ fn _check_sym_in_map(
             let _svt3 = &map.get(s.get_string()).unwrap().2;
             if match_signal_var_type(&_svt, _svt2) &&
 		match_signal_io_type(&_io, _svt3) {
-                // XXX: Check if the signal ref being used is a valued signal.
-                _dcheck = match _dvt {
-                    ValuedSignalDataCheck::Check => {
-                        let _dvt2 = &map.get(s.get_string()).unwrap().0;
-                        match _dvt2 {
-                            Type::Float | Type::Int => true,
-			    Type::Struct(_) => todo!(),
-			    | Type::Array(_,_) => todo!(),
-                            Type::None => false,
-                        }
-                    }
-                    ValuedSignalDataCheck::NoCheck => true,
-                };
-                there = true;
-                break;
-            }
+                    // XXX: Check if the signal ref being used is a valued signal.
+                    _dcheck = match _dvt {
+			ValuedSignalDataCheck::Check => {
+                            let _dvt2 = &map.get(s.get_string()).unwrap().0;
+                            match _dvt2 {
+				Type::Float | Type::Int => true,
+				Type::Struct(_) => todo!(),
+				// | Type::Array(_,_) => todo!(),
+				Type::None => false,
+                            }
+			}
+			ValuedSignalDataCheck::NoCheck => true,
+                    };
+                    there = true;
+                    break;
+		}
         }
     }
     if !there {
         let ss = format!(
-            "Signal/Variable: {} either not declared, or input signal(s) are being emitted.\
-	     \nSignal and variable declarations can shadow each other.\nVariables cannot be \
+            "Signal/Variable: {} either not declared, \
+	     or input signal(s) are being emitted.\
+	     \nSignal and variable declarations \
+	     can shadow each other.\nVariables cannot be \
 	     shared between threads.",
             s.get_string()
         );
