@@ -552,13 +552,81 @@ fn rewrite_stmt_to_graph_fsm(
 
             (r1, r2)
         }
-	Stmt::StructDecl(_, _, _, _) => todo!(),
-	Stmt::StructDef(_) => todo!(),
-	Stmt::ArrayDecl(_, _, _, _) => todo!(),
-	// Stmt::StructAssign(_, _, _,) => todo!(),
-	Stmt::StructMemberAssign(_, _, _,) => todo!(),
-	// Stmt::ArrayAssign(_, _, _) => todo!(),
-	Stmt::ArrayIndexAssign(_, _, _) => todo!(),
+	Stmt::StructDef(_sdef) => {
+	    match _sdef {
+		StructDef::Struct(_sy, _types, pos) => {
+		    let mut i = GraphNode::default(*tid);
+		    i.label = String::from("StructDefStart");
+		    i.actions
+			.push(Stmt::StructDef(
+			    StructDef::Struct(_sy.clone(), _types.clone(), *pos)));
+		    i.guards.push(Expr::True(*pos));
+		    let mut e = GraphNode::default(*tid);
+		    e.label = String::from("StructDefEnd");
+		    // XXX: Add the doubly linked list annotations
+		    _nodes.push(i);
+		    _nodes[*idx].children.push(*idx + 1);
+		    _nodes[*idx].idx = *idx;
+		    let r1 = _nodes[*idx].idx;
+		    *idx += 1;
+		    _nodes.push(e);
+		    _nodes[*idx].parents.push(*idx - 1);
+		    _nodes[*idx].idx = *idx;
+		    let r2 = _nodes[*idx].idx;
+		    *idx += 1;
+		    (r1, r2)
+		}
+	    }
+	}
+	Stmt::StructMemberAssign(_sy1, _sy2, pos) => {
+	    let mut i = GraphNode::default(*tid);
+	    i.label = String::from("StructMemberAssignStart");
+	    i.actions
+		.push(Stmt::StructMemberAssign(_sy1.clone(), _sy2.clone(), *pos));
+	    i.guards.push(Expr::True(*pos));
+	    let mut e = GraphNode::default(*tid);
+	    e.label = String::from("StructMemberAssignEnd");
+	    // XXX: Add the doubly linked list annotations
+	    _nodes.push(i);
+	    _nodes[*idx].children.push(*idx + 1);
+	    _nodes[*idx].idx = *idx;
+	    let r1 = _nodes[*idx].idx;
+	    *idx += 1;
+	    _nodes.push(e);
+	    _nodes[*idx].parents.push(*idx - 1);
+	    _nodes[*idx].idx = *idx;
+	    let r2 = _nodes[*idx].idx;
+	    *idx += 1;
+	    (r1, r2)
+	}
+	Stmt::ArrayIndexAssign(_arref, _expr, pos1) => {
+	    match _arref {
+		ArrayRefT::ArrayRef(_sy, _vexpr, pos) => {
+		    let mut i = GraphNode::default(*tid);
+		    i.label = String::from("ArrayIndexAssignStart");
+		    i.actions
+			.push(Stmt::ArrayIndexAssign(
+			    ArrayRefT::ArrayRef(
+				_sy.clone(), _vexpr.clone(), *pos),_expr.clone(),
+			    *pos1));
+		    i.guards.push(Expr::True(*pos));
+		    let mut e = GraphNode::default(*tid);
+		    e.label = String::from("ArrayIndexAssignEnd");
+		    // XXX: Add the doubly linked list annotations
+		    _nodes.push(i);
+		    _nodes[*idx].children.push(*idx + 1);
+		    _nodes[*idx].idx = *idx;
+		    let r1 = _nodes[*idx].idx;
+		    *idx += 1;
+		    _nodes.push(e);
+		    _nodes[*idx].parents.push(*idx - 1);
+		    _nodes[*idx].idx = *idx;
+		    let r2 = _nodes[*idx].idx;
+		    *idx += 1;
+		    (r1, r2)
+		}
+	    }
+	}
     }
 }
 

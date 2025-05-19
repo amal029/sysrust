@@ -5,7 +5,7 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, Symbol, Type, Val, IO};
+use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, StructTypeT, Symbol, Type, Val, IO};
 
 type Pos = (usize, usize);
 
@@ -14,16 +14,21 @@ use crate::{
     rewrite::{GraphNode, NodeT},
 };
 
-fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> &'a str {
+fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> String {
     match _ty {
-        Type::Int => "int",
-        Type::Float => "float",
+        Type::Int => String::from("int"),
+        Type::Float => String::from("float"),
         Type::None => {
             let _ = print_bytes(ff, _pos.0, _pos.1);
             panic!("Cannot write an empty type")
         }
-	Type::Struct(_) => todo!(),
-	// Type::Array(_, _) => todo!(),
+	Type::Struct(_s) => {
+	    match _s {
+		StructTypeT::StructTypeT(_sy, _pos) =>
+		    format!("struct {}", _sy.get_string())
+	    }
+	}
+	Type::Array(_) => todo!(),
     }
 }
 

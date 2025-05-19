@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::error::print_bytes;
-use itertools::join;
+use itertools::{join, Itertools};
 use pretty::RcDoc;
 pub type Pos = (usize, usize);
 
@@ -15,7 +15,7 @@ pub enum Type {
     Int,
     Float,
     Struct(StructTypeT),
-    // Array(Box<Type>, ArrayAccessType),
+    Array(Box<ArrayTypeT>),
     None,
 }
 
@@ -63,8 +63,8 @@ pub enum ArrayAccessType {
 }
 
 // ArrayType
-#[derive(Clone, Debug, PartialEq)]
-pub enum ArrayType {
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ArrayTypeT {
     ArrayPrimTypeT(Type, Vec<ArrayAccessType>, Pos),
     ArrayStructTypeT(Symbol, Vec<ArrayAccessType>, Pos),
 }
@@ -78,7 +78,7 @@ pub enum StructTypeT {
 pub enum PrimitiveAndStructAndArraytype {
     PrimitiveType(Type, Pos),
     StructType(StructTypeT, Pos),
-    ArrayType(ArrayType, Pos)
+    ArrayType(ArrayTypeT, Pos)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -173,16 +173,7 @@ pub enum Stmt {
     Assign(Symbol, SimpleDataExpr, Pos),
     Spar(Vec<Stmt>, Pos),
     Noop(Pos),
-    // The next 2 are definition of a new struct and array variable
-    StructDecl(Symbol, StructTypeT, InitializerList, Pos),
-    ArrayDecl(Symbol, ArrayType, InitializerList, Pos),
-    // The next 2 are assigning to structure and member of struct of
-    // some defined variable.
-    // StructAssign(Symbol, SimpleDataExpr, Pos),
     StructMemberAssign(StructRefT, SimpleDataExpr, Pos),
-    // The next 2 are array assign or assigning to index/slice of an
-    // already defined array variable.
-    // ArrayAssign(Symbol, SimpleDataExpr, Pos),
     ArrayIndexAssign(ArrayRefT, SimpleDataExpr, Pos),
     // This is definition of a new struct type
     StructDef(StructDef),
@@ -311,11 +302,62 @@ impl SimpleDataExpr {
                 let _as = RcDoc::intersperse(_vrs, RcDoc::as_string(", ")).group();
                 _s.append("(").append(_as).append(")")
             }
-	    SimpleDataExpr::AggregateAssign(_, _) => todo!(),
-	    SimpleDataExpr::StructRef(_) => todo!(),
-	    SimpleDataExpr::ArrayRef(_) => todo!(),
-	    SimpleDataExpr::Cast(_, _, _) => todo!()
+	    SimpleDataExpr::AggregateAssign(_il, _pos) => _il.codegen(_tid, _smpt),
+	    SimpleDataExpr::StructRef(_s) => _s.codegen(_tid, _smpt),
+	    SimpleDataExpr::ArrayRef(_s) => _s.codegen(_tid, _smpt),
+	    SimpleDataExpr::Cast(_t, _sde, _pos) => {
+		let _td = _t.codegen(_tid, _smpt);
+		let _sded = _sde.codegen(_tid, _smpt);
+		RcDoc::as_string("(")
+		    .append(_td)
+		    .append(")")
+		    .append(_sded)
+	    }
         }
+    }
+}
+
+impl ArrayRefT {
+    pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    ArrayRefT::ArrayRef(_s1, _s2, _pos) => {
+		let _s2 = _s2.iter().map(|x|
+					 {RcDoc::as_string("[").append(
+					     x.codegen(_tid, _smpt)).append(
+					     RcDoc::as_string("]"))}).collect_vec();
+		let _s2 = _s2.iter().fold(RcDoc::nil(),
+					  |acc, x| acc.append(x.to_owned()));
+		RcDoc::as_string(format!("{}_{}", _s1.get_string(), _tid)).append(_s2)
+	    }		
+	}
+    }
+}
+
+
+impl StructRefT {
+    pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    StructRefT::StructRef(_s1, _s2, _pos) => {
+		let _s1 = format!("{}_{}", _s1.get_string(), _tid);
+		let _s2 = _s2.get_string();
+		let ss = format!("{_s1}.{_s2}");
+		RcDoc::<()>::as_string(ss)
+	    }		
+	}
+    }
+}
+
+
+impl InitializerList {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    InitializerList::AggregateAssign(_il, _pos) => {
+		let _kk : Vec<_> =
+		    _il.iter().map(|x| x.codegen(_tid, _smpt)).collect();
+		let _kk = RcDoc::intersperse(_kk, RcDoc::as_string(", ")).group();
+		RcDoc::as_string("{").append(_kk).append("}")
+	    }
+	}
     }
 }
 
@@ -328,8 +370,8 @@ impl ExprOp {
             ExprOp::Mul => RcDoc::as_string(" * "),
             ExprOp::Mod => RcDoc::as_string(" % "),
             ExprOp::Pow => todo!("Pow currently not supported"),
-	    ExprOp::LShift => todo!(),
-	    ExprOp::RShift => todo!()
+	    ExprOp::LShift => RcDoc::as_string("<<"),
+	    ExprOp::RShift => RcDoc::as_string(">>")
         }
     }
 }
@@ -380,6 +422,22 @@ impl Stmt {
             Stmt::Signal(_, _, _) => RcDoc::nil(),
             Stmt::DataSignal(_, _, _, _, _, _) => RcDoc::nil(),
             Stmt::Noop(_) => RcDoc::as_string(";"),
+	    Stmt::StructMemberAssign(_sy, _m, _) => {
+		let _sy = _sy.codegen(_tid, _smpt);
+                let _m = _m.codegen(_tid, _smpt);
+                _sy
+                    .append(RcDoc::as_string(" = "))
+                    .append(_m)
+                    .append(RcDoc::as_string(";"))
+                    .append(RcDoc::hardline())
+	    },
+	    Stmt::ArrayIndexAssign(_at, _sexpr, _) => {
+		let _m = _sexpr.codegen(_tid , _smpt);
+		let _at = _at.codegen(_tid, _smpt);
+		_at.append(RcDoc::as_string(" = "))
+		    .append(_m).append(";").append(RcDoc::hardline())
+	    }
+	    Stmt::StructDef(_) => todo!(),
             _ => panic!("Can never reach to this statement in FSM graph: {:?}", self),
         }
     }
@@ -392,15 +450,39 @@ pub struct CallNameType {
     pub _arg_types: Vec<Type>,
 }
 
+impl StructTypeT {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    StructTypeT::StructTypeT(_s, _pos) =>
+		RcDoc::as_string("struct ").append(RcDoc::as_string(_s.get_string()))
+	}
+    }
+}
+
 impl Type {
-    pub fn _to_string(&self) -> &str {
+    pub fn _to_string(&self) -> String {
         match self {
-            Type::Int => "int",
-            Type::Float => "float",
-            Type::None => "void",
-	    Type::Struct(_) => todo!(),
-	    // Type::Array(_, _) => todo!()
+            Type::Int => String::from("int"),
+            Type::Float => String::from("float"),
+            Type::None => String::from("void"),
+	    Type::Struct(_ss) => {
+		match _ss {
+		    StructTypeT::StructTypeT(_s, _) =>
+			format!("struct {}", _s.get_string())
+		}
+	    }
+	    Type::Array(_) => todo!()
         }
+    }
+
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    Type::Float => RcDoc::as_string(self._to_string()),
+	    Type::Int => RcDoc::as_string(self._to_string()),
+	    Type::None => RcDoc::as_string(self._to_string()),
+	    Type::Struct(_ss) => _ss.codegen(_tid, _smpt),
+	    Type::Array(_ss) => todo!()
+	}
     }
 }
 
@@ -415,16 +497,21 @@ impl CallNameType {
 }
 
 impl Type {
-    fn _type_string(&self, _pos: &Pos, ff: &str) -> &str {
+    fn _type_string(&self, _pos: &Pos, ff: &str) -> String {
         match self {
-            Type::Int => "int",
-            Type::Float => "float",
+            Type::Int => String::from("int"),
+            Type::Float => String::from("float"),
             Type::None => {
                 let _ = print_bytes(ff, _pos.0, _pos.1);
                 panic!("Cannot write an empty type")
             },
-	    // Type::Array(_, _) => todo!(),
-	    Type::Struct(_) => todo!()
+	    Type::Struct(_ss) => {
+		match _ss {
+		    StructTypeT::StructTypeT(_s, _) =>
+			format!("struct {}", _s.get_string())
+		}
+	    }
+	    Type::Array(_) => todo!()
         }
     }
 }
@@ -442,8 +529,10 @@ impl Stmt {
                     );
                     let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
                     let sname = _sy.get_string();
-                    let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);
-                    let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    let u = format!("extern signal_{} {}_curr, {}_prev;",
+				    sname, sname, sname);
+                    let u1 = format!("signal_{} {}_curr, {}_prev;", sname,
+				     sname, sname);
                     (
                         _a.append(RcDoc::as_string(u)).append(RcDoc::hardline()),
                         RcDoc::as_string(u1),
@@ -463,8 +552,10 @@ impl Stmt {
                     );
                     let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
                     let sname = _sy.get_string();
-                    let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);
-                    let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+                    let u = format!("extern signal_{} {}_curr, {}_prev;",
+				    sname, sname, sname);
+                    let u1 = format!("signal_{} {}_curr, {}_prev;",
+				     sname, sname, sname);
                     (a.append(u).append(RcDoc::hardline()), RcDoc::as_string(u1))
                 } else {
                     (RcDoc::nil(), RcDoc::nil())

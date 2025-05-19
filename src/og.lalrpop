@@ -269,13 +269,14 @@ pub SimpleDataExprList : Vec<ast::SimpleDataExpr> = {
 // ArrayDeclaration
 pub ArrayDecl: ast::Stmt = {
  <l:@L> <a: ArrayType> <s:Symbol> "=" <il:InitializerList> <r:@R> =>
- ast::Stmt::ArrayDecl(s, a, il, (l, r))
+ ast::Stmt::Variable(s, ast::Type::Array(Box::new(a)),
+                     ast::Val::InitList(il), (l, r))
 }
 
 // Now StructDeclaration
 pub StructDecl: ast::Stmt = {
  <l:@L> <sts:StructType> <s:Symbol> "=" <il: InitializerList> <r:@R> =>
- ast::Stmt::StructDecl(s, sts, il, (l, r))
+ ast::Stmt::Variable(s, ast::Type::Struct(sts), ast::Val::InitList(il), (l, r))
 }
 
 // Initializer list for arrays and structs
@@ -316,13 +317,13 @@ pub StructType: ast::StructTypeT = {
 }
 
 // Now make the declaration of an array
-pub ArrayType: ast::ArrayType = {
+pub ArrayType: ast::ArrayTypeT = {
  <l:@L> "integer" <aat: ArrayAccessType> <r:@R> =>
-  ast::ArrayType::ArrayPrimTypeT(ast::Type::Int, aat, (l, r)),
+  ast::ArrayTypeT::ArrayPrimTypeT(ast::Type::Int, aat, (l, r)),
  <l:@L> "float" <aat: ArrayAccessType> <r:@R> =>
-  ast::ArrayType::ArrayPrimTypeT(ast::Type::Float, aat, (l, r)),
+  ast::ArrayTypeT::ArrayPrimTypeT(ast::Type::Float, aat, (l, r)),
   <l:@L> "struct" <s:Symbol> <aat: ArrayAccessType> <r:@R> =>
-  ast::ArrayType::ArrayStructTypeT(s, aat, (l, r)),
+  ast::ArrayTypeT::ArrayStructTypeT(s, aat, (l, r)),
 }
 
 // Now make the arraytype

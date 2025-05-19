@@ -77,7 +77,7 @@ fn _check_sym_in_map(
                             match _dvt2 {
 				Type::Float | Type::Int => true,
 				Type::Struct(_) => todo!(),
-				// | Type::Array(_,_) => todo!(),
+				| Type::Array(_) => todo!(),
 				Type::None => false,
                             }
 			}
@@ -196,7 +196,8 @@ fn _check_sym_in_expr(
         }
         Expr::Not(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets, tid),
         Expr::Brackets(_e, _) => _check_sym_in_expr(_ff, _e, _vmap, _pos, rets, tid),
-        Expr::DataExpr(_re, _) => _check_sym_in_rel_expr(_ff, _re, _vmap, _pos, rets, tid),
+        Expr::DataExpr(_re, _) =>
+	    _check_sym_in_rel_expr(_ff, _re, _vmap, _pos, rets, tid),
     }
 }
 
@@ -292,7 +293,8 @@ pub fn _analyse_var_signal_use(
             // XXX: Check the body
             _analyse_var_signal_use(ff, _body, _stack, rets, tid)
         }
-        Stmt::Loop(_body, _pos) => _analyse_var_signal_use(ff, _body, _stack, rets, tid),
+        Stmt::Loop(_body, _pos) =>
+	    _analyse_var_signal_use(ff, _body, _stack, rets, tid),
         Stmt::Spar(_bodies, _pos) => {
             let mut ss = _stack;
             for (k, i) in _bodies.iter().enumerate() {
@@ -315,13 +317,10 @@ pub fn _analyse_var_signal_use(
             );
             _stack
         }
-	Stmt::StructDecl(_, _, _, _) => todo!(),
-	Stmt::StructDef(_) => todo!(),
-	Stmt::ArrayDecl(_, _, _, _) => todo!(),
-	// Stmt::StructAssign(_, _, _,) => todo!(),
-	Stmt::StructMemberAssign(_, _, _) => todo!(),
-	// Stmt::ArrayAssign(_, _, _) => todo!(),
-	Stmt::ArrayIndexAssign(_, _, _) => todo!(),
+	// FIXME: We do not perform any analysis for now
+	Stmt::StructDef(_) => _stack,
+	Stmt::StructMemberAssign(_, _, _) => _stack,
+	Stmt::ArrayIndexAssign(_, _, _) => _stack,
     }
 }
 
@@ -387,12 +386,14 @@ fn _get_states(_state: &mut [Vec<(Symbol, Pos)>], stmt: &Stmt, tid: &mut usize,
 }
 
 // XXX: Get all the signals declared in the program and in each thread
-pub fn get_signals(_signals: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize, tot: &mut usize) {
+pub fn get_signals(_signals: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize,
+		   tot: &mut usize) {
     _ast.iter()
         .for_each(|x| _get_signals(_signals, x, tid, tot))
 }
 
-fn _get_signals(signals: &mut [Vec<Stmt>], st: &Stmt, tid: &mut usize, tot: &mut usize) {
+fn _get_signals(signals: &mut [Vec<Stmt>], st: &Stmt, tid: &mut usize,
+		tot: &mut usize) {
     match st {
         Stmt::Block(_sts, _) => get_signals(signals, _sts, tid, tot),
         Stmt::Present(_, _t, Some(_r), _) => {
@@ -419,7 +420,8 @@ fn _get_signals(signals: &mut [Vec<Stmt>], st: &Stmt, tid: &mut usize, tot: &mut
 }
 
 // XXX: Get all the variables declared in the program and in each thread
-pub fn get_vars(_vars: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize, tot: &mut usize) {
+pub fn get_vars(_vars: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize,
+		tot: &mut usize) {
     _ast.iter().for_each(|x| _get_vars(_vars, x, tid, tot))
 }
 
@@ -473,7 +475,8 @@ fn _get_s_v_ref(
     _tot: &mut usize,
 ) {
     match _st {
-        Stmt::Block(_sts, _) => get_s_v_ref(_sref, _syref, _vref, _vyref, _sts, _tid, _tot),
+        Stmt::Block(_sts, _) =>
+	    get_s_v_ref(_sref, _syref, _vref, _vyref, _sts, _tid, _tot),
         Stmt::Emit(_sy, Some(_expr), _) => {
             _syref[*_tid].push(_sy.clone());
             _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
@@ -494,7 +497,8 @@ fn _get_s_v_ref(
             _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid, _tot);
             get_s_v_ref_expr(_sref, _syref, _vref, _expr, *_tid)
         }
-        Stmt::Loop(_st, _) => _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid, _tot),
+        Stmt::Loop(_st, _) =>
+	    _get_s_v_ref(_sref, _syref, _vref, _vyref, _st, _tid, _tot),
         Stmt::Assign(_sy, _expr, _) => {
             _vyref[*_tid].push(_sy.clone());
             _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
@@ -508,6 +512,18 @@ fn _get_s_v_ref(
             });
             *_tid = mtid;
         }
+	Stmt::StructMemberAssign(_stref, _expr, _) => {
+	    match _stref {
+		StructRefT::StructRef(_sy, _sy1, _) => _vyref[*_tid].push(_sy.clone())
+	    }
+	    _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
+	}
+	Stmt::ArrayIndexAssign(_aref, _expr, _) => {
+	    match _aref {
+		ArrayRefT::ArrayRef(_sy, _, _) =>_vyref[*_tid].push(_sy.clone())
+	    }
+	    _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
+	}
         _ => (),
     }
 }
@@ -528,6 +544,18 @@ fn _get_s_v_ref_expr(
         SimpleDataExpr::Call(_s, _refs, _) => _refs
             .iter()
             .for_each(|x| _get_s_v_ref_expr(_sref, _vref, x, _tid)),
+	SimpleDataExpr::ArrayRef(_aref) => {
+	    match _aref {
+		ArrayRefT::ArrayRef(_, _refs, _) =>
+		    _refs
+		    .iter()
+		    .for_each(|x| _get_s_v_ref_expr(_sref, _vref, x, _tid))
+	    }
+	}
+	// SimpleDataExpr::StructRef(_) => todo!(),
+	SimpleDataExpr::Cast(_, _expr, _) => {
+	    _vref[_tid].push(*_expr.clone())
+	}
         _ => (),
     }
 }
@@ -601,11 +629,14 @@ fn __type_infer_extern_calls<'a>(
         Stmt::Abort(_, _, _b, _) | Stmt::Suspend(_, _, _b, _) => {
             __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff)
         }
-        Stmt::Block(_b, _) => _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
+        Stmt::Block(_b, _) =>
+	    _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
         Stmt::Assign(_sy, _expr, _) => {
             let _t = _vars.iter().find(|x| match x {
-                Stmt::Variable(__sy, _t, _, _) => __sy.get_string() == _sy.get_string(),
-                _ => panic!("Non variable found in _vars during type inference: {:?}", x),
+                Stmt::Variable(__sy, _t, _, _) =>
+		    __sy.get_string() == _sy.get_string(),
+                _ => panic!("Non variable found in _vars \
+			    during type inference: {:?}", x),
             });
             if _t.is_none() {
                 panic!(
@@ -621,11 +652,13 @@ fn __type_infer_extern_calls<'a>(
         }
         Stmt::Emit(_sy, Some(_expr), _pos) => {
             let _t = _signals.iter().find(|x| match x {
-                Stmt::DataSignal(__sy, _, _, _, _, _) => __sy.get_string() == _sy.get_string(),
+                Stmt::DataSignal(__sy, _, _, _, _, _)
+		    => __sy.get_string() == _sy.get_string(),
                 Stmt::Signal(__sy, _, _) => {
                     if __sy.get_string() == _sy.get_string() {
                         let _ = print_bytes(_ff, _pos.0, _pos.1);
-                        println!("Signal {} is not a valued signal", _sy.get_string());
+                        println!("Signal {} is not a valued signal",
+				 _sy.get_string());
                         exit(1);
                     } else {
                         false
@@ -656,7 +689,8 @@ fn __type_infer_extern_calls<'a>(
             _type_infer_expr(_expr, _signals, _vars, _ret, _ff, &None);
             __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
         }
-        Stmt::Loop(_b, _) => __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
+        Stmt::Loop(_b, _)
+	    => __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
         Stmt::Spar(_b, _) => _b
             .iter()
             .for_each(|x| __type_infer_extern_calls(_signals, _vars, x, _ret, _ff)),
@@ -682,7 +716,8 @@ fn _type_infer_expr(
         Expr::Brackets(_e, _) | Expr::Not(_e, _) => {
             _type_infer_expr(_e, _signals, _vars, _ret, _ff, _oret)
         }
-        Expr::DataExpr(_rexpr, _) => _type_infer_rexpr(_rexpr, _signals, _vars, _ret, _ff, _oret),
+        Expr::DataExpr(_rexpr, _)
+	    => _type_infer_rexpr(_rexpr, _signals, _vars, _ret, _ff, _oret),
         _ => (),
     }
 }
@@ -780,7 +815,8 @@ fn _get_type<'a>(
         }
         SimpleDataExpr::SignalRef(_sy, _) => {
             let _t = _signals.iter().find(|x| match x {
-                Stmt::DataSignal(__sy, _, _, _, _, _) => __sy.get_string() == _sy.get_string(),
+                Stmt::DataSignal(__sy, _, _, _, _, _)
+		    => __sy.get_string() == _sy.get_string(),
                 Stmt::Signal(__sy, _, _) => __sy == _sy,
                 _ => panic!(
                     "Non signal found in _signals during type inference: {:?}",
@@ -855,7 +891,8 @@ pub fn _check_state_repeats<'a>(
     }
 }
 
-pub fn _check_signal_repeats<'a>(_sigs: &'a [Vec<Stmt>], _ff: &'a str) -> HashMap<&'a String, Pos> {
+pub fn _check_signal_repeats<'a>(_sigs: &'a [Vec<Stmt>], _ff: &'a str) ->
+    HashMap<&'a String, Pos> {
     let mut hp: HashMap<&String, Pos> =
         HashMap::with_capacity(_sigs.iter().fold(0, |acc, x| acc + x.len()));
     let mut _exit = false;
