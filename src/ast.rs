@@ -62,12 +62,32 @@ pub enum ArrayAccessType {
     ArrayAccessSymbol(Symbol, Pos),
 }
 
+impl ArrayAccessType {
+    pub fn _type_string (&self, _tid:usize) -> String {
+	match self {
+	    Self::ArrayAccessInt(_i, _pos) => _i.to_string(),
+	    Self::ArrayAccessSymbol(_sy, _) => format!("{}_{_tid}", _sy.get_string())
+	}
+    }
+}
+
+
 // ArrayType
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ArrayTypeT {
     ArrayPrimTypeT(Type, Vec<ArrayAccessType>, Pos),
     ArrayStructTypeT(Symbol, Vec<ArrayAccessType>, Pos),
 }
+
+impl ArrayTypeT {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    Self::ArrayPrimTypeT(_ty, _vec, _) => todo!(),
+	    Self::ArrayStructTypeT(_sy, _vec, _) => todo!(),
+	}
+    }
+}
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum StructTypeT {
@@ -81,6 +101,16 @@ pub enum PrimitiveAndStructAndArraytype {
     ArrayType(ArrayTypeT, Pos)
 }
 
+impl PrimitiveAndStructAndArraytype {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    Self::PrimitiveType(_type, _) => _type.codegen(_tid, _smpt),
+	    Self::StructType(_st, _) => _st.codegen(_tid, _smpt),
+	    Self::ArrayType(_at, _) => _at.codegen(_tid, _smpt)
+	}
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum InitializerList {
     AggregateAssign(Vec<SimpleDataExpr>, Pos)
@@ -89,6 +119,33 @@ pub enum InitializerList {
 #[derive(Clone, Debug, PartialEq)]
 pub enum StructDef {
     Struct(Symbol, Vec<(PrimitiveAndStructAndArraytype, Symbol, Pos)>, Pos)
+}
+
+impl StructDef {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	match self {
+	    Self::Struct(_sy, _vec, _pos) => {
+		let _syd = RcDoc::<()>::as_string(_sy.get_string());
+		let _vecd =
+		    _vec.iter().map(|(x, y, _)|
+				    {
+					let _xs = x.codegen(_tid, _smpt);
+					let _ys = RcDoc::<()>::as_string(
+					    y.get_string());
+					_xs.append(RcDoc::space()).append(_ys)
+					    .append(RcDoc::as_string(";"))
+					    .append(RcDoc::hardline())
+				    }).collect_vec();
+		let _vecd = RcDoc::concat(_vecd);
+		RcDoc::as_string("struct ")
+		    .append(_syd)
+		    .append(RcDoc::as_string("{"))
+		    .append(_vecd)
+		    .append(RcDoc::as_string("};"))
+		    .append(RcDoc::hardline())
+	    }
+	}
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -149,11 +206,17 @@ pub enum Val {
 }
 
 impl Val {
-    pub fn to_string(&self) -> String {
+    pub fn to_string(&self, _tid:usize) -> String {
         match self {
             Val::VFloat(x) => x.to_string(),
             Val::VInt(x) => x.to_string(),
-	    Val::InitList(_) => todo!()
+	    Val::InitList(_il) => {
+		// FIXME: This is a fake input -- should not be needed
+		// in a correct program.
+		let _smpt = HashMap::new();
+		// _smpt = &HashMap<&str, usize>
+		_il.codegen(_tid, &_smpt).pretty(10).to_string()
+	    }
         }
     }
 }
@@ -437,7 +500,9 @@ impl Stmt {
 		_at.append(RcDoc::as_string(" = "))
 		    .append(_m).append(";").append(RcDoc::hardline())
 	    }
-	    Stmt::StructDef(_) => todo!(),
+	    Stmt::StructDef(_sd) => {
+		_sd.codegen(_tid, _smpt).append(";").append(RcDoc::hardline())
+	    }
             _ => panic!("Can never reach to this statement in FSM graph: {:?}", self),
         }
     }
@@ -481,7 +546,7 @@ impl Type {
 	    Type::Int => RcDoc::as_string(self._to_string()),
 	    Type::None => RcDoc::as_string(self._to_string()),
 	    Type::Struct(_ss) => _ss.codegen(_tid, _smpt),
-	    Type::Array(_ss) => todo!()
+	    Type::Array(_ss) => _ss.codegen(_tid, _smpt)
 	}
     }
 }
@@ -511,7 +576,7 @@ impl Type {
 			format!("struct {}", _s.get_string())
 		}
 	    }
-	    Type::Array(_) => todo!()
+	    Type::Array(_s) => todo!()
         }
     }
 }

@@ -97,6 +97,8 @@ fn main() {
     let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
 
+    // TODO: Here we need to collect all the structdefs
+
     // XXX: Check that the signals are not repeated between different
     // concurrent threads
     let _hp = _check_signal_repeats(&_signals, &file_to_compile);

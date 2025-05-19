@@ -5,7 +5,7 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{CallNameType, ExprOp, SimpleDataExpr, Stmt, StructTypeT, Symbol, Type, Val, IO};
+use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp, SimpleDataExpr, Stmt, StructTypeT, Symbol, Type, Val, IO};
 
 type Pos = (usize, usize);
 
@@ -14,7 +14,8 @@ use crate::{
     rewrite::{GraphNode, NodeT},
 };
 
-fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> String {
+fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
+		    _tid: usize) -> String {
     match _ty {
         Type::Int => String::from("int"),
         Type::Float => String::from("float"),
@@ -28,26 +29,47 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str) -> String 
 		    format!("struct {}", _sy.get_string())
 	    }
 	}
-	Type::Array(_) => todo!(),
+	Type::Array(_s) => {
+	    match *_s.to_owned() {
+		ArrayTypeT::ArrayPrimTypeT(_ty, _vec, _) => {
+		    let _tys = _type_string(&_ty, _pos, ff, _tid);
+		    let _vecs = _vec.iter().map(|x|
+						format!("[{}]",
+							x._type_string(_tid)));
+		    let _vecs = _vecs.fold(String::from(""), |acc, x| acc +
+					   x.as_str());
+		    _tys + _vecs.as_str()
+		}
+		ArrayTypeT::ArrayStructTypeT(_sy, _vec, _) => {
+		    let _tys = format!("struct {}", _sy.get_string());
+		    let _vecs = _vec.iter().map(|x|
+						format!("[{}]",
+							x._type_string(_tid)));
+		    let _vecs = _vecs.fold(String::from(""), |acc, x| acc +
+					   x.as_str());
+		    _tys + _vecs.as_str()
+		}
+	    }
+	}
     }
 }
 
 fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
     &'a str {
-    match _expr {
-        ExprOp::Plus => "std::plus",
-        ExprOp::Minus => "std::minus",
-        ExprOp::Mul => "std::multiplies",
-        ExprOp::Div => "std::divides",
-        ExprOp::Mod => "std::modulus",
-        ExprOp::Pow => {
-            let _ = print_bytes(_ff, _pos.0, _pos.1);
-            panic!("Power operator not yet supported in C++ backend")
-        },
-	ExprOp::RShift => todo!(),
-	ExprOp::LShift => todo!()
+	match _expr {
+            ExprOp::Plus => "std::plus",
+            ExprOp::Minus => "std::minus",
+            ExprOp::Mul => "std::multiplies",
+            ExprOp::Div => "std::divides",
+            ExprOp::Mod => "std::modulus",
+            ExprOp::Pow => {
+		let _ = print_bytes(_ff, _pos.0, _pos.1);
+		panic!("Power operator not yet supported in C++ backend")
+            },
+	    ExprOp::RShift => todo!(),
+	    ExprOp::LShift => todo!()
+	}
     }
-}
 
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     fn build_sig(_sy: &Symbol) -> RcDoc {
@@ -66,16 +88,17 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         _ty: &'a Type,
         _iv: &'a Val,
         _op: &'a ExprOp,
+	_tid: usize,
     ) -> RcDoc<'a> {
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!(
             "{} {{{} value = {}; {}<{}> op {{}}; \n //tag is for fresh value updates \
 	     \nbool tag = false; bool status = false;}} signal_{};",
             _m,
-            _type_string(_ty, *_pos, _ff),
-            _iv.to_string(),
+            _type_string(_ty, *_pos, _ff, _tid),
+            _iv.to_string(_tid),
             _expr_op_std_op(_op, *_pos, _ff),
-            _type_string(_ty, *_pos, _ff),
+            _type_string(_ty, *_pos, _ff, _tid),
             _sy.get_string()
         );
         let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
@@ -95,9 +118,9 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op)
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid)
             } else if let None = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op)
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid)
             } else {
                 RcDoc::nil()
             }
@@ -111,10 +134,10 @@ fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
             let _m = format!(
                 "static {} {}_{} = {};",
-                _type_string(_ty, *_pos, _ff),
+                _type_string(_ty, *_pos, _ff, _tid),
                 _sy.get_string(),
                 _tid,
-                _iv.to_string(),
+                _iv.to_string(_tid),
             );
             RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
         }
@@ -900,7 +923,8 @@ fn _make_seq_code<'a>(
         .enumerate()
         .filter_map(|(_j, x)| {
             if _same_tid_indices.iter().find(|&&k| k == _j).is_some() {
-                Some(x.codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]))
+                Some(x.codegen(_nodes[_i]._tid,
+			       &_sigs_map_per_threads[_nodes[_i]._tid]))
             } else {
                 None
             }
