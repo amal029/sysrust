@@ -106,6 +106,8 @@ impl PrimitiveAndStructAndArraytype {
 	match self {
 	    Self::PrimitiveType(_type, _) => _type.codegen(_tid, _smpt),
 	    Self::StructType(_st, _) => _st.codegen(_tid, _smpt),
+	    // FIXME: Arrays inside structs currently not yet
+	    // implemented.
 	    Self::ArrayType(_at, _) => _at.codegen(_tid, _smpt)
 	}
     }
@@ -122,7 +124,10 @@ pub enum StructDef {
 }
 
 impl StructDef {
-    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self) -> RcDoc {
+	// XXX: There should be no need for the _tid and _smpt here.
+	let _tid = 0;
+	let _smpt = &HashMap::new();
 	match self {
 	    Self::Struct(_sy, _vec, _pos) => {
 		let _syd = RcDoc::<()>::as_string(_sy.get_string());
@@ -500,9 +505,7 @@ impl Stmt {
 		_at.append(RcDoc::as_string(" = "))
 		    .append(_m).append(";").append(RcDoc::hardline())
 	    }
-	    Stmt::StructDef(_sd) => {
-		_sd.codegen(_tid, _smpt).append(";").append(RcDoc::hardline())
-	    }
+	    Stmt::StructDef(_sd) => RcDoc::nil(), // _sd.codegen(_tid, _smpt),
             _ => panic!("Can never reach to this statement in FSM graph: {:?}", self),
         }
     }

@@ -5,7 +5,7 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp, SimpleDataExpr, Stmt, StructTypeT, Symbol, Type, Val, IO};
+use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp, SimpleDataExpr, Stmt, StructDef, StructTypeT, Symbol, Type, Val, IO};
 
 type Pos = (usize, usize);
 
@@ -15,10 +15,10 @@ use crate::{
 };
 
 fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
-		    _tid: usize) -> String {
+		    _tid: usize) -> (String, Option<String>) {
     match _ty {
-        Type::Int => String::from("int"),
-        Type::Float => String::from("float"),
+        Type::Int => (String::from("int"), None),
+        Type::Float => (String::from("float"), None),
         Type::None => {
             let _ = print_bytes(ff, _pos.0, _pos.1);
             panic!("Cannot write an empty type")
@@ -26,19 +26,26 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
 	Type::Struct(_s) => {
 	    match _s {
 		StructTypeT::StructTypeT(_sy, _pos) =>
-		    format!("struct {}", _sy.get_string())
+		    (format!("struct {}", _sy.get_string()), None)
 	    }
 	}
 	Type::Array(_s) => {
 	    match *_s.to_owned() {
 		ArrayTypeT::ArrayPrimTypeT(_ty, _vec, _) => {
-		    let _tys = _type_string(&_ty, _pos, ff, _tid);
+		    let (_tys, _su) = _type_string(&_ty, _pos, ff, _tid);
+		    match _su {
+			Some (_) => {
+			    let _ = print_bytes(ff, _pos.0, _pos.1);
+			    panic!("Cannot write an empty type")
+			}
+			None => (),
+		    };
 		    let _vecs = _vec.iter().map(|x|
 						format!("[{}]",
 							x._type_string(_tid)));
 		    let _vecs = _vecs.fold(String::from(""), |acc, x| acc +
 					   x.as_str());
-		    _tys + _vecs.as_str()
+		    (_tys, Some(_vecs))
 		}
 		ArrayTypeT::ArrayStructTypeT(_sy, _vec, _) => {
 		    let _tys = format!("struct {}", _sy.get_string());
@@ -47,7 +54,7 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
 							x._type_string(_tid)));
 		    let _vecs = _vecs.fold(String::from(""), |acc, x| acc +
 					   x.as_str());
-		    _tys + _vecs.as_str()
+		    (_tys, Some(_vecs))
 		}
 	    }
 	}
@@ -90,15 +97,21 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         _op: &'a ExprOp,
 	_tid: usize,
     ) -> RcDoc<'a> {
+	// FIXME: What happens when you have an array type signal?
+	let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!(
-            "{} {{{} value = {}; {}<{}> op {{}}; \n //tag is for fresh value updates \
+            "{} {{{} value {} = {}; {}<{}> op {{}}; \n \
+	     //tag is for fresh value updates \
 	     \nbool tag = false; bool status = false;}} signal_{};",
             _m,
-            _type_string(_ty, *_pos, _ff, _tid),
+	    _1,
+	    (match _2 {Some(x) => x, None => String::from("")}),
+            // _type_string(_ty, *_pos, _ff, _tid),
             _iv.to_string(_tid),
             _expr_op_std_op(_op, *_pos, _ff),
-            _type_string(_ty, *_pos, _ff, _tid),
+	    _1,
+            // _type_string(_ty, *_pos, _ff, _tid),
             _sy.get_string()
         );
         let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
@@ -132,11 +145,14 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
 fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _var {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
+	    let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
             let _m = format!(
-                "static {} {}_{} = {};",
-                _type_string(_ty, *_pos, _ff, _tid),
+                "static {} {}_{} {} = {};",
+		_1,
+                // _type_string(_ty, *_pos, _ff, _tid),
                 _sy.get_string(),
                 _tid,
+		(match _2 {Some(x) => x, None => String::from("")}),
                 _iv.to_string(_tid),
             );
             RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
@@ -193,6 +209,7 @@ pub fn _codegen(
     _gui: Option<bool>,
     // XXX: This is for benchmarking
     _bench: Option<usize>,
+    _structs: &[StructDef],
 ) -> Vec<u8> {
     // XXX: Append #pragma once to the external header file
     let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(
@@ -206,6 +223,12 @@ pub fn _codegen(
         .append(RcDoc::hardline())
         .append(format!("extern const char* _state[NTHREADS];"))
         .append(RcDoc::hardline());
+    // XXX: Adding the definition of struct defs
+    let _structdefdoc = RcDoc::concat(_structs.iter().map(|x| x.codegen()));
+    _pragma = _pragma.append(RcDoc::as_string("//Struct Defs")).
+	append(RcDoc::hardline())
+	.append(_structdefdoc).append(RcDoc::hardline());
+
     // XXX: Write the output
     _pragma.render(8, _ext_header).unwrap();
 

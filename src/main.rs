@@ -1,4 +1,6 @@
-use analyse::{_check_signal_repeats, _check_state_repeats, get_num_threads, get_states};
+use analyse::{_check_signal_repeats,
+	      _check_state_repeats, get_num_threads, get_states,
+	      get_structs};
 // use error::print_bytes;
 use rewrite::NodeT;
 use std::collections::{HashMap, HashSet};
@@ -11,7 +13,8 @@ use sysrust::{ast, error, parse};
 use error::print_bytes;
 
 use crate::analyse::{
-    _analyse_var_signal_uses, _type_infer_extern_calls, get_s_v_ref, get_signals, get_vars,
+    _analyse_var_signal_uses,
+    _type_infer_extern_calls, get_s_v_ref, get_signals, get_vars,
 };
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
@@ -19,7 +22,8 @@ mod backend;
 // mod error;
 mod rewrite;
 
-type StackType = HashMap<String, (ast::Type, analyse::SignalVarType, Option<ast::IO>)>;
+type StackType = HashMap<String,
+			 (ast::Type, analyse::SignalVarType, Option<ast::IO>)>;
 
 // XXX: Make the clap parser
 use clap::Parser;
@@ -98,6 +102,8 @@ fn main() {
     get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
 
     // TODO: Here we need to collect all the structdefs
+    let mut _structs = vec![];
+    get_structs(&mut _structs, &_ast);
 
     // XXX: Check that the signals are not repeated between different
     // concurrent threads
@@ -251,6 +257,8 @@ fn main() {
         args._gui,
         // XXX: This is for benchmarking
         args._bench,
+	// XXX: These are the structs
+	&_structs,
     );
     // XXX: Make all other thread code as well.
     _file

@@ -385,6 +385,19 @@ fn _get_states(_state: &mut [Vec<(Symbol, Pos)>], stmt: &Stmt, tid: &mut usize,
     }
 }
 
+// XXX: This function will get the struct definitions from the toplevel
+// of stmts.
+pub fn get_structs(_structs: &mut Vec<StructDef>, _ast: &[Stmt]) {
+    fn _get_structs(_structs: &mut Vec<StructDef>, _st: &Stmt) {
+	match _st {
+	    Stmt::StructDef(s) => _structs.push(s.clone()),
+	    _ => ()
+	}
+    }
+    _ast.iter()
+        .for_each(|x| _get_structs(_structs, x))
+}
+
 // XXX: Get all the signals declared in the program and in each thread
 pub fn get_signals(_signals: &mut [Vec<Stmt>], _ast: &[Stmt], tid: &mut usize,
 		   tot: &mut usize) {
