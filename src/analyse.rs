@@ -146,7 +146,9 @@ fn _check_sym_in_simple_expr(
 	SimpleDataExpr::AggregateAssign(_, _) => todo!(),
 	SimpleDataExpr::StructRef(_) => todo!(),
 	SimpleDataExpr::ArrayRef(_) => todo!(),
-	SimpleDataExpr::Cast(_, _, _) => todo!()
+	SimpleDataExpr::Cast(_, _sde, _pos) => {
+	    _check_sym_in_simple_expr(_ff, &_sde, _vmap, *_pos, rets, tid)
+	}
     }
 }
 
@@ -868,7 +870,7 @@ fn _get_type<'a>(
 	SimpleDataExpr::AggregateAssign(_, _) => todo!(),
 	SimpleDataExpr::StructRef(_) => todo!(),
 	SimpleDataExpr::ArrayRef(_) => todo!(),
-	SimpleDataExpr::Cast(_, _, _) => todo!(),
+	SimpleDataExpr::Cast(_dt, _, _) => _dt.clone()
     }
 }
 
