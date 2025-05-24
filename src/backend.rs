@@ -442,7 +442,8 @@ pub fn _codegen(
         let _ss = format!(
             "template <> struct Thread{}<ND>{{\ninline  void tick \
 	     ({}){}}};",
-            i, k1, "{throw \"Can never reach here\";}"
+	    i, k1, "{}"
+            // i, k1, "{throw \"Can never reach here\";}"
         );
         thread_prototypes.push(_ss);
 	// Add the extra NDs here
