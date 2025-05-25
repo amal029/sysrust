@@ -120,6 +120,9 @@ fn main() {
     get_vars(&mut _vars, &_ast, &mut tid, &mut tot);
     // println!("{:?}", _vars);
 
+    //TODO: We should have a vector<vector> for tid for parent threads for
+    // each thread.
+
     // XXX: Type inference for extern calls to C
     let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(50);
     let __signals = _signals.iter().flatten().collect::<Vec<_>>();
