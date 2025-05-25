@@ -101,7 +101,7 @@ fn main() {
     let mut _signals: Vec<Vec<ast::Stmt>> = vec![vec![]; num_threads];
     get_signals(&mut _signals, &_ast, &mut tid, &mut tot);
 
-    // TODO: Here we need to collect all the structdefs
+    // Here we collect all the structdefs
     let mut _structs = vec![];
     get_structs(&mut _structs, &_ast);
 
