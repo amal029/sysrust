@@ -120,7 +120,7 @@ fn main() {
     get_vars(&mut _vars, &_ast, &mut tid, &mut tot);
     // println!("{:?}", _vars);
 
-    //TODO: We should have a vector<vector> for tid for parent threads for
+    //TODO: We should have a vector<tid> for tid for parent threads for
     // each thread.
 
     // XXX: Type inference for extern calls to C

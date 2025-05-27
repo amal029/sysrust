@@ -5,7 +5,8 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp, SimpleDataExpr, Stmt, StructDef, StructTypeT, Symbol, Type, Val, IO};
+use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp,
+		   SimpleDataExpr, Stmt, StructDef, StructTypeT, Symbol, Type, Val, IO};
 
 type Pos = (usize, usize);
 
@@ -142,20 +143,27 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     }
 }
 
-fn _var_decl<'a>(_var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
+fn _var_decl<'a>(_done:&mut Vec<(&'a str, usize)>,  _var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _var {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
-	    let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
-            let _m = format!(
-                "static {} {}_{} {} = {};",
-		_1,
-                // _type_string(_ty, *_pos, _ff, _tid),
-                _sy.get_string(),
-                _tid,
-		(match _2 {Some(x) => x, None => String::from("")}),
-                _iv.to_string(_tid),
-            );
-            RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
+	    let _dd = _done.iter().find(|(x, y)| (*x == _sy.get_string()) && (*y == _tid));
+	    match _dd {
+		Some(_) => RcDoc::nil(),
+		None => {
+		    _done.push((_sy.get_string(), _tid));
+		    let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
+		    let _m = format!(
+			"static {} {}_{} {} = {};",
+			_1,
+			// _type_string(_ty, *_pos, _ff, _tid),
+			_sy.get_string(),
+			_tid,
+			(match _2 {Some(x) => x, None => String::from("")}),
+			_iv.to_string(_tid),
+		    );
+		    RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
+		}
+	    }
         }
         _ => panic!("Got a non variable when generating C++ backend"),
     }
@@ -289,10 +297,11 @@ pub fn _codegen(
 
     // XXX: Declare all the variables in each thread
     let _m_header = RcDoc::<()>::as_string("// Var decls").append(RcDoc::hardline());
+    let mut donedecs : Vec<(&str, usize)> = vec![];
     _m_header.render(8, &mut w).expect("Cannot write variables");
     for (_i, _s) in _vars.iter().enumerate() {
         for _ss in _s {
-            let _m = _var_decl(_ss, _i, _ff);
+            let _m = _var_decl(&mut donedecs, _ss, _i, _ff);
             _m.render(8, &mut w).expect("Cannot declare variable");
         }
     }

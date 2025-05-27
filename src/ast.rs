@@ -486,7 +486,17 @@ impl Stmt {
                     .append(RcDoc::as_string(";"))
                     .append(RcDoc::hardline())
             }
-            Stmt::Variable(_, _, _, _) => RcDoc::nil(),
+	    // XXX: We update this to assign the output to the variable
+	    // here.
+            Stmt::Variable(_sy, _ty, _iv, _pos) => {
+		let _m = format!(
+		    "{}_{} = {};",
+		    _sy.get_string(),
+		    _tid,
+		    _iv.to_string(_tid),
+		);
+		RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
+	    }
             Stmt::Signal(_, _, _) => RcDoc::nil(),
             Stmt::DataSignal(_, _, _, _, _, _) => RcDoc::nil(),
             Stmt::Noop(_) => RcDoc::as_string(";"),
