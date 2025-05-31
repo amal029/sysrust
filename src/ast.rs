@@ -446,15 +446,38 @@ impl ExprOp {
 
 fn _get_string_arg<'a>(_s: &'a str, _smpt: &'a HashMap<&str, usize>) ->
     Option<&'a usize> {
-    if _smpt.contains_key(_s) {
-        _smpt.get(_s)
-    } else {
-        None
+	if _smpt.contains_key(_s) {
+            _smpt.get(_s)
+	} else {
+            None
+	}
     }
-}
 
 impl Stmt {
     pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+	fn make_array_var_decl<'a>(_sy: &'a String, _tid: usize, _len:usize,
+				   _iv:&'a Val, _pos:&'a (usize, usize),
+				   _smpt: &HashMap<&str, usize>)
+				   -> RcDoc<'a> {
+	    let mut toret = RcDoc::nil();
+	    let _sed =
+		match _iv {
+		    Val::InitList(InitializerList::AggregateAssign(_se, _pos)) => {
+			_se.iter().map(|x| x.codegen(_tid, _smpt)).collect_vec()
+		    }
+		    _ =>
+			panic!("Cannot initialize the varaible {}, {}",
+			       _pos.0, _pos.1)
+		};
+	    assert!(1 == _len, "Currenlty only 1D arrays supported");
+	    for i in 0.._sed.len() {
+		let arr = format!("{}_{}[{}] = {};", _sy, _tid,
+				  i, _sed[i].pretty(10).to_string());
+		toret = toret.append(arr).append(RcDoc::hardline());
+	    }
+	    toret
+	}
+
         match self {
             Stmt::Emit(_sy, _sexpr, _pos) => {
                 let _s = format!(
@@ -489,13 +512,30 @@ impl Stmt {
 	    // XXX: We update this to assign the output to the variable
 	    // here.
             Stmt::Variable(_sy, _ty, _iv, _pos) => {
-		let _m = format!(
-		    "{}_{} = {};",
-		    _sy.get_string(),
-		    _tid,
-		    _iv.to_string(_tid),
-		);
-		RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
+		match _ty {
+		    Type::Array(_at) => {
+			match &**_at {
+			    ArrayTypeT::ArrayPrimTypeT(_tt, _vec, _) =>
+				make_array_var_decl(_sy.get_string(),
+						    _tid, _vec.len(), _iv,
+						    _pos, _smpt),
+			    ArrayTypeT::ArrayStructTypeT(_tt, _vec, _) =>
+				make_array_var_decl(_sy.get_string(),
+						    _tid, _vec.len(), _iv,
+						    _pos, _smpt),
+
+			}
+		    }
+		    _ => {
+			let _m = format!(
+			    "{}_{} = {};",
+			    _sy.get_string(),
+			    _tid,
+			    _iv.to_string(_tid),
+			);
+			RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
+		    }
+		}
 	    }
             Stmt::Signal(_, _, _) => RcDoc::nil(),
             Stmt::DataSignal(_, _, _, _, _, _) => RcDoc::nil(),

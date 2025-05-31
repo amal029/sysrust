@@ -146,7 +146,8 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
 fn _var_decl<'a>(_done:&mut Vec<(&'a str, usize)>,  _var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     match _var {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
-	    let _dd = _done.iter().find(|(x, y)| (*x == _sy.get_string()) && (*y == _tid));
+	    let _dd = _done.iter().find(|(x, y)| (*x == _sy.get_string())
+					&& (*y == _tid));
 	    match _dd {
 		Some(_) => RcDoc::nil(),
 		None => {
