@@ -1,6 +1,6 @@
 use analyse::{_check_signal_repeats,
 	      _check_state_repeats, get_num_threads, get_states,
-	      get_structs};
+	      get_structs, set_parent_tid};
 // use error::print_bytes;
 use rewrite::NodeT;
 use std::collections::{HashMap, HashSet};
@@ -122,6 +122,12 @@ fn main() {
 
     //TODO: We should have a vector<tid> for tid for parent threads for
     // each thread.
+    let mut tid = 0;
+    let mut tot = 1;
+    let mut _ptids: Vec<i64> = vec![-1;num_threads];
+    set_parent_tid(&mut _ptids, &_ast, &mut tid, &mut tot);
+    // println!("parent thread ids: {:?}", _ptids);
+
 
     // XXX: Type inference for extern calls to C
     let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(50);

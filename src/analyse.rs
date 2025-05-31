@@ -465,6 +465,42 @@ fn _get_vars(vars: &mut [Vec<Stmt>], st: &Stmt, tid: &mut usize, tot: &mut usize
     }
 }
 
+// XXX: This function gets all the parent ids for every forked child
+
+// XXX: Get all the variables declared in the program and in each thread
+pub fn set_parent_tid(_vars: &mut Vec<i64>, _ast: &[Stmt], tid: &mut usize,
+		tot: &mut usize) {
+    _ast.iter().for_each(|x| _set_parent_tid(_vars, x, tid, tot))
+}
+
+fn _set_parent_tid(ptids: &mut Vec<i64>,
+		   st: &Stmt, tid: &mut usize, tot: &mut usize) {
+    match st {
+        Stmt::Block(_sts, _) => set_parent_tid(ptids, _sts, tid, tot),
+        Stmt::Present(_, _t, Some(_r), _) => {
+            _set_parent_tid(ptids, _t, tid, tot);
+            _set_parent_tid(ptids, _r, tid, tot)
+        }
+        Stmt::Present(_, _t, None, _) => _set_parent_tid(ptids, _t, tid, tot),
+        Stmt::Abort(_, _, _st, _) => _set_parent_tid(ptids, _st, tid, tot),
+        Stmt::Suspend(_, _, _st, _) => _set_parent_tid(ptids, _st, tid, tot),
+        Stmt::Loop(_st, _) => _set_parent_tid(ptids, _st, tid, tot),
+        Stmt::Spar(_sts, _) => {
+            let mtid = *tid;
+            _sts.iter().for_each(|x| {
+                *tid = *tot;
+                *tot += 1;
+                _set_parent_tid(ptids, x, tid, tot);
+		// Post-process and set parent' tid
+		ptids[*tid] = mtid as i64;
+            });
+            *tid = mtid;
+        }
+        _ => (),
+    }
+}
+
+
 // XXX: Get all the signals "used" in each thread
 // XXX: Get all the vars "used" in each thread
 pub fn get_s_v_ref(
