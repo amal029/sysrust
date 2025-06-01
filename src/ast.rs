@@ -257,8 +257,9 @@ pub enum Stmt {
 // and being used in the child thread.
 
 fn get_correct_thread_id_for_var(_ptids: &[i64], _vars:&[Vec<Stmt>],
-				 _sy: &str, _mtid: i64) -> i64 {
+				 _sy: &str, _mtid: i64, _pos:&(usize, usize)) -> i64 {
     if _mtid == -1 {
+	print!("\x1B[43mWarning\x1B[0m : \n");
 	println!("Cannot find the used variable: {}", _sy);
 	_mtid
     }
@@ -277,7 +278,8 @@ fn get_correct_thread_id_for_var(_ptids: &[i64], _vars:&[Vec<Stmt>],
 	    }
 	else {
 	    // We need to get the parent tid and check there
-	    get_correct_thread_id_for_var(_ptids, _vars, _sy, _ptids[_mtid as usize])
+	    get_correct_thread_id_for_var(_ptids, _vars, _sy,
+					  _ptids[_mtid as usize], _pos)
 	}
     }
 }
@@ -387,10 +389,10 @@ impl SimpleDataExpr {
         match self {
             SimpleDataExpr::ConstI(_i, _) => RcDoc::as_string(_i),
             SimpleDataExpr::ConstF(_i, _) => RcDoc::as_string(_i),
-            SimpleDataExpr::VarRef(_sy, _) => {
+            SimpleDataExpr::VarRef(_sy, _pos) => {
 		let _rtid = get_correct_thread_id_for_var(_ptids, _vars,
 							  &_sy.get_string(),
-							  _tid as i64);
+							  _tid as i64, _pos);
 		let _s =
 		    if _rtid == -1 {
 			format!("{}_{}", _sy.get_string(), _tid)
@@ -447,7 +449,7 @@ impl ArrayRefT {
 					  |acc, x| acc.append(x.to_owned()));
 		let _rtid = get_correct_thread_id_for_var(_ptids, _vars,
 							  &_s1.get_string(),
-							  _tid as i64);
+							  _tid as i64, _pos);
 		if _rtid == -1 {
 		    RcDoc::as_string(format!("{}_{}",
 					     _s1.get_string(), _tid)).append(_s2)
@@ -570,7 +572,7 @@ impl Stmt {
 		// varaible might have been declared.
 		let _rtid = get_correct_thread_id_for_var(_ptids, _vars,
 							  &_sy.get_string(),
-							  _tid as i64);
+							  _tid as i64, _pos);
                 let _s =
 		    if _rtid == -1 {
 			format!("{}_{} = ", _sy.get_string(), _tid)
