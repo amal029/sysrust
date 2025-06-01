@@ -3,14 +3,13 @@ use analyse::{_check_signal_repeats,
 	      get_structs, set_parent_tid};
 // use error::print_bytes;
 use rewrite::NodeT;
+use sysrust::error::print_bytes_warn;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
 use std::process::{exit, Command};
 use sysrust::ast::CallNameType;
 use sysrust::{ast, error, parse};
-
-use error::print_bytes;
 
 use crate::analyse::{
     _analyse_var_signal_uses,
@@ -72,15 +71,16 @@ fn main() {
     stack = _analyse_var_signal_uses(&file_to_compile, &_ast, stack, &mut rets, tid);
     stack.pop(); // removed the final hashmap
 
-    // XXX: Print all the errors
-    let bb = rets.is_empty();
+    // XXX: Print all the errors as warnings.
+    // let bb = rets.is_empty();
     for i in rets {
-        print_bytes(&file_to_compile, i.0, i.1).unwrap();
+        print_bytes_warn(&file_to_compile, i.0, i.1).unwrap();
         println!("{} ", i.2);
     }
-    if !bb {
-        exit(1);
-    }
+    // Don't exit here
+    // if !bb {
+    //     exit(1);
+    // }
 
     // XXX: Get all the threads in the program
     let mut num_threads = 1usize;
