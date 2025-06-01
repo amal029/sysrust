@@ -268,6 +268,7 @@ fn main() {
         args._bench,
 	// XXX: These are the structs
 	&_structs,
+	&_ptids,
     );
     // XXX: Make all other thread code as well.
     _file

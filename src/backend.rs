@@ -79,7 +79,8 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
 	}
     }
 
-fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
+fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
+		 _ptids: &'a[i64], _vars: &'a[Vec<Stmt>],) -> RcDoc<'a, ()> {
     fn build_sig(_sy: &Symbol) -> RcDoc {
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!("{} {{bool status = false;}} signal_{};",
@@ -97,6 +98,8 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         _iv: &'a Val,
         _op: &'a ExprOp,
 	_tid: usize,
+	_ptids: &[i64],
+	_vars: &[Vec<Stmt>],
     ) -> RcDoc<'a> {
 	// FIXME: What happens when you have an array type signal?
 	let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
@@ -109,7 +112,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
 	    _1,
 	    (match _2 {Some(x) => x, None => String::from("")}),
             // _type_string(_ty, *_pos, _ff, _tid),
-            _iv.to_string(_tid),
+            _iv.to_string(_tid, _ptids, _vars),
             _expr_op_std_op(_op, *_pos, _ff),
 	    _1,
             // _type_string(_ty, *_pos, _ff, _tid),
@@ -132,9 +135,9 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid)
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else if let None = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid)
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else {
                 RcDoc::nil()
             }
@@ -143,7 +146,9 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
     }
 }
 
-fn _var_decl<'a>(_done:&mut Vec<(&'a str, usize)>,  _var: &'a Stmt, _tid: usize, _ff: &'a str) -> RcDoc<'a, ()> {
+fn _var_decl<'a>(_done:&mut Vec<(&'a str, usize)>,
+		 _var: &'a Stmt, _tid: usize, _ff: &'a str,
+		 _ptids: &'a[i64], _vars: &'a[Vec<Stmt>],) -> RcDoc<'a, ()> {
     match _var {
         Stmt::Variable(_sy, _ty, _iv, _pos) => {
 	    let _dd = _done.iter().find(|(x, y)| (*x == _sy.get_string())
@@ -160,7 +165,7 @@ fn _var_decl<'a>(_done:&mut Vec<(&'a str, usize)>,  _var: &'a Stmt, _tid: usize,
 			_sy.get_string(),
 			_tid,
 			(match _2 {Some(x) => x, None => String::from("")}),
-			_iv.to_string(_tid),
+			_iv.to_string(_tid, _ptids, _vars),
 		    );
 		    RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
 		}
@@ -219,6 +224,7 @@ pub fn _codegen(
     // XXX: This is for benchmarking
     _bench: Option<usize>,
     _structs: &[StructDef],
+    _ptids: &[i64],
 ) -> Vec<u8> {
     // XXX: Append #pragma once to the external header file
     let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(
@@ -287,7 +293,8 @@ pub fn _codegen(
     _m_header.render(8, &mut w).expect("Cannot write signals");
     for (_i, _s) in _sigs.iter().enumerate() {
         for _ss in _s {
-            let mut _m = _sig_decl(_ss, _i, _ff).append(RcDoc::hardline());
+            let mut _m = _sig_decl(_ss, _i, _ff, _ptids,
+				   _vars).append(RcDoc::hardline());
             let (_k, _k1) = _ss._input_rc_doc(_ff);
             _m = _m.append(_k1).append(RcDoc::hardline());
             _m.render(8, &mut w).expect("Cannot declare signals");
@@ -302,7 +309,7 @@ pub fn _codegen(
     _m_header.render(8, &mut w).expect("Cannot write variables");
     for (_i, _s) in _vars.iter().enumerate() {
         for _ss in _s {
-            let _m = _var_decl(&mut donedecs, _ss, _i, _ff);
+            let _m = _var_decl(&mut donedecs, _ss, _i, _ff, _ptids, _vars);
             _m.render(8, &mut w).expect("Cannot declare variable");
         }
     }
@@ -635,7 +642,9 @@ pub fn _codegen(
         &_for_fsm,
         _sigs,
 	&_ndtidxs,
-	&_ndtidlabs
+	&_ndtidlabs,
+	_ptids,
+	_vars
     );
     let mut w1: Vec<u8> = Vec::with_capacity(5000);
     let _ = _nn.render(8, &mut w1);
@@ -652,7 +661,9 @@ pub fn _codegen(
             &_for_fsm,
             _sigs,
 	    &_ndtidxs,
-	    &_ndtidlabs
+	    &_ndtidlabs,
+	    _ptids,
+	    _vars
         );
         let _ = _nn.render(8, &mut w1);
     });
@@ -914,6 +925,8 @@ fn _make_seq_code<'a>(
     _same_tid_indices: Vec<usize>,
     _ndtidxs: &Vec<usize>,
     _ndtidlabs: &Vec<String>,
+    _ptids: &[i64],
+    _vars: &[Vec<Stmt>],
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: First do a map of each child branch
     let _cbm = _nodes[_i]
@@ -936,7 +949,9 @@ fn _make_seq_code<'a>(
                     _for_fsm_sigs_thread,
                     _all_sigs,
 		    _ndtidxs,
-		    _ndtidlabs
+		    _ndtidlabs,
+		    _ptids,
+		    _vars
                 ))
             } else {
                 None
@@ -958,7 +973,8 @@ fn _make_seq_code<'a>(
         .filter_map(|(_j, x)| {
             if _same_tid_indices.iter().find(|&&k| k == _j).is_some() {
                 Some(x.codegen(_nodes[_i]._tid,
-			       &_sigs_map_per_threads[_nodes[_i]._tid]))
+			       &_sigs_map_per_threads[_nodes[_i]._tid],
+			       _ptids, _vars))
             } else {
                 None
             }
@@ -1067,7 +1083,9 @@ fn _make_seq_code<'a>(
         .enumerate()
         .filter_map(|(_j, x)| {
             if _same_tid_indices.iter().find(|&&k| k == _j).is_some() {
-                Some(x.codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]))
+                Some(x.codegen(_nodes[_i]._tid,
+			       &_sigs_map_per_threads[_nodes[_i]._tid],
+			       _ptids, _vars))
             } else {
                 None
             }
@@ -1315,7 +1333,9 @@ fn _make_fork_code<'a>(
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
     _ndtidxs: &Vec<usize>,
-    _ndtidlabs: &Vec<String>
+    _ndtidlabs: &Vec<String>,
+    _ptids: &[i64],
+    _vars: &[Vec<Stmt>],
 
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: This is for the fork node
@@ -1338,7 +1358,8 @@ fn _make_fork_code<'a>(
             _other_tids.push(_nodes[c]._tid);
             // println!("child index: is: {j}, guard: {:?}", _nodes[_i].guards[j]);
             let _gn = _nodes[_i].guards[j]
-                .codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid]);
+                .codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid],
+			 _ptids, _vars);
             _gnn.push(_gn.clone());
             let _ifgn = RcDoc::<()>::as_string("if(")
                 .append(_gn)
@@ -1426,7 +1447,9 @@ fn _make_fork_code<'a>(
         _all_sigs,
         _same_tid_indices,
 	_ndtidxs,
-	_ndtidlabs
+	_ndtidlabs,
+	_ptids,
+	_vars
     );
 
     _n = _n.append(_sn);
@@ -1452,7 +1475,9 @@ fn _gen_code<'a>(
     _for_fsm_sigs_thread: &'a [Vec<String>],
     _all_sigs: &'a [Vec<Stmt>],
     _ndtidxs: &Vec<usize>,
-    _ndtidlabs: &Vec<String>
+    _ndtidlabs: &Vec<String>,
+    _ptids: &[i64],
+    _vars: &[Vec<Stmt>],
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     if _nodes[_i]._tid != _ptid {
         // println!("ptid != tid {_ptid} {:?}", _nodes[_i]._tid);
@@ -1528,7 +1553,9 @@ fn _gen_code<'a>(
             _all_sigs,
             _same_tid_indices,
 	    _ndtidxs,
-	    _ndtidlabs
+	    _ndtidlabs,
+	    _ptids,
+	    _vars
         )
     } else {
         // XXX: This is for the fork node
@@ -1546,7 +1573,9 @@ fn _gen_code<'a>(
             _for_fsm_sigs_thread,
             _all_sigs,
 	    _ndtidxs,
-	    _ndtidlabs
+	    _ndtidlabs,
+	    _ptids,
+	    _vars
         )
     }
 }
@@ -1564,6 +1593,8 @@ fn _walk_graph_code_gen<'a>(
     _all_sigs: &'a [Vec<Stmt>],
     _ndtidxs: &Vec<usize>,
     _ndtidlabs: &Vec<String>,
+    _ptids: &[i64],
+    _vars: &[Vec<Stmt>],
 ) -> (RcDoc<'a>, VecDeque<usize>, usize) {
     let mut _rets = _rets;
     let inode = _rets.pop_front().unwrap();
@@ -1589,7 +1620,9 @@ fn _walk_graph_code_gen<'a>(
         _for_fsm_sigs_thread,
         _all_sigs,
 	_ndtidxs,
-	_ndtidlabs
+	_ndtidlabs,
+	_ptids,
+	_vars
     );
     // XXX: Here we need to put it inside the method!
     // println!("thread id: {:?}, node type: {:?}", _nodes[inode]._tid,
@@ -1623,6 +1656,8 @@ fn _make_fsm_code<'a>(
     _all_sigs: &'a [Vec<Stmt>],
     _ndtidxs: &Vec<usize>,
     _ndtidlabs: &Vec<String>,
+    _ptids: &[i64],
+    _vars: &[Vec<Stmt>],
 ) -> RcDoc<'a> {
     // XXX: Walk graph and generate code
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
@@ -1644,7 +1679,9 @@ fn _make_fsm_code<'a>(
             _for_fsm_sigs_thread,
             _all_sigs,
 	    _ndtidxs,
-	    _ndtidlabs
+	    _ndtidlabs,
+	    _ptids,
+	    _vars
         );
         _res.push(_n);
         _done_nodes.push(_inode);

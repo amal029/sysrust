@@ -66,7 +66,10 @@ impl ArrayAccessType {
     pub fn _type_string (&self, _tid:usize) -> String {
 	match self {
 	    Self::ArrayAccessInt(_i, _pos) => _i.to_string(),
-	    Self::ArrayAccessSymbol(_sy, _) => format!("{}_{_tid}", _sy.get_string())
+	    Self::ArrayAccessSymbol(_sy, _) => {
+		// print!("array access symbol?");
+		format!("{}_{_tid}", _sy.get_string())
+	    }
 	}
     }
 }
@@ -211,7 +214,8 @@ pub enum Val {
 }
 
 impl Val {
-    pub fn to_string(&self, _tid:usize) -> String {
+    pub fn to_string(&self, _tid:usize, _ptids:&[i64],
+		     _vars: &[Vec<Stmt>],) -> String {
         match self {
             Val::VFloat(x) => x.to_string(),
             Val::VInt(x) => x.to_string(),
@@ -220,7 +224,7 @@ impl Val {
 		// in a correct program.
 		let _smpt = HashMap::new();
 		// _smpt = &HashMap<&str, usize>
-		_il.codegen(_tid, &_smpt).pretty(10).to_string()
+		_il.codegen(_tid, &_smpt, _ptids, _vars).pretty(10).to_string()
 	    }
         }
     }
@@ -247,6 +251,38 @@ pub enum Stmt {
     StructDef(StructDef),
 }
 
+// XXX: This function gets the correct thread id for the declared
+// variable. We are now allowing this, because we are compiling from
+// timetide, where we do have variables declared in the parent threads
+// and being used in the child thread.
+
+fn get_correct_thread_id_for_var(_ptids: &[i64], _vars:&[Vec<Stmt>],
+				 _sy: &str, _mtid: i64) -> i64 {
+    if _mtid == -1 {
+	println!("Cannot find the used variable: {}", _sy);
+	_mtid
+    }
+    else {
+	// Does the _sy exist in the current thread?
+	if _vars[_mtid as usize].iter().
+	    find(|_x|
+		 match _x {
+		     Stmt::Variable(_sys, _, _, _) => _sy == _sys.get_string(),
+		     _x =>
+			 panic!("Unexpected Statement in \
+				 getting parent thread id: {:?}", _x)
+		 }
+	    ).is_some() {
+		_mtid
+	    }
+	else {
+	    // We need to get the parent tid and check there
+	    get_correct_thread_id_for_var(_ptids, _vars, _sy, _ptids[_mtid as usize])
+	}
+    }
+}
+
+
 impl Symbol {
     pub fn get_string(&self) -> &String {
         match &self {
@@ -256,16 +292,17 @@ impl Symbol {
 }
 
 impl Expr {
-    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>,
+		   _ptids: &[i64], _vars: &[Vec<Stmt>]) -> RcDoc {
         match self {
             Expr::True(_pos) => RcDoc::as_string("true"),
             Expr::False(_pos) => RcDoc::as_string("false"),
             Expr::And(_l, _r, _pos) => {
                 let _lm = RcDoc::as_string("(")
-                    .append(_l.codegen(_tid, _smpt))
+                    .append(_l.codegen(_tid, _smpt, _ptids, _vars))
                     .append(RcDoc::as_string(")"));
                 let _rm = RcDoc::as_string("(")
-                    .append(_r.codegen(_tid, _smpt))
+                    .append(_r.codegen(_tid, _smpt, _ptids, _vars))
                     .append(RcDoc::as_string(")"));
                 RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" and ").append(_rm)))
@@ -273,88 +310,98 @@ impl Expr {
             }
             Expr::Or(_l, _r, _pos) => {
                 let _lm = RcDoc::as_string("(")
-                    .append(_l.codegen(_tid, _smpt))
+                    .append(_l.codegen(_tid, _smpt, _ptids, _vars))
                     .append(RcDoc::as_string(")"));
                 let _rm = RcDoc::as_string("(")
-                    .append(_r.codegen(_tid, _smpt))
+                    .append(_r.codegen(_tid, _smpt, _ptids, _vars))
                     .append(RcDoc::as_string(")"));
                 RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" or ").append(_rm)))
                     .append(RcDoc::as_string(")"))
             }
             Expr::Brackets(_e, _pos) => RcDoc::as_string("(")
-                .append(_e.codegen(_tid, _smpt))
+                .append(_e.codegen(_tid, _smpt, _ptids, _vars))
                 .append(RcDoc::as_string(")")),
             Expr::Not(_e, _pos) => RcDoc::as_string("(not ")
-                .append(_e.codegen(_tid, _smpt))
+                .append(_e.codegen(_tid, _smpt, _ptids, _vars))
                 .append(RcDoc::as_string(")")),
             Expr::Esymbol(_sy, _pos) => {
                 let _s = format!("{}_prev.status", _sy.get_string());
                 RcDoc::as_string(_s)
             }
-            Expr::DataExpr(_rexpr, _) => _rexpr.codegen(_tid, _smpt),
+            Expr::DataExpr(_rexpr, _) => _rexpr.codegen(_tid, _smpt, _ptids, _vars),
         }
     }
 }
 
 impl RelDataExpr {
-    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>,
+		   _ptids:&[i64], _vars: &[Vec<Stmt>],) -> RcDoc {
         match self {
             RelDataExpr::EqualTo(_l, _r, _) => {
-                let _lm = _l.codegen(_tid, _smpt);
-                let _rm = _r.codegen(_tid, _smpt);
+                let _lm = _l.codegen(_tid, _smpt, _ptids, _vars);
+                let _rm = _r.codegen(_tid, _smpt, _ptids, _vars);
                 RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" == ").append(_rm)))
                     .append(RcDoc::as_string(")"))
             }
             RelDataExpr::GreaterThan(_l, _r, _) => {
-                let _lm = _l.codegen(_tid, _smpt);
-                let _rm = _r.codegen(_tid, _smpt);
+                let _lm = _l.codegen(_tid, _smpt, _ptids, _vars);
+                let _rm = _r.codegen(_tid, _smpt, _ptids, _vars);
                 RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" > ").append(_rm)))
                     .append(RcDoc::as_string(")"))
                 // _lm.append(RcDoc::as_string(" > ").append(_rm))
             }
             RelDataExpr::GreaterThanEqual(_l, _r, _) => {
-                let _lm = _l.codegen(_tid, _smpt);
-                let _rm = _r.codegen(_tid, _smpt);
+                let _lm = _l.codegen(_tid, _smpt, _ptids, _vars);
+                let _rm = _r.codegen(_tid, _smpt, _ptids, _vars);
                 RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" >= ").append(_rm)))
                     .append(RcDoc::as_string(")"))
                 // _lm.append(RcDoc::as_string(" >= ").append(_rm))
             }
             RelDataExpr::LessThan(_l, _r, _) => {
-                let _lm = _l.codegen(_tid, _smpt);
-                let _rm = _r.codegen(_tid, _smpt);
+                let _lm = _l.codegen(_tid, _smpt, _ptids, _vars);
+                let _rm = _r.codegen(_tid, _smpt, _ptids, _vars);
                 RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" < ").append(_rm)))
                     .append(RcDoc::as_string(")"))
                 // _lm.append(RcDoc::as_string(" < ").append(_rm))
             }
             RelDataExpr::LessThanEqual(_l, _r, _) => {
-                let _lm = _l.codegen(_tid, _smpt);
-                let _rm = _r.codegen(_tid, _smpt);
-                RcDoc::as_string("(")
+                let _lm = _l.codegen(_tid, _smpt, _ptids, _vars);
+		let _rm = _r.codegen(_tid, _smpt, _ptids, _vars);
+		RcDoc::as_string("(")
                     .append(_lm.append(RcDoc::as_string(" <= ").append(_rm)))
                     .append(RcDoc::as_string(")"))
-                // _lm.append(RcDoc::as_string(" <= ").append(_rm))
+		// _lm.append(RcDoc::as_string(" <= ").append(_rm))
             }
-        }
+	}
     }
 }
 
 impl SimpleDataExpr {
-    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>,
+		   _ptids:&[i64], _vars: &[Vec<Stmt>]) -> RcDoc {
         match self {
             SimpleDataExpr::ConstI(_i, _) => RcDoc::as_string(_i),
             SimpleDataExpr::ConstF(_i, _) => RcDoc::as_string(_i),
             SimpleDataExpr::VarRef(_sy, _) => {
-                let _s = format!("{}_{}", _sy.get_string(), _tid);
+		let _rtid = get_correct_thread_id_for_var(_ptids, _vars,
+							  &_sy.get_string(),
+							  _tid as i64);
+		let _s =
+		    if _rtid == -1 {
+			format!("{}_{}", _sy.get_string(), _tid)
+		    } else {
+			format!("{}_{}", _sy.get_string(), _rtid)
+		    };
                 RcDoc::as_string(_s)
             }
             SimpleDataExpr::SimpleBinaryOp(_l, _op, _r, _) => {
-                let _lm = _l.codegen(_tid, _smpt);
-                let _rm = _r.codegen(_tid, _smpt);
+                let _lm = _l.codegen(_tid, _smpt, _ptids, _vars);
+                let _rm = _r.codegen(_tid, _smpt, _ptids, _vars);
                 let _opm = _op.codegen();
                 RcDoc::as_string("(")
                     .append(_lm.append(_opm).append(_rm))
@@ -366,16 +413,17 @@ impl SimpleDataExpr {
             }
             SimpleDataExpr::Call(_sy, _v, _pos) => {
                 let _s = RcDoc::<()>::as_string(_sy.get_string());
-                let _vrs = _v.iter().map(|x| x.codegen(_tid, _smpt));
+                let _vrs = _v.iter().map(|x| x.codegen(_tid, _smpt, _ptids, _vars));
                 let _as = RcDoc::intersperse(_vrs, RcDoc::as_string(", ")).group();
                 _s.append("(").append(_as).append(")")
             }
-	    SimpleDataExpr::AggregateAssign(_il, _pos) => _il.codegen(_tid, _smpt),
+	    SimpleDataExpr::AggregateAssign(_il, _pos) => _il.codegen(_tid, _smpt,
+								     _ptids, _vars),
 	    SimpleDataExpr::StructRef(_s) => _s.codegen(_tid, _smpt),
-	    SimpleDataExpr::ArrayRef(_s) => _s.codegen(_tid, _smpt),
+	    SimpleDataExpr::ArrayRef(_s) => _s.codegen(_tid, _smpt, _ptids, _vars),
 	    SimpleDataExpr::Cast(_t, _sde, _pos) => {
 		let _td = _t.codegen(_tid, _smpt);
-		let _sded = _sde.codegen(_tid, _smpt);
+		let _sded = _sde.codegen(_tid, _smpt, _ptids, _vars);
 		RcDoc::as_string("(")
 		    .append(_td)
 		    .append(")")
@@ -386,16 +434,27 @@ impl SimpleDataExpr {
 }
 
 impl ArrayRefT {
-    pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>,
+		   _ptids:&[i64], _vars : &[Vec<Stmt>],) -> RcDoc {
 	match self {
 	    ArrayRefT::ArrayRef(_s1, _s2, _pos) => {
 		let _s2 = _s2.iter().map(|x|
 					 {RcDoc::as_string("[").append(
-					     x.codegen(_tid, _smpt)).append(
+					     x.codegen(_tid, _smpt, _ptids,
+						       _vars)).append(
 					     RcDoc::as_string("]"))}).collect_vec();
 		let _s2 = _s2.iter().fold(RcDoc::nil(),
 					  |acc, x| acc.append(x.to_owned()));
-		RcDoc::as_string(format!("{}_{}", _s1.get_string(), _tid)).append(_s2)
+		let _rtid = get_correct_thread_id_for_var(_ptids, _vars,
+							  &_s1.get_string(),
+							  _tid as i64);
+		if _rtid == -1 {
+		    RcDoc::as_string(format!("{}_{}",
+					     _s1.get_string(), _tid)).append(_s2)
+		} else {
+		    RcDoc::as_string(format!("{}_{}",
+					     _s1.get_string(), _rtid)).append(_s2)
+		}
 	    }		
 	}
     }
@@ -417,11 +476,13 @@ impl StructRefT {
 
 
 impl InitializerList {
-    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>,
+		   _ptids:&[i64], _vars: &[Vec<Stmt>],) -> RcDoc {
 	match self {
 	    InitializerList::AggregateAssign(_il, _pos) => {
 		let _kk : Vec<_> =
-		    _il.iter().map(|x| x.codegen(_tid, _smpt)).collect();
+		    _il.iter().map(|x| x.codegen(_tid, _smpt, _ptids,
+						 _vars)).collect();
 		let _kk = RcDoc::intersperse(_kk, RcDoc::as_string(", ")).group();
 		RcDoc::as_string("{").append(_kk).append("}")
 	    }
@@ -454,16 +515,19 @@ fn _get_string_arg<'a>(_s: &'a str, _smpt: &'a HashMap<&str, usize>) ->
     }
 
 impl Stmt {
-    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid: usize, _smpt: &HashMap<&str, usize>,
+		   _ptids: &[i64], _vars: &[Vec<Stmt>],) -> RcDoc {
 	fn make_array_var_decl<'a>(_sy: &'a String, _tid: usize, _len:usize,
 				   _iv:&'a Val, _pos:&'a (usize, usize),
-				   _smpt: &HashMap<&str, usize>)
+				   _smpt: &HashMap<&str, usize>,
+				   _ptids:&[i64], _vars:&[Vec<Stmt>],)
 				   -> RcDoc<'a> {
 	    let mut toret = RcDoc::nil();
 	    let _sed =
 		match _iv {
 		    Val::InitList(InitializerList::AggregateAssign(_se, _pos)) => {
-			_se.iter().map(|x| x.codegen(_tid, _smpt)).collect_vec()
+			_se.iter().map(|x| x.codegen(_tid, _smpt,
+						     _ptids, _vars)).collect_vec()
 		    }
 		    _ =>
 			panic!("Cannot initialize the varaible {}, {}",
@@ -493,7 +557,7 @@ impl Stmt {
                                 .expect("Could not find args for: {self}")
                         );
                         RcDoc::as_string(__s)
-                            .append(__sexpr.codegen(_tid, _smpt))
+                            .append(__sexpr.codegen(_tid, _smpt, _ptids, _vars))
                             .append(RcDoc::as_string(";"))
                             .append(RcDoc::hardline())
                     }
@@ -502,8 +566,18 @@ impl Stmt {
                 RcDoc::as_string(_s).append(RcDoc::hardline()).append(_m)
             }
             Stmt::Assign(_sy, _sexpr, _pos) => {
-                let _s = format!("{}_{} = ", _sy.get_string(), _tid);
-                let _m = _sexpr.codegen(_tid, _smpt);
+		// XXX: Looking up the parent thread id where the
+		// varaible might have been declared.
+		let _rtid = get_correct_thread_id_for_var(_ptids, _vars,
+							  &_sy.get_string(),
+							  _tid as i64);
+                let _s =
+		    if _rtid == -1 {
+			format!("{}_{} = ", _sy.get_string(), _tid)
+		    } else {
+			format!("{}_{} = ", _sy.get_string(), _rtid)
+		    };
+                let _m = _sexpr.codegen(_tid, _smpt, _ptids, _vars);
                 RcDoc::as_string(_s)
                     .append(_m)
                     .append(RcDoc::as_string(";"))
@@ -518,20 +592,21 @@ impl Stmt {
 			    ArrayTypeT::ArrayPrimTypeT(_tt, _vec, _) =>
 				make_array_var_decl(_sy.get_string(),
 						    _tid, _vec.len(), _iv,
-						    _pos, _smpt),
+						    _pos, _smpt, _ptids, _vars),
 			    ArrayTypeT::ArrayStructTypeT(_tt, _vec, _) =>
 				make_array_var_decl(_sy.get_string(),
 						    _tid, _vec.len(), _iv,
-						    _pos, _smpt),
+						    _pos, _smpt, _ptids, _vars),
 
 			}
 		    }
 		    _ => {
+			// print!("Variable codegen");
 			let _m = format!(
 			    "{}_{} = {};",
 			    _sy.get_string(),
 			    _tid,
-			    _iv.to_string(_tid),
+			    _iv.to_string(_tid, _ptids, _vars),
 			);
 			RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
 		    }
@@ -542,7 +617,7 @@ impl Stmt {
             Stmt::Noop(_) => RcDoc::as_string(";"),
 	    Stmt::StructMemberAssign(_sy, _m, _) => {
 		let _sy = _sy.codegen(_tid, _smpt);
-                let _m = _m.codegen(_tid, _smpt);
+                let _m = _m.codegen(_tid, _smpt, _ptids, _vars);
                 _sy
                     .append(RcDoc::as_string(" = "))
                     .append(_m)
@@ -550,8 +625,9 @@ impl Stmt {
                     .append(RcDoc::hardline())
 	    },
 	    Stmt::ArrayIndexAssign(_at, _sexpr, _) => {
-		let _m = _sexpr.codegen(_tid , _smpt);
-		let _at = _at.codegen(_tid, _smpt);
+		// print!("Array assign codegen");
+		let _m = _sexpr.codegen(_tid , _smpt, _ptids, _vars);
+		let _at = _at.codegen(_tid, _smpt, _ptids, _vars);
 		_at.append(RcDoc::as_string(" = "))
 		    .append(_m).append(";").append(RcDoc::hardline())
 	    }
