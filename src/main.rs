@@ -3,7 +3,7 @@ use analyse::{_check_signal_repeats,
 	      get_structs, set_parent_tid};
 // use error::print_bytes;
 use rewrite::NodeT;
-use sysrust::error::print_bytes_warn;
+// use sysrust::error::print_bytes_warn;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
@@ -73,10 +73,10 @@ fn main() {
 
     // XXX: Print all the errors as warnings.
     // let bb = rets.is_empty();
-    for i in rets {
-        print_bytes_warn(&file_to_compile, i.0, i.1).unwrap();
-        println!("{} ", i.2);
-    }
+    // for i in rets {
+    //     print_bytes_warn(&file_to_compile, i.0, i.1).unwrap();
+    //     // println!("{} ", i.2);
+    // }
     // Don't exit here
     // if !bb {
     //     exit(1);
