@@ -252,7 +252,10 @@ pub fn _codegen(
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(
 	RcDoc::hardline());
     _pragma = _pragma.append(h2).append(h3).append(h4).append(h5);
-    
+
+    // XXX: Write the output
+    _pragma.render(8, _ext_header).unwrap();
+
     let mut w = Vec::new();
 
     // This is the cpp file
@@ -303,9 +306,6 @@ pub fn _codegen(
                 .expect("Cannot write to external header");
         }
     }
-
-    // XXX: Write the output
-    _pragma.render(8, _ext_header).unwrap();
 
     // XXX: Declare all the variables in each thread
     let _m_header = RcDoc::<()>::as_string("// Var decls").append(RcDoc::hardline());

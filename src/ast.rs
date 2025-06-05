@@ -719,7 +719,8 @@ impl Stmt {
                 if let Some(IO::Input) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{unsigned char status;}} signal_{};",
+                        "{} {{unsigned char status = 0;\n \
+			 bool tag = 0;}} signal_{};",
                         _m,
                         _sy.get_string()
                     );
@@ -741,7 +742,8 @@ impl Stmt {
                 if let Some(IO::Input) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{{} value; unsigned char status;}} signal_{};",
+                        "{} {{{} value; unsigned char status = 0;\n\
+			 unsigned char tag = 0;}} signal_{};",
                         _m,
                         _ty._type_string(_pos, _ff),
                         _sy.get_string()
