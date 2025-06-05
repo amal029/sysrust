@@ -143,9 +143,10 @@ fn _check_sym_in_simple_expr(
             .iter()
             .for_each(|x| _check_sym_in_simple_expr(_ff, x, _vmap, _pos, rets, tid)),
         SimpleDataExpr::ConstI(_, _) | SimpleDataExpr::ConstF(_, _) => (),
-	SimpleDataExpr::AggregateAssign(_, _) => todo!(),
-	SimpleDataExpr::StructRef(_) => todo!(),
-	SimpleDataExpr::ArrayRef(_) => todo!(),
+	// XXX: Just by passing because all checking is happening in Ocaml
+	SimpleDataExpr::AggregateAssign(_, _) =>(),
+	SimpleDataExpr::StructRef(_stref) => (),
+	SimpleDataExpr::ArrayRef(_) => (),
 	SimpleDataExpr::Cast(_, _sde, _pos) => {
 	    _check_sym_in_simple_expr(_ff, &_sde, _vmap, *_pos, rets, tid)
 	}
