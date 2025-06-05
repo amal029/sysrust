@@ -6,7 +6,8 @@ use std::{
 use itertools::{join, Itertools};
 use pretty::RcDoc;
 use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp,
-		   SimpleDataExpr, Stmt, StructDef, StructTypeT, Symbol, Type, Val, IO};
+		   SimpleDataExpr, Stmt, StructDef,
+		   StructTypeT, Symbol, Type, Val, IO};
 
 type Pos = (usize, usize);
 
@@ -244,14 +245,17 @@ pub fn _codegen(
 	append(RcDoc::hardline())
 	.append(_structdefdoc).append(RcDoc::hardline());
 
-    // XXX: Write the output
-    _pragma.render(8, _ext_header).unwrap();
-
+    // We need to put these into the header file too.
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(
 	RcDoc::hardline());
+    _pragma = _pragma.append(h2).append(h3).append(h4).append(h5);
+    
+    let mut w = Vec::new();
+
+    // This is the cpp file
     let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"",
 					    _pfile)).append(RcDoc::hardline());
     let h7 = if let Some(_) = _bench {
@@ -259,16 +263,11 @@ pub fn _codegen(
     } else {
         RcDoc::nil()
     };
-    let r = h2
-        .append(h3)
-        .append(h4)
-        .append(h5)
-        .append(h6)
-        .append(RcDoc::hardline())
+    let r =
+        h6
         .append(h7)
         .append(RcDoc::hardline());
 
-    let mut w = Vec::new();
     r.render(8, &mut w).unwrap();
 
     // XXX: Extern calls being put here
@@ -289,7 +288,8 @@ pub fn _codegen(
     _ec.render(8, &mut w).unwrap();
 
     // XXX: Declare all the signals in the program/thread
-    let _m_header = RcDoc::<()>::as_string("// Sig decls").append(RcDoc::hardline());
+    let _m_header = RcDoc::<()>::as_string("// Sig decls").
+	append(RcDoc::hardline());
     _m_header.render(8, &mut w).expect("Cannot write signals");
     for (_i, _s) in _sigs.iter().enumerate() {
         for _ss in _s {
@@ -298,10 +298,13 @@ pub fn _codegen(
             let (_k, _k1) = _ss._input_rc_doc(_ff);
             _m = _m.append(_k1).append(RcDoc::hardline());
             _m.render(8, &mut w).expect("Cannot declare signals");
-            _k.render(8, _ext_header)
+	    _k.render(8, _ext_header)
                 .expect("Cannot write to external header");
         }
     }
+
+    // XXX: Write the output
+    _pragma.render(8, _ext_header).unwrap();
 
     // XXX: Declare all the variables in each thread
     let _m_header = RcDoc::<()>::as_string("// Var decls").append(RcDoc::hardline());
@@ -446,7 +449,7 @@ pub fn _codegen(
         thread_prototypes.push(_ss);
         let _ss = format!(
             "template <> struct Thread{}<I>{{\ninline  void tick \
-			  ({});}};",
+	     ({});}};",
             i, k1
         );
         thread_prototypes.push(_ss);
@@ -477,7 +480,7 @@ pub fn _codegen(
             let mm = j.0.get_string();
             let _ss = format!(
                 "template <> struct Thread{}<{}>{{\ninline  void tick \
-			  ({});}};",
+		 ({});}};",
                 i, mm, k1
             );
             thread_prototypes.push(_ss);
@@ -526,9 +529,9 @@ pub fn _codegen(
     //     .to_string();
     _n = _n
         .append(RcDoc::hardline())
-        // .append(_o)
-        // .append(RcDoc::hardline())
-        // .append(_oo)
+    // .append(_o)
+    // .append(RcDoc::hardline())
+    // .append(_oo)
         .append(RcDoc::hardline());
 
     // XXX: All the visits
@@ -540,14 +543,14 @@ pub fn _codegen(
                 format!(
                     "static inline __attribute__((always_inline))  \
 		     void visit{}(Thread{}State &&ts, {}){{\
-		 std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
+		     std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             } else {
                 format!(
                     "static inline __attribute__((always_inline))  \
 		     void visit{}(Thread{}State &&ts{}){{\
-		 std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
+		     std::visit([{}](auto &&t){{return t.tick({});}}, ts);}}",
                     i, i, _used_sigs_vec[i], _used_sigs_cap[i], _used_sigs_tick[i]
                 )
             }
@@ -676,8 +679,8 @@ pub fn _codegen(
     let _ = _n.render(8, &mut w);
     w.append(&mut w1);
     w.append(&mut w2);
-
-    w
+    w				// we return the internal cpp file byte
+				// vector
 }
 
 fn _make_print_ouputs<'a>(
@@ -689,14 +692,16 @@ fn _make_print_ouputs<'a>(
         for (i, j) in _osigs {
             _n = _n
                 .append(format!(
-                    "std::cout << \"Status of signal {}: \" << {}_curr.status << \"\\n\";",
+                    "std::cout << \"Status of signal {}: \
+		     \" << {}_curr.status << \"\\n\";",
                     i, i
                 ))
                 .append(RcDoc::hardline());
             if j.is_some() {
                 _n = _n
                     .append(format!(
-                        "std::cout << \"Value of signal {}: \" << {}_curr.value << \"\\n\";",
+                        "std::cout << \"Value of signal {}: \
+			 \" << {}_curr.value << \"\\n\";",
                         i, i
                     ))
                     .append(RcDoc::hardline());
@@ -833,14 +838,19 @@ fn _make_main_code<'a>(
     };
     let __st = if let None = _bench {
         RcDoc::<()>::as_string(join(
-        (0.._nthreads).into_iter().map(|x| {
-            format!(
-                "bool _res{} = _state_pos{}(); std::cout << \"Thread{} in state: \"<< _state[{}] << \"\\n\";",
-                x, x, x, x
-            )
-        }),
-        "\n",
-    )).append(RcDoc::hardline()).append("print_outputs();")
+            (0.._nthreads).into_iter().map(|x| {
+		format!(
+                    "bool _res{} = _state_pos{}(); \n \
+		     #ifdef DEBUG \n \
+		     std::cout << \"Thread{} in state: \"<< _state[{}] << \"\\n\";\n\
+		     #endif\n",
+                    x, x, x, x
+		)
+            }),
+            "\n",
+	)).append(RcDoc::hardline()).
+	    append("#ifdef DEBUG \n print_outputs(); #endif")
+	    .append(RcDoc::hardline())
     } else {
         RcDoc::nil()
     };
