@@ -247,18 +247,18 @@ pub fn _codegen(
 	append(RcDoc::hardline())
 	.append(_structdefdoc).append(RcDoc::hardline());
 
+    // XXX: Write the output
+    _pragma.render(8, _ext_header).unwrap();
+
+    let mut w = Vec::new();
+
     // We need to put these into the header file too.
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(
 	RcDoc::hardline());
-    _pragma = _pragma.append(h2).append(h3).append(h4).append(h5);
-
-    // XXX: Write the output
-    _pragma.render(8, _ext_header).unwrap();
-
-    let mut w = Vec::new();
+    // _pragma = _pragma.append(h2).append(h3).append(h4).append(h5);
 
     // This is the cpp file
     let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"",
@@ -269,7 +269,10 @@ pub fn _codegen(
         RcDoc::nil()
     };
     let r =
-        h6
+	h2.append(h3)
+	.append(h4)
+	.append(h5)
+	.append(h6)
         .append(h7)
         .append(RcDoc::hardline());
 

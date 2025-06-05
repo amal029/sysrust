@@ -719,8 +719,8 @@ impl Stmt {
 		if let Some(IO::Output) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{bool status = false;\n \
-			 bool tag = false;}} signal_{};",
+                        "{} {{bool status;\n \
+			 bool tag;}} signal_{};",
                         _m,
                         _sy.get_string()
                     );
@@ -738,8 +738,8 @@ impl Stmt {
                 else if let Some(IO::Input) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{bool status = false;\n \
-			 bool tag = false;}} signal_{};",
+                        "{} {{bool status;\n \
+			 bool tag;}} signal_{};",
                         _m,
                         _sy.get_string()
                     );
@@ -761,8 +761,8 @@ impl Stmt {
 		if let Some(IO::Output) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{{} value; bool status = false;\n\
-			 bool tag = false;}} signal_{};",
+                        "{} {{{} value; bool status;\n\
+			 bool tag;}} signal_{};",
                         _m,
                         _ty._type_string(_pos, _ff),
                         _sy.get_string()
@@ -778,8 +778,8 @@ impl Stmt {
                 else if let Some(IO::Input) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{{} value; bool status = false;\n\
-			 bool tag = false;}} signal_{};",
+                        "{} {{{} value; bool status;\n\
+			 bool tag;}} signal_{};",
                         _m,
                         _ty._type_string(_pos, _ff),
                         _sy.get_string()
