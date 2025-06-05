@@ -713,14 +713,33 @@ impl Type {
 }
 
 impl Stmt {
-    pub fn _input_rc_doc(&self, _ff: &str) -> (RcDoc, RcDoc) {
+    pub fn _input_output_rc_doc(&self, _ff: &str) -> (RcDoc, RcDoc) {
         match self {
             Stmt::Signal(_sy, _io, _pos) => {
-                if let Some(IO::Input) = _io {
+		if let Some(IO::Output) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{unsigned char status = 0;\n \
-			 bool tag = 0;}} signal_{};",
+                        "{} {{bool status = false;\n \
+			 bool tag = false;}} signal_{};",
+                        _m,
+                        _sy.get_string()
+                    );
+                    let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+                    let sname = _sy.get_string();
+                    let u = format!("extern signal_{} {}_curr, {}_prev;",
+				    sname, sname, sname);
+                    let u1 = format!("signal_{} {}_curr, {}_prev;", sname,
+				     sname, sname);
+                    (
+                        _a.append(RcDoc::as_string(u)).append(RcDoc::hardline()),
+                        RcDoc::as_string(u1),
+                    )
+                }
+                else if let Some(IO::Input) = _io {
+                    let _m = format!("typedef struct signal_{}", _sy.get_string());
+                    let _m = format!(
+                        "{} {{bool status = false;\n \
+			 bool tag = false;}} signal_{};",
                         _m,
                         _sy.get_string()
                     );
@@ -739,11 +758,28 @@ impl Stmt {
                 }
             }
             Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
-                if let Some(IO::Input) = _io {
+		if let Some(IO::Output) = _io {
                     let _m = format!("typedef struct signal_{}", _sy.get_string());
                     let _m = format!(
-                        "{} {{{} value; unsigned char status = 0;\n\
-			 unsigned char tag = 0;}} signal_{};",
+                        "{} {{{} value; bool status = false;\n\
+			 bool tag = false;}} signal_{};",
+                        _m,
+                        _ty._type_string(_pos, _ff),
+                        _sy.get_string()
+                    );
+                    let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
+                    let sname = _sy.get_string();
+                    let u = format!("extern signal_{} {}_curr, {}_prev;",
+				    sname, sname, sname);
+                    let u1 = format!("signal_{} {}_curr, {}_prev;",
+				     sname, sname, sname);
+                    (a.append(u).append(RcDoc::hardline()), RcDoc::as_string(u1))
+                }
+                else if let Some(IO::Input) = _io {
+                    let _m = format!("typedef struct signal_{}", _sy.get_string());
+                    let _m = format!(
+                        "{} {{{} value; bool status = false;\n\
+			 bool tag = false;}} signal_{};",
                         _m,
                         _ty._type_string(_pos, _ff),
                         _sy.get_string()

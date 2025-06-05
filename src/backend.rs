@@ -127,7 +127,8 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
             if let Some(IO::Output) = _io {
-                build_sig(_sy)
+		RcDoc::nil()
+                // build_sig(_sy)
             } else if let None = _io {
                 build_sig(_sy)
             } else {
@@ -136,7 +137,8 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
+		RcDoc::nil()
+                // build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else if let None = _io {
                 build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else {
@@ -298,7 +300,7 @@ pub fn _codegen(
         for _ss in _s {
             let mut _m = _sig_decl(_ss, _i, _ff, _ptids,
 				   _vars).append(RcDoc::hardline());
-            let (_k, _k1) = _ss._input_rc_doc(_ff);
+            let (_k, _k1) = _ss._input_output_rc_doc(_ff);
             _m = _m.append(_k1).append(RcDoc::hardline());
             _m.render(8, &mut w).expect("Cannot declare signals");
 	    // The _k are only extern input signals
