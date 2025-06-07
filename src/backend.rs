@@ -81,15 +81,18 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
     }
 
 fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
-		 _ptids: &'a[i64], _vars: &'a[Vec<Stmt>],) -> RcDoc<'a, ()> {
-    fn build_sig(_sy: &Symbol) -> RcDoc {
+		 _ptids: &'a[i64], _vars: &'a[Vec<Stmt>],) -> (RcDoc<'a, ()>,
+							      RcDoc<'a, ()>) {
+    fn build_sig(_sy: &Symbol) -> (RcDoc, RcDoc) {
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!("{} {{bool status = false;}} signal_{};",
 			 _m, _sy.get_string());
         let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
         let sname = _sy.get_string();
-        let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-        _a.append(RcDoc::as_string(u)).append(RcDoc::hardline())
+        let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);
+	let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+        (_a.append(RcDoc::as_string(u)).append(RcDoc::hardline()),
+	 RcDoc::as_string(u1))
     }
     fn build_data_sig<'a>(
         _sy: &'a Symbol,
@@ -101,12 +104,14 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	_tid: usize,
 	_ptids: &[i64],
 	_vars: &[Vec<Stmt>],
-    ) -> RcDoc<'a> {
+    ) -> (RcDoc<'a>, RcDoc<'a>) {
 	// FIXME: What happens when you have an array type signal?
 	let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!(
-            "{} {{{} value {} = {}; {}<{}> op {{}}; \n \
+            "{} {{{} value {} = {}; \n \
+	     // We should never need the combinator operator \n
+	     {}<{}> op {{}}; \n \
 	     //tag is for fresh value updates \
 	     \nbool tag = false; bool status = false;}} signal_{};",
             _m,
@@ -121,28 +126,30 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
         );
         let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
         let sname = _sy.get_string();
-        let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-        a.append(u).append(RcDoc::hardline())
+	let u = format!("extern signal_{} {}_curr, {}_prev;",
+			sname, sname, sname);
+        let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+        (a.append(u).append(RcDoc::hardline()), RcDoc::as_string(u1))
     }
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
             if let Some(IO::Output) = _io {
-		RcDoc::nil()
+		(RcDoc::nil(), RcDoc::nil())
                 // build_sig(_sy)
             } else if let None = _io {
                 build_sig(_sy)
             } else {
-                RcDoc::nil()
+                (RcDoc::nil(), RcDoc::nil())
             }
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-		RcDoc::nil()
+		(RcDoc::nil(), RcDoc::nil())
                 // build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else if let None = _io {
                 build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else {
-                RcDoc::nil()
+                (RcDoc::nil(), RcDoc::nil())
             }
         }
         _ => panic!("Got a non signal when generating C++ backend"),
@@ -246,6 +253,9 @@ pub fn _codegen(
     _pragma = _pragma.append(RcDoc::as_string("//Struct Defs")).
 	append(RcDoc::hardline())
 	.append(_structdefdoc).append(RcDoc::hardline());
+    let h5 = RcDoc::<()>::as_string("#include <functional>").append(
+	RcDoc::hardline());
+    _pragma = _pragma.append(h5);
 
     // XXX: Write the output
     _pragma.render(8, _ext_header).unwrap();
@@ -256,9 +266,6 @@ pub fn _codegen(
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
-    let h5 = RcDoc::<()>::as_string("#include <functional>").append(
-	RcDoc::hardline());
-    // _pragma = _pragma.append(h2).append(h3).append(h4).append(h5);
 
     // This is the cpp file
     let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"",
@@ -271,7 +278,7 @@ pub fn _codegen(
     let r =
 	h2.append(h3)
 	.append(h4)
-	.append(h5)
+	// .append(h5)
 	.append(h6)
         .append(h7)
         .append(RcDoc::hardline());
@@ -286,6 +293,10 @@ pub fn _codegen(
     });
     _ec = _ec
         .append(RcDoc::as_string("char tick();"))
+        .append(RcDoc::hardline())
+	.append(RcDoc::as_string("void push_to_buffer();"))
+	.append(RcDoc::hardline())
+	.append(RcDoc::as_string("void pop_from_buffer();"))
         .append(RcDoc::hardline());
     _ec = _ec.append(_ecs).append("}").append(RcDoc::hardline());
     _ec = _ec
@@ -301,14 +312,16 @@ pub fn _codegen(
     _m_header.render(8, &mut w).expect("Cannot write signals");
     for (_i, _s) in _sigs.iter().enumerate() {
         for _ss in _s {
-            let mut _m = _sig_decl(_ss, _i, _ff, _ptids,
-				   _vars).append(RcDoc::hardline());
+            let (_m, _m1) =
+		_sig_decl(_ss, _i, _ff, _ptids, _vars);
             let (_k, _k1) = _ss._input_output_rc_doc(_ff);
-            _m = _m.append(_k1).append(RcDoc::hardline());
-            _m.render(8, &mut w).expect("Cannot declare signals");
-	    // The _k are only extern input signals
-	    _k.render(8, _ext_header)
-                .expect("Cannot write to external header");
+            let _m1 = _m1.append(_k1).append(RcDoc::hardline());
+	    // Declare the signal varaible in the cpp file
+            _m1.render(8, &mut w).expect("Cannot declare signals");
+	    // Declare the signal structure + extern variable def in the
+	    // header file.
+	    let _m = _m.append(_k);
+	    _m.render(8, _ext_header).expect("Cannot write to external header");
         }
     }
 
@@ -686,7 +699,7 @@ pub fn _codegen(
     w.append(&mut w1);
     w.append(&mut w2);
     w				// we return the internal cpp file byte
-				// vector
+    // vector
 }
 
 fn _make_print_ouputs<'a>(
@@ -899,27 +912,32 @@ fn _make_main_code<'a>(
         .append("init0();")
         .append(RcDoc::hardline())
         .append(_count)
-        // .append("int counter = 0;")
-        // .append(RcDoc::hardline())
-        // .append("while(1){")
+    // .append("int counter = 0;")
+    // .append(RcDoc::hardline())
+    // .append("while(1){")
+        .append(RcDoc::hardline())
+    // This means read from the buffer for each signal into prev value
+        .append(RcDoc::as_string("pop_from_buffer();"))
         .append(RcDoc::hardline())
         .append("//read_inputs();")
         .append(RcDoc::hardline())
         .append(__m)
         .append(RcDoc::hardline())
-        // XXX: Add the call to _state_pos
+    // XXX: Add the call to _state_pos
         .append(__st)
-        // .append("print_outputs();")
+    // .append("print_outputs();")
         .append(RcDoc::hardline())
-        .append("pre_eq_curr();")
+        .append(RcDoc::as_string("push_to_buffer();"))
+        .append(RcDoc::hardline())
+	.append("pre_eq_curr();")
         .append(RcDoc::hardline())
         .append("reset_curr();")
         .append(RcDoc::hardline())
         .append(_tick)
-        // .append("if (tick() == 'd') break;")
+    // .append("if (tick() == 'd') break;")
         .append(RcDoc::hardline())
         .append("}")
-        // XXX: here we add the printf for benchmark
+    // XXX: here we add the printf for benchmark
         .append(_tend)
         .append("}");
     _n
@@ -1514,7 +1532,7 @@ fn _gen_code<'a>(
                 NodeT::PauseStart => false,
                 NodeT::SparJoin(_) => true,
                 _ => panic!("Got a non pause stop state: \
-			    {:?}, l: {:?}", _nodes[_i], _l),
+			     {:?}, l: {:?}", _nodes[_i], _l),
             };
             if !_join {
                 let mut _rets = _rets;

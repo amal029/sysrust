@@ -765,8 +765,7 @@ impl Stmt {
 			 bool tag;}} signal_{};",
                         _m,
                         _ty._type_string(_pos, _ff),
-                        _sy.get_string()
-                    );
+                        _sy.get_string());
                     let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
                     let sname = _sy.get_string();
                     let u = format!("extern signal_{} {}_curr, {}_prev;",
