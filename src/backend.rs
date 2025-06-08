@@ -160,13 +160,11 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	let _template_get_status =
 	    format!("template bool get_status(signal_{sname} *);");
 	let _template_get_value =
-	    format!("template std::vector<unsigned char> \
-		     get_value(signal_{sname} *);");
+	    format!("template void get_value(void*, signal_{sname} *);");
 	let _template_set_status =
 	    format!("template void set_status(signal_{sname} *, unsigned char v);");
 	let _template_set_value =
-	    format!("template void set_value(signal_{sname} *, \
-		     std::vector<unsigned char> v);");
+	    format!("template void set_value(signal_{sname} *, void*);");
 
 
         (a.append(RcDoc::as_string(u))
@@ -393,12 +391,11 @@ pub fn _codegen(
 	.append(RcDoc::hardline())
 	.append("template<typename T> bool get_status(T*);")
 	.append(RcDoc::hardline())
-	.append("template<typename T> std::vector<unsigned char> get_value(T*);")
+	.append("template<typename T> void get_value(void* dest, T* signal);")
 	.append(RcDoc::hardline())
-	.append("template<typename T> void set_status(T*, unsigned char v);")
+	.append("template<typename T> void set_status(T* signal, unsigned char v);")
 	.append(RcDoc::hardline())
-	.append("template<typename T> void set_value(T*, \
-		 std::vector<unsigned char> v);")
+	.append("template<typename T> void set_value(T* signal, void* src);")
 	.append(RcDoc::hardline());
 
     _m1.render(8, _ext_header).expect("Cannot write to external header");
