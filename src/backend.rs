@@ -291,13 +291,15 @@ pub fn _codegen(
     _ptids: &[i64],
 ) -> Vec<u8> {
     // XXX: Append #pragma once to the external header file
-    let mut _pragma = RcDoc::<()>::as_string("#pragma once").append(
-	RcDoc::hardline());
-    // XXX: Add the number of threads define in external header
-    _pragma = _pragma
+    let mut _pragma = RcDoc::<()>::as_string("#pragma once")
+        .append(RcDoc::hardline())
+	.append("#include <cstddef>")
+        .append(RcDoc::hardline())
+    // XXX: Add the start of the namespace for header here
+        .append(format!("namespace {_pfile} {{"))
+        .append(RcDoc::hardline())
         .append(format!("#define NTHREADS {}", _nthreads))
-        .append(RcDoc::hardline());
-    _pragma = _pragma
+        .append(RcDoc::hardline())
         .append(format!("extern long long unsigned _pos[NTHREADS][2];"))
         .append(RcDoc::hardline())
         .append(format!("extern const char* _state[NTHREADS];"))
@@ -306,7 +308,8 @@ pub fn _codegen(
     let _structdefdoc = RcDoc::concat(_structs.iter().map(|x| x.codegen()));
     _pragma = _pragma.append(RcDoc::as_string("//Struct Defs")).
 	append(RcDoc::hardline())
-	.append(_structdefdoc).append(RcDoc::hardline());
+	.append(_structdefdoc).append(RcDoc::hardline())
+	.append("int main(void);").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(
 	RcDoc::hardline());
     // _pragma = _pragma.append(h5);
@@ -340,7 +343,10 @@ pub fn _codegen(
     r.render(8, &mut w).unwrap();
 
     // XXX: Extern calls being put here
-    let mut _ec = RcDoc::<()>::as_string("extern \"C\"{");
+    // XXX: Add the start of the namespace in cpp file here
+    let mut _ec = RcDoc::<()>::as_string(format!("namespace {_pfile} {{"))
+        .append(RcDoc::hardline())
+        .append("extern \"C\"{");
     let _ecs = _ext_call.into_iter().fold(RcDoc::nil(), |acc, _x| {
         let __x = _x._get_doc();
         acc.append(__x)
@@ -381,10 +387,6 @@ pub fn _codegen(
         }
     }
     let _m1 = RcDoc::<()>::as_string("\n // Templates for opaque pointers\n")
-        .append("#include <cstddef>")
-        .append(RcDoc::hardline())
-	.append("#include <vector>")
-        .append(RcDoc::hardline())
 	.append("template<typename T> size_t get_sizeof_value(T*);")
 	.append(RcDoc::hardline())
 	.append("template<typename T> size_t get_sizeof_status(T*);")
@@ -396,7 +398,9 @@ pub fn _codegen(
 	.append("template<typename T> void set_status(T* signal, unsigned char v);")
 	.append(RcDoc::hardline())
 	.append("template<typename T> void set_value(T* signal, void* src);")
-	.append(RcDoc::hardline());
+	.append(RcDoc::hardline())
+	.append("}")
+	;
 
     _m1.render(8, _ext_header).expect("Cannot write to external header");
 
@@ -1014,7 +1018,12 @@ fn _make_main_code<'a>(
         .append("}")
     // XXX: here we add the printf for benchmark
         .append(_tend)
-        .append("}");
+	.append(RcDoc::hardline())
+        .append("return 0;")
+	.append(RcDoc::hardline())
+        .append("}")
+        .append(RcDoc::hardline())
+        .append("} // namespace ends here");
     _n
 }
 
