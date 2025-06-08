@@ -89,10 +89,30 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 			 _m, _sy.get_string());
         let _a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
         let sname = _sy.get_string();
-        let u = format!("extern signal_{} {}_curr, {}_prev;", sname, sname, sname);
-	let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-        (_a.append(RcDoc::as_string(u)).append(RcDoc::hardline()),
-	 RcDoc::as_string(u1))
+	let uu1 = format!("struct signal_{};", _sy.get_string());
+        let u1 = format!("extern signal_{} *{}_curr_ptr, *{}_prev_ptr;",
+			 sname, sname, sname);
+	let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+	let uptr = format!("signal_{sname} *{sname}_curr_ptr = &{sname}_curr;");
+	let uptr2 = format!("signal_{sname} *{sname}_prev_ptr = &{sname}_prev;");
+	let _template_sizeof_status =
+	    format!("template size_t get_sizeof_status(signal_{sname} *);");
+	let _template_get_status =
+	    format!("template bool get_status(signal_{sname} *);");
+	let _template_set_status =
+	    format!("template void set_status(signal_{sname} *,\
+		     unsigned char);");
+        (_a.append(RcDoc::as_string(u))
+	 .append(RcDoc::hardline())
+	 .append(uptr).append(uptr2).append(RcDoc::hardline())
+	 .append(_template_sizeof_status)
+	 .append(RcDoc::hardline())
+	 .append(_template_get_status)
+	 .append(RcDoc::hardline())
+	 .append(_template_set_status)
+	 .append(RcDoc::hardline())
+	 ,
+	 RcDoc::as_string(uu1).append(RcDoc::hardline()).append(u1))
     }
     fn build_data_sig<'a>(
         _sy: &'a Symbol,
@@ -110,10 +130,11 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
         let _m = format!("typedef struct signal_{}", _sy.get_string());
         let _m = format!(
             "{} {{{} value {} = {}; \n \
-	     // We should never need the combinator operator \n
+	     bool status = false; \n \
+	     // We should never need the combinator operator \n \
 	     {}<{}> op {{}}; \n \
 	     //tag is for fresh value updates \
-	     \nbool tag = false; bool status = false;}} signal_{};",
+	     \nbool tag = false;}} signal_{};",
             _m,
 	    _1,
 	    (match _2 {Some(x) => x, None => String::from("")}),
@@ -126,30 +147,65 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
         );
         let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
         let sname = _sy.get_string();
-	let u = format!("extern signal_{} {}_curr, {}_prev;",
-			sname, sname, sname);
-        let u1 = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
-        (a.append(u).append(RcDoc::hardline()), RcDoc::as_string(u1))
+	let uu1 = format!("struct signal_{};", _sy.get_string());
+	let u1 = format!("extern signal_{} *{}_curr_ptr, *{}_prev_ptr;",
+			 sname, sname, sname);
+        let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
+	let uptr = format!("signal_{sname} *{sname}_curr_ptr = &{sname}_curr;");
+	let uptr2 = format!("signal_{sname} *{sname}_prev_ptr = &{sname}_prev;");
+	let _template_sizeof_value =
+	    format!("template size_t get_sizeof_value(signal_{sname} *);");
+	let _template_sizeof_status =
+	    format!("template size_t get_sizeof_status(signal_{sname} *);");
+	let _template_get_status =
+	    format!("template bool get_status(signal_{sname} *);");
+	let _template_get_value =
+	    format!("template std::vector<unsigned char> \
+		     get_value(signal_{sname} *);");
+	let _template_set_status =
+	    format!("template void set_status(signal_{sname} *, unsigned char v);");
+	let _template_set_value =
+	    format!("template void set_value(signal_{sname} *, \
+		     std::vector<unsigned char> v);");
+
+
+        (a.append(RcDoc::as_string(u))
+	 .append(RcDoc::hardline())
+	 .append(uptr).append(uptr2).append(RcDoc::hardline())
+	 .append(_template_sizeof_value)
+	 .append(RcDoc::hardline())
+	 .append(_template_sizeof_status)
+	 .append(RcDoc::hardline())
+	 .append(_template_get_status)
+	 .append(RcDoc::hardline())
+	 .append(_template_get_value)
+	 .append(RcDoc::hardline())
+	 .append(_template_set_value)
+	 .append(RcDoc::hardline())
+	 .append(_template_set_status)
+	 .append(RcDoc::hardline())
+	 ,
+	 RcDoc::as_string(uu1).append(RcDoc::hardline()).append(u1))
     }
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
             if let Some(IO::Output) = _io {
-		(RcDoc::nil(), RcDoc::nil())
-                // build_sig(_sy)
+                build_sig(_sy)
             } else if let None = _io {
                 build_sig(_sy)
-            } else {
-                (RcDoc::nil(), RcDoc::nil())
+            } else {		// input
+		build_sig(_sy)
+                // (RcDoc::nil(), RcDoc::nil())
             }
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-		(RcDoc::nil(), RcDoc::nil())
-                // build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
+                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else if let None = _io {
                 build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
-            } else {
-                (RcDoc::nil(), RcDoc::nil())
+            } else {		// input
+		build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
+                // (RcDoc::nil(), RcDoc::nil())
             }
         }
         _ => panic!("Got a non signal when generating C++ backend"),
@@ -255,7 +311,7 @@ pub fn _codegen(
 	.append(_structdefdoc).append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(
 	RcDoc::hardline());
-    _pragma = _pragma.append(h5);
+    // _pragma = _pragma.append(h5);
 
     // XXX: Write the output
     _pragma.render(8, _ext_header).unwrap();
@@ -278,7 +334,7 @@ pub fn _codegen(
     let r =
 	h2.append(h3)
 	.append(h4)
-	// .append(h5)
+	.append(h5)
 	.append(h6)
         .append(h7)
         .append(RcDoc::hardline());
@@ -304,6 +360,8 @@ pub fn _codegen(
         .append(RcDoc::hardline())
         .append("const char * _state[NTHREADS];")
         .append(RcDoc::hardline());
+    _ec = _ec.append("#include \"lib.h\"\n")
+        .append(RcDoc::hardline());
     _ec.render(8, &mut w).unwrap();
 
     // XXX: Declare all the signals in the program/thread
@@ -314,16 +372,36 @@ pub fn _codegen(
         for _ss in _s {
             let (_m, _m1) =
 		_sig_decl(_ss, _i, _ff, _ptids, _vars);
-            let (_k, _k1) = _ss._input_output_rc_doc(_ff);
-            let _m1 = _m1.append(_k1).append(RcDoc::hardline());
+            // let (_k, _k1) = _ss._input_output_rc_doc(_ff);
+            // let _m1 = _m1.append(_k1).append(RcDoc::hardline());
 	    // Declare the signal varaible in the cpp file
-            _m1.render(8, &mut w).expect("Cannot declare signals");
+            _m.render(8, &mut w).expect("Cannot declare signals");
 	    // Declare the signal structure + extern variable def in the
 	    // header file.
-	    let _m = _m.append(_k);
-	    _m.render(8, _ext_header).expect("Cannot write to external header");
+	    // let _m = _m.append(_k);
+	    _m1.render(8, _ext_header).expect("Cannot write to external header");
         }
     }
+    let _m1 = RcDoc::<()>::as_string("\n // Templates for opaque pointers\n")
+        .append("#include <cstddef>")
+        .append(RcDoc::hardline())
+	.append("#include <vector>")
+        .append(RcDoc::hardline())
+	.append("template<typename T> size_t get_sizeof_value(T*);")
+	.append(RcDoc::hardline())
+	.append("template<typename T> size_t get_sizeof_status(T*);")
+	.append(RcDoc::hardline())
+	.append("template<typename T> bool get_status(T*);")
+	.append(RcDoc::hardline())
+	.append("template<typename T> std::vector<unsigned char> get_value(T*);")
+	.append(RcDoc::hardline())
+	.append("template<typename T> void set_status(T*, unsigned char v);")
+	.append(RcDoc::hardline())
+	.append("template<typename T> void set_value(T*, \
+		 std::vector<unsigned char> v);")
+	.append(RcDoc::hardline());
+
+    _m1.render(8, _ext_header).expect("Cannot write to external header");
 
     // XXX: Declare all the variables in each thread
     let _m_header = RcDoc::<()>::as_string("// Var decls").append(RcDoc::hardline());
