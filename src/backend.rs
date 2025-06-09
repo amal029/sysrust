@@ -957,7 +957,7 @@ fn _make_main_code<'a>(
     };
     // XXX: The loop counter for bench
     let _count = if let None = _bench {
-        RcDoc::<()>::as_string("while(1){")
+        RcDoc::<()>::as_string("{")
     } else {
         let _c = _bench.unwrap();
         RcDoc::as_string("unsigned long long counter = 0;")
@@ -966,11 +966,11 @@ fn _make_main_code<'a>(
             .append(RcDoc::hardline())
             .append(format!("while (counter++ < {_c}){{"))
     };
-    let _tick = if let None = _bench {
-        RcDoc::<()>::as_string("if (tick() == 'd') break;")
-    } else {
-        RcDoc::nil()
-    };
+    // let _tick = if let None = _bench {
+    //     RcDoc::<()>::as_string("if (tick() == 'd');")
+    // } else {
+    //     RcDoc::nil()
+    // };
     let _tend = if let Some(_) = _bench {
         RcDoc::<()>::hardline()
             .append("std::time_t _end = std::time(nullptr);")
@@ -991,7 +991,9 @@ fn _make_main_code<'a>(
         .append(RcDoc::hardline())
         .append("int main (void){")
         .append(RcDoc::hardline())
-        .append("init0();")
+        .append("static bool init = false;")
+        .append(RcDoc::hardline())
+        .append("if (!init) {init0(); init=true;}")
         .append(RcDoc::hardline())
         .append(_count)
     // .append("int counter = 0;")
@@ -1015,7 +1017,7 @@ fn _make_main_code<'a>(
         .append(RcDoc::hardline())
         .append("reset_curr();")
         .append(RcDoc::hardline())
-        .append(_tick)
+        // .append(_tick)
     // .append("if (tick() == 'd') break;")
         .append(RcDoc::hardline())
         .append("}")
