@@ -825,30 +825,35 @@ fn _make_pre_eq_curr(_sigs: &[Vec<Stmt>]) -> RcDoc {
     let _sigs = _sigs.iter().flatten().collect::<Vec<_>>();
     for i in _sigs {
         match i {
-            Stmt::Signal(_sy, _, _) => {
-                _n = _n
-                    .append(format!(
-                        "{}_prev.status = {}_curr.status;",
-                        _sy.get_string(),
-                        _sy.get_string()
-                    ))
-                    .append(RcDoc::hardline())
-            }
-            Stmt::DataSignal(_sy, _, _, _, _, _) => {
-                _n = _n
-                    .append(format!(
-                        "{}_prev.status = {}_curr.status;",
-                        _sy.get_string(),
-                        _sy.get_string(),
-                    ))
-                    .append(RcDoc::hardline())
-                    .append(format!(
-                        "{}_prev.value = {}_curr.value;",
-                        _sy.get_string(),
-                        _sy.get_string(),
-                    ))
-            }
-            _ => panic!("Got a non signal building code for pre <- curr status update"),
+            Stmt::Signal(_sy, _io, _) => {
+		if let None = _io {
+                    _n = _n
+			.append(format!(
+                            "{}_prev.status = {}_curr.status;",
+                            _sy.get_string(),
+                            _sy.get_string()
+			))
+			.append(RcDoc::hardline())
+		}
+	    }
+            Stmt::DataSignal(_sy, _io, _, _, _, _) => {
+		if let None = _io{
+                    _n = _n
+			.append(format!(
+                            "{}_prev.status = {}_curr.status;",
+                            _sy.get_string(),
+                            _sy.get_string(),
+			))
+			.append(RcDoc::hardline())
+			.append(format!(
+                            "{}_prev.value = {}_curr.value;",
+                            _sy.get_string(),
+                            _sy.get_string(),
+			))
+		}
+	    }
+            _ => panic!("Got a non signal building code \
+			for pre <- curr status update"),
         }
     }
     _n = _n.append("}");
