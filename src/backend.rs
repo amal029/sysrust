@@ -190,7 +190,8 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
             if let Some(IO::Output) = _io {
                 build_sig(_sy)
             } else if let None = _io {
-                build_sig(_sy)
+                let (_1, _2) = build_sig(_sy);
+		(_1, RcDoc::nil())
             } else {		// input
 		build_sig(_sy)
                 // (RcDoc::nil(), RcDoc::nil())
@@ -200,7 +201,9 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
             if let Some(IO::Output) = _io {
                 build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
             } else if let None = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
+                let (_1, _) = build_data_sig(_sy, _ff,
+					  _pos, _ty, _iv, _op, _tid, _ptids, _vars);
+		(_1, RcDoc::nil())
             } else {		// input
 		build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
                 // (RcDoc::nil(), RcDoc::nil())
@@ -298,11 +301,11 @@ pub fn _codegen(
     // XXX: Add the start of the namespace for header here
         .append(format!("namespace {_pfile} {{"))
         .append(RcDoc::hardline())
-        .append(format!("#define NTHREADS {}", _nthreads))
+        .append(format!("#define NTHREADS_{_pfile} {}", _nthreads))
         .append(RcDoc::hardline())
-        .append(format!("extern long long unsigned _pos[NTHREADS][2];"))
+        .append(format!("extern long long unsigned _pos[NTHREADS_{_pfile}][2];"))
         .append(RcDoc::hardline())
-        .append(format!("extern const char* _state[NTHREADS];"))
+        .append(format!("extern const char* _state[NTHREADS_{_pfile}];"))
         .append(RcDoc::hardline());
     // XXX: Adding the definition of struct defs
     let _structdefdoc = RcDoc::concat(_structs.iter().map(|x| x.codegen()));
@@ -360,9 +363,9 @@ pub fn _codegen(
         .append(RcDoc::hardline());
     _ec = _ec.append(_ecs).append("}").append(RcDoc::hardline());
     _ec = _ec
-        .append("long long unsigned _pos[NTHREADS][2];")
+        .append(format!("long long unsigned _pos[NTHREADS_{_pfile}][2];"))
         .append(RcDoc::hardline())
-        .append("const char * _state[NTHREADS];")
+        .append(format!("const char * _state[NTHREADS_{_pfile}];"))
         .append(RcDoc::hardline());
     _ec = _ec.append("#include \"lib.h\"\n")
         .append(RcDoc::hardline());
