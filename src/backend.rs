@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    iter::zip,
+    iter::zip
 };
 
 use itertools::{join, Itertools};
@@ -124,6 +124,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	_tid: usize,
 	_ptids: &[i64],
 	_vars: &[Vec<Stmt>],
+	_io: &Option<IO>,
     ) -> (RcDoc<'a>, RcDoc<'a>) {
 	// FIXME: What happens when you have an array type signal?
 	let (_1, _2) = _type_string(_ty, *_pos, _ff, _tid);
@@ -147,9 +148,18 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
         );
         let a = RcDoc::<()>::as_string(_m).append(RcDoc::hardline());
         let sname = _sy.get_string();
-	let uu1 = format!("struct signal_{};", _sy.get_string());
+	let uu1 = format!("struct signal_{};", sname);
 	let u1 = format!("extern signal_{} *{}_curr_ptr, *{}_prev_ptr;",
 			 sname, sname, sname);
+	let (qstruct, qptr, qdelay) =
+	    if let Some (IO::Input) = _io {
+		(format!("struct Q{sname};",),
+		 format!("extern Q{sname} *q{sname}_ptr;"),
+		 format!("extern int {sname}_DELAY;"))
+	    } else {
+		(String::new(), String::new(), String::new())
+	    };
+
         let u = format!("signal_{} {}_curr, {}_prev;", sname, sname, sname);
 	let uptr = format!("signal_{sname} *{sname}_curr_ptr = &{sname}_curr;");
 	let uptr2 = format!("signal_{sname} *{sname}_prev_ptr = &{sname}_prev;");
@@ -165,6 +175,42 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	    format!("template void set_status(signal_{sname} *, unsigned char v);");
 	let _template_set_value =
 	    format!("template void set_value(signal_{sname} *, void*);");
+	// Now we need to add the queue pointers for input signals
+	let _qtype = if let Some(IO::Input) = _io {
+	    let _using = format!("using q{sname}_t = \
+				  std::queue<std::array<unsigned char, \
+				  sizeof({sname}_prev_ptr->status) + \
+				  sizeof({sname}_prev_ptr->value)>>;");
+	    let _deque = format!("std::deque<std::array<unsigned char, \
+				  sizeof({sname}_prev_ptr->status) + \
+				  sizeof({sname}_prev_ptr->value)>> \
+				  vv{sname}({sname}_DELAY, {{0}});");
+	    let _q = format!("q{sname}_t q{sname}(vv{sname});");
+	    let _qstruct = format!("struct Q{sname} \
+				    {{q{sname}_t *v; \
+				    Q{sname}(q{sname}_t *p): v(p) {{}}}};");
+	    let _qvar = format!("Q{sname} q{sname}_var (&q{sname});");
+	    let _qvar_ptr = format!("Q{sname} *q{sname}_ptr = &q{sname}_var;");
+	    // The template specialisation for q push and pull
+	    let _qpush = format!("template void Qpush(Q{sname} *, void *, \
+				  size_t, signal_{sname} *);");
+	    let _qpull = format!("template size_t Qpull(void*, Q{sname} *, \
+				  signal_{sname} *);");
+	    RcDoc::<()>::as_string(_using)
+		.append(RcDoc::hardline())
+		.append(_deque)
+		.append(RcDoc::hardline())
+		.append(_q)
+		.append(RcDoc::hardline())
+		.append(_qstruct)
+		.append(RcDoc::hardline()).append(_qvar)
+		.append(RcDoc::hardline()).append(_qvar_ptr)
+		.append(RcDoc::hardline()).append(_qpush)
+		.append(RcDoc::hardline()).append(_qpull)
+		.append(RcDoc::hardline())
+	} else{
+	    RcDoc::<()>::nil()
+	};
 
 
         (a.append(RcDoc::as_string(u))
@@ -182,8 +228,11 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	 .append(RcDoc::hardline())
 	 .append(_template_set_status)
 	 .append(RcDoc::hardline())
-	 ,
-	 RcDoc::as_string(uu1).append(RcDoc::hardline()).append(u1))
+	 .append(_qtype)
+	 .append(RcDoc::hardline()),
+	 RcDoc::as_string(uu1).append(RcDoc::hardline()).append(u1)
+         .append(RcDoc::hardline()).append(qstruct).append(RcDoc::hardline()).
+	 append(qptr).append(RcDoc::hardline()).append(qdelay))
     }
     match _s {
         Stmt::Signal(_sy, _io, _pos) => {
@@ -199,13 +248,17 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
         }
         Stmt::DataSignal(_sy, _io, _ty, _iv, _op, _pos) => {
             if let Some(IO::Output) = _io {
-                build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
+		build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids,
+			       _vars, _io)
+
             } else if let None = _io {
                 let (_1, _) = build_data_sig(_sy, _ff,
-					  _pos, _ty, _iv, _op, _tid, _ptids, _vars);
+					     _pos, _ty, _iv, _op, _tid, _ptids,
+					     _vars, _io);
 		(_1, RcDoc::nil())
             } else {		// input
-		build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid, _ptids, _vars)
+		build_data_sig(_sy, _ff, _pos, _ty, _iv, _op, _tid,
+			       _ptids, _vars, _io)
                 // (RcDoc::nil(), RcDoc::nil())
             }
         }
@@ -326,6 +379,7 @@ pub fn _codegen(
     let h2 = RcDoc::<()>::as_string("#include <iostream>").append(RcDoc::hardline());
     let h3 = RcDoc::<()>::as_string("#include <variant>").append(RcDoc::hardline());
     let h4 = RcDoc::<()>::as_string("#include <cassert>").append(RcDoc::hardline());
+    
 
     // This is the cpp file
     let h6 = RcDoc::<()>::as_string(format!("#include \"{}.h\"",
@@ -389,6 +443,13 @@ pub fn _codegen(
 	    _m1.render(8, _ext_header).expect("Cannot write to external header");
         }
     }
+    let qpush =
+	format!("template <typename T, typename S> void Qpush(T *, void *, \
+		 size_t, S*);");
+    let qpull =
+	format!("template <typename T, typename S> void Qpull(void *, T*, \
+		 S*);");
+
     let _m1 = RcDoc::<()>::as_string("\n // Templates for opaque pointers\n")
 	.append("template<typename T> size_t get_sizeof_value(T*);")
 	.append(RcDoc::hardline())
@@ -401,6 +462,10 @@ pub fn _codegen(
 	.append("template<typename T> void set_status(T* signal, unsigned char v);")
 	.append(RcDoc::hardline())
 	.append("template<typename T> void set_value(T* signal, void* src);")
+	.append(RcDoc::hardline())
+	.append(qpush)
+	.append(RcDoc::hardline())
+	.append(qpull)
 	.append(RcDoc::hardline())
 	.append("}")
 	;
@@ -835,6 +900,16 @@ fn _make_pre_eq_curr(_sigs: &[Vec<Stmt>]) -> RcDoc {
 			))
 			.append(RcDoc::hardline())
 		}
+		if let Some(IO::Output) = _io {
+                    _n = _n
+			.append(format!(
+                            "{}_prev.status = {}_curr.status;",
+                            _sy.get_string(),
+                            _sy.get_string()
+			))
+			.append(RcDoc::hardline())
+		}
+
 	    }
             Stmt::DataSignal(_sy, _io, _, _, _, _) => {
 		if let None = _io{
@@ -851,6 +926,21 @@ fn _make_pre_eq_curr(_sigs: &[Vec<Stmt>]) -> RcDoc {
                             _sy.get_string(),
 			))
 		}
+		if let Some(IO::Output) = _io{
+                    _n = _n
+			.append(format!(
+                            "{}_prev.status = {}_curr.status;",
+                            _sy.get_string(),
+                            _sy.get_string(),
+			))
+			.append(RcDoc::hardline())
+			.append(format!(
+                            "{}_prev.value = {}_curr.value;",
+                            _sy.get_string(),
+                            _sy.get_string(),
+			))
+		}
+
 	    }
             _ => panic!("Got a non signal building code \
 			for pre <- curr status update"),
