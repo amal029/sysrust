@@ -408,13 +408,13 @@ pub fn _codegen(
         let __x = _x._get_doc();
         acc.append(__x)
     });
-    _ec = _ec
-        .append(RcDoc::as_string("char tick();"))
-        .append(RcDoc::hardline())
-	.append(RcDoc::as_string("void push_to_buffer();"))
-	.append(RcDoc::hardline())
-	.append(RcDoc::as_string("void pop_from_buffer();"))
-        .append(RcDoc::hardline());
+    // _ec = _ec
+    // .append(RcDoc::as_string("char tick();"))
+    // .append(RcDoc::hardline())
+    // .append(RcDoc::as_string("void push_to_buffer();"))
+    // .append(RcDoc::hardline())
+    // .append(RcDoc::as_string("void pop_from_buffer();"))
+    // .append(RcDoc::hardline());
     _ec = _ec.append(_ecs).append("}").append(RcDoc::hardline());
     _ec = _ec
         .append(format!("long long unsigned _pos[NTHREADS_{_pfile}][2];"))
@@ -447,9 +447,11 @@ pub fn _codegen(
 	format!("template <typename T, typename S> void Qpush(T *, void *, \
 		 size_t, S*);");
     let qpull =
-	format!("template <typename T, typename S> void Qpull(void *, T*, \
+	format!("template <typename T, typename S> size_t Qpull(void *, T*, \
 		 S*);");
-
+    let _outputs = format!("void write_outputs();");
+    let _inputs = format!("void read_inputs();");
+    
     let _m1 = RcDoc::<()>::as_string("\n // Templates for opaque pointers\n")
 	.append("template<typename T> size_t get_sizeof_value(T*);")
 	.append(RcDoc::hardline())
@@ -466,6 +468,10 @@ pub fn _codegen(
 	.append(qpush)
 	.append(RcDoc::hardline())
 	.append(qpull)
+	.append(RcDoc::hardline())
+	.append(_outputs)
+	.append(RcDoc::hardline())
+	.append(_inputs)
 	.append(RcDoc::hardline())
 	.append("}")
 	;
@@ -1096,9 +1102,9 @@ fn _make_main_code<'a>(
     // .append("while(1){")
         .append(RcDoc::hardline())
     // This means read from the buffer for each signal into prev value
-        .append(RcDoc::as_string("pop_from_buffer();"))
-        .append(RcDoc::hardline())
-        .append("//read_inputs();")
+        // .append(RcDoc::as_string("pop_from_buffer();"))
+    // .append(RcDoc::hardline())
+	.append(RcDoc::as_string("read_inputs();"))
         .append(RcDoc::hardline())
         .append(__m)
         .append(RcDoc::hardline())
@@ -1106,7 +1112,7 @@ fn _make_main_code<'a>(
         .append(__st)
     // .append("print_outputs();")
         .append(RcDoc::hardline())
-        .append(RcDoc::as_string("push_to_buffer();"))
+        .append(RcDoc::as_string("write_outputs();"))
         .append(RcDoc::hardline())
 	.append("pre_eq_curr();")
         .append(RcDoc::hardline())
