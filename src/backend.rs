@@ -366,8 +366,12 @@ pub fn _codegen(
 	append(RcDoc::hardline())
 	.append(_structdefdoc).append(RcDoc::hardline())
 	.append("int main(void);").append(RcDoc::hardline());
-    let h5 = RcDoc::<()>::as_string("#include <functional>").append(
-	RcDoc::hardline());
+    let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
+    let h8 = RcDoc::<()>::as_string("#include <array>\n #include <cassert>\n \
+				     #include <cstddef>\n \
+				     #include <cstring> \n \
+				     #include <iostream>\n #include <queue>\n");
+
     // _pragma = _pragma.append(h5);
 
     // XXX: Write the output
@@ -395,6 +399,7 @@ pub fn _codegen(
 	.append(h5)
 	.append(h6)
         .append(h7)
+        .append(h8)
         .append(RcDoc::hardline());
 
     r.render(8, &mut w).unwrap();
