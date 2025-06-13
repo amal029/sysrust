@@ -178,14 +178,14 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	// Now we need to add the queue pointers for input signals
 	let _qtype = if let Some(IO::Input) = _io {
 	    let _using = format!("using q{sname}_t = \
-				  std::queue<std::array<unsigned char, \
+				  mQueue<std::array<unsigned char, \
 				  sizeof({sname}_prev_ptr->status) + \
 				  sizeof({sname}_prev_ptr->value)>>;");
-	    let _deque = format!("std::deque<std::array<unsigned char, \
-				  sizeof({sname}_prev_ptr->status) + \
-				  sizeof({sname}_prev_ptr->value)>> \
-				  vv{sname}({sname}_DELAY, {{0}});");
-	    let _q = format!("q{sname}_t q{sname}(vv{sname});");
+	    // let _deque = format!("std::deque<std::array<unsigned char, \
+	    // 			  sizeof({sname}_prev_ptr->status) + \
+	    // 			  sizeof({sname}_prev_ptr->value)>> \
+	    // 			  vv{sname}({sname}_DELAY, {{0}});");
+	    let _q = format!("q{sname}_t q{sname}({sname}_DELAY, {{}});");
 	    let _qstruct = format!("struct Q{sname} \
 				    {{q{sname}_t *v; \
 				    Q{sname}(q{sname}_t *p): v(p) {{}}}};");
@@ -193,13 +193,13 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	    let _qvar_ptr = format!("Q{sname} *q{sname}_ptr = &q{sname}_var;");
 	    // The template specialisation for q push and pull
 	    let _qpush = format!("template void Qpush(Q{sname} *, void *, \
-				  size_t, signal_{sname} *);");
-	    let _qpull = format!("template size_t Qpull(void*, Q{sname} *, \
+				  signal_{sname} *);");
+	    let _qpull = format!("template size_t Qpull(Q{sname} *, \
 				  signal_{sname} *);");
 	    RcDoc::<()>::as_string(_using)
 		.append(RcDoc::hardline())
-		.append(_deque)
-		.append(RcDoc::hardline())
+	    // .append(_deque)
+	    // .append(RcDoc::hardline())
 		.append(_q)
 		.append(RcDoc::hardline())
 		.append(_qstruct)
@@ -367,10 +367,11 @@ pub fn _codegen(
 	.append(_structdefdoc).append(RcDoc::hardline())
 	.append("int main(void);").append(RcDoc::hardline());
     let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
-    let h8 = RcDoc::<()>::as_string("#include <array>\n #include <cassert>\n \
+    let h8 = RcDoc::<()>::as_string("#include <cassert>\n \
+				     #include \"mQueue.h\" \n \
 				     #include <cstddef>\n \
 				     #include <cstring> \n \
-				     #include <iostream>\n #include <queue>\n");
+				     #include <iostream>\n");
 
     // _pragma = _pragma.append(h5);
 
@@ -449,11 +450,9 @@ pub fn _codegen(
         }
     }
     let qpush =
-	format!("template <typename T, typename S> void Qpush(T *, void *, \
-		 size_t, S*);");
+	format!("template <typename T, typename S> void Qpush(T *, void *, S*);");
     let qpull =
-	format!("template <typename T, typename S> size_t Qpull(void *, T*, \
-		 S*);");
+	format!("template <typename T, typename S> size_t Qpull(T*, S*);");
     let _outputs = format!("void write_outputs();");
     let _inputs = format!("void read_inputs();");
     
