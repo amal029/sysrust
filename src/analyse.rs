@@ -684,6 +684,7 @@ fn __type_infer_extern_calls<'a>(
         Stmt::Block(_b, _) =>
 	    _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
         Stmt::Assign(_sy, _expr, _) => {
+	    // println!("{:?}", _expr);
             let _t = _vars.iter().find(|x| match x {
                 Stmt::Variable(__sy, _t, _, _) =>
 		    __sy.get_string() == _sy.get_string(),
@@ -702,6 +703,7 @@ fn __type_infer_extern_calls<'a>(
             };
             _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &Some(_u))
         }
+	// Stmt::StructMemberAssign(_sy, _expr, _) => todo!(),
         Stmt::Emit(_sy, Some(_expr), _pos) => {
             let _t = _signals.iter().find(|x| match x {
                 Stmt::DataSignal(__sy, _, _, _, _, _)
@@ -806,11 +808,11 @@ fn _type_infer_sexpr<'a>(
         let _ss = _sy;
         let arg_types = _expr
             .iter()
-            // XXX: We have consumed the return type here for this
-            // call if any
+        // XXX: We have consumed the return type here for this
+        // call if any
             .map(|x| _get_type(_signals, _vars, x, _ret, _ff, &None))
             .collect::<Vec<Type>>();
-        assert!(!arg_types.is_empty());
+        // assert!(!arg_types.is_empty());
         let ret_type = if _oret.is_some() {
             _oret.clone().unwrap()
         } else {
@@ -823,6 +825,16 @@ fn _type_infer_sexpr<'a>(
             _rtype: ret_type,
             _arg_types: arg_types,
         });
+    }
+    else if let SimpleDataExpr::Cast(_dt,_sde,_pos) = _expr {
+	// println!("{:?}", _sde);
+	_type_infer_sexpr(
+	    _sde,
+	    _signals,
+	    _vars,
+	    _ret,
+	    _ff,
+	    _oret)
     }
 }
 
@@ -905,7 +917,8 @@ fn _get_type<'a>(
             _union(&_lt, &_rt, *_pos)
         }
 	SimpleDataExpr::AggregateAssign(_, _) => todo!(),
-	SimpleDataExpr::StructRef(_) => todo!(),
+	// FIXME: This needs to be fixed later on
+	SimpleDataExpr::StructRef(_) => Type::Float,
 	SimpleDataExpr::ArrayRef(_) => todo!(),
 	SimpleDataExpr::Cast(_dt, _, _) => _dt.clone()
     }
