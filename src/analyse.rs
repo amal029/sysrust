@@ -664,9 +664,10 @@ pub fn _type_infer_extern_calls<'a>(
     _ast: &'a [Stmt],
     _ret: &'a mut Vec<CallNameType>,
     _ff: &str,
+    _structdefs: &'a Vec<StructDef>,
 ) {
     for i in _ast {
-        __type_infer_extern_calls(_signals, _vars, i, _ret, _ff)
+        __type_infer_extern_calls(_signals, _vars, i, _ret, _ff, _structdefs)
     }
 }
 
@@ -676,13 +677,14 @@ fn __type_infer_extern_calls<'a>(
     _i: &'a Stmt,
     _ret: &'a mut Vec<CallNameType>,
     _ff: &str,
+    _structdefs: &'a Vec<StructDef>,
 ) {
     match _i {
         Stmt::Abort(_, _, _b, _) | Stmt::Suspend(_, _, _b, _) => {
-            __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff)
+            __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff, _structdefs)
         }
         Stmt::Block(_b, _) =>
-	    _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
+	    _type_infer_extern_calls(_signals, _vars, _b, _ret, _ff, _structdefs),
         Stmt::Assign(_sy, _expr, _) => {
 	    // println!("{:?}", _expr);
             let _t = _vars.iter().find(|x| match x {
@@ -703,7 +705,55 @@ fn __type_infer_extern_calls<'a>(
             };
             _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &Some(_u))
         }
-	// Stmt::StructMemberAssign(_sy, _expr, _) => todo!(),
+	Stmt::StructMemberAssign(_sy, _expr, _) => {
+            let _t = _vars.iter().find(|x| match x {
+                Stmt::Variable(__sy, _t, _, _) =>
+		    __sy.get_string() == _sy.get_string(),
+                _ => panic!("Non variable found in _vars \
+			    during type inference: {:?}", x),
+            });
+            if _t.is_none() {
+                panic!(
+                    "Variable Ref: {:?} not found in {:?} during type inference",
+                    _sy, _vars
+                );
+            }
+	    // Now get the type of the field in this variable
+	    let _u = match _t.unwrap() {
+                Stmt::Variable(_, _t, _, _) => _t.clone(),
+                _ => panic!("Could not infer type of: {:?}", _expr),
+            };
+	    let _u = match _u {
+		Type::Struct(_st) => {
+		    let _stn = match _st {
+			StructTypeT::StructTypeT(_stn, _pos) => _stn
+		    };
+		    // get the structdef of this name
+		    let _struct = _structdefs.iter().find(|x| match x {
+			StructDef::Struct(_sdn, _vv, _pos) =>
+			    _sdn.get_string() == _stn.get_string()
+		    });
+		    if _struct.is_none() {
+			panic!(
+			    "Struct: {:?} not found in {:?} during type inference",
+			    _stn, _structdefs);
+		    }
+		    // Now get the type of the field
+		    // Get the field inside the structure being assinged to.
+		    let _field = _sy.get_field();
+		    let (_type, _, _) = _struct.unwrap().get_field(_field);
+		    match _type {
+			PrimitiveAndStructAndArraytype::PrimitiveType(_type, _)
+			    => _type.clone(),
+			_ => panic!("Currently extern calls can only \
+				    return primitive types {:?}", _sy)
+		    }
+		}
+		_ => _u
+	    };
+            _type_infer_sexpr(_expr, _signals, _vars, _ret, _ff, &Some(_u))
+
+	}
         Stmt::Emit(_sy, Some(_expr), _pos) => {
             let _t = _signals.iter().find(|x| match x {
                 Stmt::DataSignal(__sy, _, _, _, _, _)
@@ -736,18 +786,19 @@ fn __type_infer_extern_calls<'a>(
         }
         Stmt::Present(_expr, _t, Some(_e), _) => {
             _type_infer_expr(_expr, _signals, _vars, _ret, _ff, &None);
-            __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
-            __type_infer_extern_calls(_signals, _vars, _e, _ret, _ff);
+            __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff, _structdefs);
+            __type_infer_extern_calls(_signals, _vars, _e, _ret, _ff, _structdefs);
         }
         Stmt::Present(_expr, _t, None, _) => {
             _type_infer_expr(_expr, _signals, _vars, _ret, _ff, &None);
-            __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff);
+            __type_infer_extern_calls(_signals, _vars, _t, _ret, _ff, _structdefs);
         }
         Stmt::Loop(_b, _)
-	    => __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff),
+	    => __type_infer_extern_calls(_signals, _vars, _b, _ret, _ff, _structdefs),
         Stmt::Spar(_b, _) => _b
             .iter()
-            .for_each(|x| __type_infer_extern_calls(_signals, _vars, x, _ret, _ff)),
+            .for_each(|x| __type_infer_extern_calls(_signals, _vars, x, _ret,
+						    _ff, _structdefs)),
         // Stmt::DataSignal(_, _, _type, _, _expr, _) => todo!(),
         // XXX: For anything else we do not need analysis
         _ => (),

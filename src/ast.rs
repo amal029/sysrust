@@ -154,6 +154,22 @@ impl StructDef {
 	    }
 	}
     }
+    pub fn get_field(&self, _field: &Symbol) ->
+	&(PrimitiveAndStructAndArraytype, Symbol, (usize, usize)){
+	match self {
+	    Self::Struct(_, _vec, _) => {
+		let _res = _vec.iter().find(|(_, _x, _)| {
+		    _x.get_string() == _field.get_string()
+		});
+		if _res.is_none() {
+		    panic!(
+			"Struct: {:?} not found in {:?} during type inference",
+			_field, self);
+		}
+		_res.unwrap()
+	    }
+	}
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -283,7 +299,6 @@ fn get_correct_thread_id_for_var(_ptids: &[i64], _vars:&[Vec<Stmt>],
 	}
     }
 }
-
 
 impl Symbol {
     pub fn get_string(&self) -> &String {
@@ -420,7 +435,7 @@ impl SimpleDataExpr {
                 _s.append("(").append(_as).append(")")
             }
 	    SimpleDataExpr::AggregateAssign(_il, _pos) => _il.codegen(_tid, _smpt,
-								     _ptids, _vars),
+								      _ptids, _vars),
 	    SimpleDataExpr::StructRef(_s) => _s.codegen(_tid, _smpt),
 	    SimpleDataExpr::ArrayRef(_s) => _s.codegen(_tid, _smpt, _ptids, _vars),
 	    SimpleDataExpr::Cast(_t, _sde, _pos) => {
@@ -474,6 +489,21 @@ impl StructRefT {
 	    }		
 	}
     }
+    pub fn get_string(&self) -> &String {
+	match self {
+	    StructRefT::StructRef(_s1, _s2, _pos) => {
+		_s1.get_string()
+	    }
+	}
+    }
+    pub fn get_field(&self) -> &Symbol {
+	match self {
+	    StructRefT::StructRef(_s1, _s2, _pos) => {
+		_s2
+	    }
+	}
+    }
+
 }
 
 

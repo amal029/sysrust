@@ -139,6 +139,7 @@ fn main() {
         &_ast,
         &mut _extern_calls,
         &file_to_compile,
+	&_structs,
     );
     let _extern_calls = _extern_calls
         .into_iter()
