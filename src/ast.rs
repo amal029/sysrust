@@ -665,6 +665,7 @@ impl Stmt {
 		    .append(_m).append(";").append(RcDoc::hardline())
 	    }
 	    Stmt::StructDef(_sd) => RcDoc::nil(), // _sd.codegen(_tid, _smpt),
+	    Stmt::ExternDef(_, _) => RcDoc::nil(),
             _ => panic!("Can never reach to this statement in FSM graph: {:?}", self),
         }
     }

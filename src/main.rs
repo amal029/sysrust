@@ -12,8 +12,7 @@ use sysrust::ast::CallNameType;
 use sysrust::{ast, error, parse};
 
 use crate::analyse::{
-    _analyse_var_signal_uses,
-    _type_infer_extern_calls, get_s_v_ref, get_signals, get_vars,
+    _analyse_var_signal_uses, get_externs, get_s_v_ref, get_signals, get_vars
 };
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
@@ -131,16 +130,9 @@ fn main() {
 
     // XXX: Type inference for extern calls to C
     let mut _extern_calls: Vec<CallNameType> = Vec::with_capacity(50);
-    let __signals = _signals.iter().flatten().collect::<Vec<_>>();
-    let __vars = _vars.iter().flatten().collect::<Vec<_>>();
-    _type_infer_extern_calls(
-        &__signals,
-        &__vars,
-        &_ast,
-        &mut _extern_calls,
-        &file_to_compile,
-	&_structs,
-    );
+    get_externs(&mut _extern_calls, &_ast);
+    // Get the extern function calls here
+    
     let _extern_calls = _extern_calls
         .into_iter()
         .collect::<HashSet<_>>()

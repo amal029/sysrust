@@ -303,7 +303,6 @@ pub ExternDef: ast::Stmt = {
    ast::Stmt::ExternDef(elist, (l, r))
 }
 
-
 // Extern function list
 pub ExternFuncList: Vec<ast::CallNameType> = {
  <efunc:ExternFunc> ";" <efuncl: ExternFuncList> => {
@@ -322,7 +321,7 @@ pub ExternFunc: ast::CallNameType = {
  };
   ast::CallNameType{_sy: s.get_string().to_owned(), _rtype: ret, _arg_types: vec![]}
  },
- <ret:PrimitiveAndStructAndArraytype> <s:Symbol> "(" <args:ExternArgs> ")" ";" => {
+ <ret:PrimitiveAndStructAndArraytype> <s:Symbol> "(" <args:ExternArgs> ")" => {
  let ret = match ret {
    ast::PrimitiveAndStructAndArraytype::PrimitiveType(_1, _) => _1,
    ast::PrimitiveAndStructAndArraytype::StructType(_1, _) => ast::Type::Struct(_1),
