@@ -300,7 +300,9 @@ pub InitializerList: ast::InitializerList = {
 // Final extern
 pub ExternDef: ast::Stmt = {
    <l:@L> "extern" "{" <elist: ExternFuncList> "}" <r:@R> =>
-   ast::Stmt::ExternDef(elist, (l, r))
+   ast::Stmt::ExternDef(elist, (l, r)),
+   <l:@L> "extern" "{" "}" <r:@R> =>
+   ast::Stmt::ExternDef(vec![], (l, r)),
 }
 
 // Extern function list
