@@ -86,6 +86,15 @@ pub IOSignal: ast::Stmt = {
    <l:@L> "output" "float" "signal" <s:Symbol> "=" <iv:"f64"> ":" "*" <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Float,
 	  ast::Val::VFloat(iv), ast::ExprOp::Mul, (l, r)),
+   <l:@L> "output" <sts:StructType> "signal" <s:Symbol> "=" <iv:InitializerList>
+   ":" "+" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Struct(sts),
+	  ast::Val::InitList(iv), ast::ExprOp::Plus, (l, r)),
+   <l:@L> "output" <sts:StructType> "signal" <s:Symbol> "=" <iv:InitializerList>
+   ":" "*" <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(ast::IO::Output), ast::Type::Struct(sts),
+	  ast::Val::InitList(iv), ast::ExprOp::Mul, (l, r)),
+
 
    <l:@L> "input" "integer" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Int,
@@ -93,6 +102,10 @@ pub IOSignal: ast::Stmt = {
    <l:@L> "input" "float" "signal" <s:Symbol> <r:@R> =>
    	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Float,
 	  ast::Val::VFloat(0_f64), ast::ExprOp::Plus, (l, r)),
+   <l:@L> "input" <sts:StructType> "signal" <s:Symbol> <r:@R> =>
+   	  ast::Stmt::DataSignal(s, Some(ast::IO::Input), ast::Type::Struct(sts),
+	  ast::Val::InitList(ast::InitializerList::AggregateAssign(vec![], (l, r))),
+	  ast::ExprOp::Plus, (l, r)),
 
    <l:@L> "integer" "signal" <s:Symbol> "=" <iv:"i64"> ":" "+" <r:@R> =>
    	  ast::Stmt::DataSignal(s, None, ast::Type::Int,
@@ -116,8 +129,6 @@ pub IOSignal: ast::Stmt = {
    ":" "*" <r:@R> =>
 	  ast::Stmt::DataSignal(s, None, ast::Type::Struct(sts),
 	  ast::Val::InitList(iv), ast::ExprOp::Mul, (l, r)),
-
-
 }
 
 pub Statement: ast::Stmt = {
@@ -140,6 +151,7 @@ pub Statement: ast::Stmt = {
    <a:Sustain> ";" => a,
    <a:Halt> ";" => a,
    <a:StructDecl> ";" => a,
+   <a:ExternDef> ";" => a,
    <a:ArrayDecl> ";" => a,
    <a:StructDef> ";" => ast::Stmt::StructDef(a),
    <a:IOSignal> ";" => a,
@@ -283,6 +295,63 @@ pub StructDecl: ast::Stmt = {
 pub InitializerList: ast::InitializerList = {
  <l:@L> "{" <sdl: SimpleDataExprList> "}" <r:@R> =>
  ast::InitializerList::AggregateAssign(sdl, (l, r))
+}
+
+// Final extern
+pub ExternDef: ast::Stmt = {
+   <l:@L> "extern" "{" <elist: ExternFuncList> "}" <r:@R> =>
+   ast::Stmt::ExternDef(elist, (l, r))
+}
+
+
+// Extern function list
+pub ExternFuncList: Vec<ast::CallNameType> = {
+ <efunc:ExternFunc> ";" <efuncl: ExternFuncList> => {
+  let mut vv = efuncl; vv.push(efunc); vv
+ },
+ <efunc:ExternFunc> ";" => vec![efunc],
+}
+
+// Extern function
+pub ExternFunc: ast::CallNameType = {
+ <ret:PrimitiveAndStructAndArraytype> <s:Symbol> "(" ")" => {
+ let ret = match ret {
+   ast::PrimitiveAndStructAndArraytype::PrimitiveType(_1, _) => _1,
+   ast::PrimitiveAndStructAndArraytype::StructType(_1, _) => ast::Type::Struct(_1),
+   ast::PrimitiveAndStructAndArraytype::ArrayType(_1, _) => ast::Type::Array(Box::new(_1)),
+ };
+  ast::CallNameType{_sy: s.get_string().to_owned(), _rtype: ret, _arg_types: vec![]}
+ },
+ <ret:PrimitiveAndStructAndArraytype> <s:Symbol> "(" <args:ExternArgs> ")" ";" => {
+ let ret = match ret {
+   ast::PrimitiveAndStructAndArraytype::PrimitiveType(_1, _) => _1,
+   ast::PrimitiveAndStructAndArraytype::StructType(_1, _) => ast::Type::Struct(_1),
+   ast::PrimitiveAndStructAndArraytype::ArrayType(_1, _) => ast::Type::Array(Box::new(_1)),
+ };
+ ast::CallNameType{_sy: s.get_string().to_owned(), _rtype: ret, _arg_types: args}
+ },
+}
+
+// Extern arguments
+pub ExternArgs: Vec<ast::Type> = {
+  <eargs: ExternArgs> "," <pt:PrimitiveAndStructAndArraytype> =>
+  {
+  let res =
+    match pt {
+     ast::PrimitiveAndStructAndArraytype::PrimitiveType(_1, _) => _1,
+     ast::PrimitiveAndStructAndArraytype::StructType(_1, _) => ast::Type::Struct(_1),
+     ast::PrimitiveAndStructAndArraytype::ArrayType(_1, _) => ast::Type::Array(Box::new(_1)),
+  };
+  let mut vv = eargs; vv.push(res); vv},
+ <pt: PrimitiveAndStructAndArraytype> => {
+  let res =
+  match pt {
+   ast::PrimitiveAndStructAndArraytype::PrimitiveType(_1, _) => _1,
+   ast::PrimitiveAndStructAndArraytype::StructType(_1, _) => ast::Type::Struct(_1),
+   ast::PrimitiveAndStructAndArraytype::ArrayType(_1, _) => ast::Type::Array(Box::new(_1)),
+  };
+  vec![res]
+ },
 }
 
 // These are all the types put together

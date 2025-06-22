@@ -324,6 +324,7 @@ pub fn _analyse_var_signal_use(
 	Stmt::StructDef(_) => _stack,
 	Stmt::StructMemberAssign(_, _, _) => _stack,
 	Stmt::ArrayIndexAssign(_, _, _) => _stack,
+	Stmt::ExternDef(_, _) => _stack,
     }
 }
 

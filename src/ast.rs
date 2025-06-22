@@ -265,6 +265,7 @@ pub enum Stmt {
     ArrayIndexAssign(ArrayRefT, SimpleDataExpr, Pos),
     // This is definition of a new struct type
     StructDef(StructDef),
+    ExternDef(Vec<CallNameType>, Pos),
 }
 
 // XXX: This function gets the correct thread id for the declared
@@ -669,7 +670,7 @@ impl Stmt {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CallNameType {
     pub _sy: String,
     pub _rtype: Type,

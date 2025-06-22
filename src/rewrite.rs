@@ -578,6 +578,31 @@ fn rewrite_stmt_to_graph_fsm(
 		}
 	    }
 	}
+	Stmt::ExternDef(_sdef, pos) => {
+	    // match _sdef {
+	    // StructDef::Struct(_sy, _types, pos) => {
+	    let mut i = GraphNode::default(*tid);
+	    i.label = String::from("ExternDefStart");
+	    i.actions
+		.push(Stmt::ExternDef(_sdef.clone(), *pos));
+	    i.guards.push(Expr::True(*pos));
+	    let mut e = GraphNode::default(*tid);
+	    e.label = String::from("ExternDefEnd");
+	    // XXX: Add the doubly linked list annotations
+	    _nodes.push(i);
+	    _nodes[*idx].children.push(*idx + 1);
+	    _nodes[*idx].idx = *idx;
+	    let r1 = _nodes[*idx].idx;
+	    *idx += 1;
+	    _nodes.push(e);
+	    _nodes[*idx].parents.push(*idx - 1);
+	    _nodes[*idx].idx = *idx;
+	    let r2 = _nodes[*idx].idx;
+	    *idx += 1;
+	    (r1, r2)
+	    // }
+	    // }
+	}
 	Stmt::StructMemberAssign(_sy1, _sy2, pos) => {
 	    let mut i = GraphNode::default(*tid);
 	    i.label = String::from("StructMemberAssignStart");
