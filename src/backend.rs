@@ -16,7 +16,7 @@ use crate::{
     rewrite::{GraphNode, NodeT},
 };
 
-fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
+pub fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
 		    _tid: usize) -> (String, Option<String>) {
     match _ty {
         Type::Int => (String::from("int"), None),
@@ -32,7 +32,7 @@ fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
 	    }
 	}
 	Type::Array(_s) => {
-	    match *_s.to_owned() {
+	    match &**_s {
 		ArrayTypeT::ArrayPrimTypeT(_ty, _vec, _) => {
 		    let (_tys, _su) = _type_string(&_ty, _pos, ff, _tid);
 		    match _su {
@@ -140,7 +140,7 @@ fn _sig_decl<'a>(_s: &'a Stmt, _tid: usize, _ff: &'a str,
 	    _1,
 	    (match _2 {Some(x) => x, None => String::from("")}),
             // _type_string(_ty, *_pos, _ff, _tid),
-            _iv.to_string(_tid, _ptids, _vars),
+            _iv.to_string(_tid, _ptids, _vars, _ff),
             _expr_op_std_op(_op, *_pos, _ff),
 	    _1,
             // _type_string(_ty, *_pos, _ff, _tid),
@@ -285,7 +285,7 @@ fn _var_decl<'a>(_done:&mut Vec<(&'a str, usize)>,
 			_sy.get_string(),
 			_tid,
 			(match _2 {Some(x) => x, None => String::from("")}),
-			_iv.to_string(_tid, _ptids, _vars),
+			_iv.to_string(_tid, _ptids, _vars, _ff),
 		    );
 		    RcDoc::<()>::as_string(_m).append(RcDoc::hardline())
 		}
@@ -361,12 +361,13 @@ pub fn _codegen(
         .append(format!("extern const char* _state[NTHREADS_{_pfile}];"))
         .append(RcDoc::hardline());
     // XXX: Adding the definition of struct defs
-    let _structdefdoc = RcDoc::concat(_structs.iter().map(|x| x.codegen()));
+    let _structdefdoc = RcDoc::concat(_structs.iter().map(|x| x.codegen(&_ff)));
     _pragma = _pragma.append(RcDoc::as_string("//Struct Defs")).
 	append(RcDoc::hardline())
 	.append(_structdefdoc).append(RcDoc::hardline())
 	.append("int main(void);").append(RcDoc::hardline());
-    let h5 = RcDoc::<()>::as_string("#include <functional>").append(RcDoc::hardline());
+    let h5 = RcDoc::<()>::as_string("#include <functional>")
+	.append(RcDoc::hardline());
     let h8 = RcDoc::<()>::as_string("#include <cassert>\n \
 				     #include \"mQueue.h\" \n \
 				     #include <cstddef>\n \
@@ -823,7 +824,8 @@ pub fn _codegen(
 	&_ndtidxs,
 	&_ndtidlabs,
 	_ptids,
-	_vars
+	_vars,
+	_ff,
     );
     let mut w1: Vec<u8> = Vec::with_capacity(5000);
     let _ = _nn.render(8, &mut w1);
@@ -842,7 +844,8 @@ pub fn _codegen(
 	    &_ndtidxs,
 	    &_ndtidlabs,
 	    _ptids,
-	    _vars
+	    _vars,
+	    _ff,
         );
         let _ = _nn.render(8, &mut w1);
     });
@@ -1155,6 +1158,7 @@ fn _make_seq_code<'a>(
     _ndtidlabs: &Vec<String>,
     _ptids: &[i64],
     _vars: &[Vec<Stmt>],
+    _ff: &'a str,
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: First do a map of each child branch
     let _cbm = _nodes[_i]
@@ -1179,7 +1183,8 @@ fn _make_seq_code<'a>(
 		    _ndtidxs,
 		    _ndtidlabs,
 		    _ptids,
-		    _vars
+		    _vars,
+		    _ff
                 ))
             } else {
                 None
@@ -1202,7 +1207,7 @@ fn _make_seq_code<'a>(
             if _same_tid_indices.iter().find(|&&k| k == _j).is_some() {
                 Some(x.codegen(_nodes[_i]._tid,
 			       &_sigs_map_per_threads[_nodes[_i]._tid],
-			       _ptids, _vars))
+			       _ptids, _vars, _ff))
             } else {
                 None
             }
@@ -1313,7 +1318,7 @@ fn _make_seq_code<'a>(
             if _same_tid_indices.iter().find(|&&k| k == _j).is_some() {
                 Some(x.codegen(_nodes[_i]._tid,
 			       &_sigs_map_per_threads[_nodes[_i]._tid],
-			       _ptids, _vars))
+			       _ptids, _vars, _ff))
             } else {
                 None
             }
@@ -1564,6 +1569,7 @@ fn _make_fork_code<'a>(
     _ndtidlabs: &Vec<String>,
     _ptids: &[i64],
     _vars: &[Vec<Stmt>],
+    _ff: &'a str,
 
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     // XXX: This is for the fork node
@@ -1587,7 +1593,7 @@ fn _make_fork_code<'a>(
             // println!("child index: is: {j}, guard: {:?}", _nodes[_i].guards[j]);
             let _gn = _nodes[_i].guards[j]
                 .codegen(_nodes[_i]._tid, &_sigs_map_per_threads[_nodes[_i]._tid],
-			 _ptids, _vars);
+			 _ptids, _vars, _ff);
             _gnn.push(_gn.clone());
             let _ifgn = RcDoc::<()>::as_string("if(")
                 .append(_gn)
@@ -1677,7 +1683,8 @@ fn _make_fork_code<'a>(
 	_ndtidxs,
 	_ndtidlabs,
 	_ptids,
-	_vars
+	_vars,
+	_ff,
     );
 
     _n = _n.append(_sn);
@@ -1706,6 +1713,7 @@ fn _gen_code<'a>(
     _ndtidlabs: &Vec<String>,
     _ptids: &[i64],
     _vars: &[Vec<Stmt>],
+    _ff: &'a str,
 ) -> (RcDoc<'a>, VecDeque<usize>) {
     if _nodes[_i]._tid != _ptid {
         // println!("ptid != tid {_ptid} {:?}", _nodes[_i]._tid);
@@ -1783,7 +1791,8 @@ fn _gen_code<'a>(
 	    _ndtidxs,
 	    _ndtidlabs,
 	    _ptids,
-	    _vars
+	    _vars,
+	    _ff,
         )
     } else {
         // XXX: This is for the fork node
@@ -1803,7 +1812,8 @@ fn _gen_code<'a>(
 	    _ndtidxs,
 	    _ndtidlabs,
 	    _ptids,
-	    _vars
+	    _vars,
+	    _ff
         )
     }
 }
@@ -1823,6 +1833,7 @@ fn _walk_graph_code_gen<'a>(
     _ndtidlabs: &Vec<String>,
     _ptids: &[i64],
     _vars: &[Vec<Stmt>],
+    _ff: &'a str
 ) -> (RcDoc<'a>, VecDeque<usize>, usize) {
     let mut _rets = _rets;
     let inode = _rets.pop_front().unwrap();
@@ -1850,7 +1861,8 @@ fn _walk_graph_code_gen<'a>(
 	_ndtidxs,
 	_ndtidlabs,
 	_ptids,
-	_vars
+	_vars,
+	_ff
     );
     // XXX: Here we need to put it inside the method!
     // println!("thread id: {:?}, node type: {:?}", _nodes[inode]._tid,
@@ -1886,6 +1898,7 @@ fn _make_fsm_code<'a>(
     _ndtidlabs: &Vec<String>,
     _ptids: &[i64],
     _vars: &[Vec<Stmt>],
+    _ff: &'a str,
 ) -> RcDoc<'a> {
     // XXX: Walk graph and generate code
     let mut rets: VecDeque<usize> = VecDeque::with_capacity(_nodes.len());
@@ -1909,7 +1922,8 @@ fn _make_fsm_code<'a>(
 	    _ndtidxs,
 	    _ndtidlabs,
 	    _ptids,
-	    _vars
+	    _vars,
+	    _ff
         );
         _res.push(_n);
         _done_nodes.push(_inode);
