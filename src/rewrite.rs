@@ -11,7 +11,7 @@ pub enum NodeT {
     PauseStart,
     PauseEnd,
     SparFork(usize),
-    SparJoin(usize),
+    SparJoin(()),
     JoinChild(usize),
     Seq,
     BranchFork,
@@ -512,7 +512,7 @@ fn rewrite_stmt_to_graph_fsm(
 
             // XXX: Attach the join node to the fork node and vice-versa
             _nodes[r1].tt = NodeT::SparFork(rm);
-            je.tt = NodeT::SparJoin(r1);
+            je.tt = NodeT::SparJoin(());
 
             // XXX: Add a self-loop -- this is when one thread is done
             // and others are not! -- will be copied inside each thread
