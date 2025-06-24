@@ -83,8 +83,7 @@ pub enum ArrayTypeT {
     ArrayStructTypeT(Symbol, Vec<ArrayAccessType>, Pos),
 }
 
-// This is a private function
-fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
+pub fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
 		    _tid: usize) -> (String, Option<String>) {
     match _ty {
         Type::Int => (String::from("int"), None),

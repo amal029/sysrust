@@ -5,9 +5,10 @@ use std::{
 
 use itertools::{join, Itertools};
 use pretty::RcDoc;
-use sysrust::ast::{ArrayTypeT, CallNameType, ExprOp,
+use sysrust::ast::{CallNameType, ExprOp,
 		   SimpleDataExpr, Stmt, StructDef,
-		   StructTypeT, Symbol, Type, Val, IO};
+		   Symbol, Type, Val, IO};
+use sysrust::ast::_type_string;
 
 type Pos = (usize, usize);
 
@@ -15,53 +16,6 @@ use crate::{
     error::print_bytes,
     rewrite::{GraphNode, NodeT},
 };
-
-pub fn _type_string<'a>(_ty: &'a Type, _pos: (usize, usize), ff: &'a str,
-		    _tid: usize) -> (String, Option<String>) {
-    match _ty {
-        Type::Int => (String::from("int"), None),
-        Type::Float => (String::from("float"), None),
-        Type::None => {
-            let _ = print_bytes(ff, _pos.0, _pos.1);
-            panic!("Cannot write an empty type")
-        }
-	Type::Struct(_s) => {
-	    match _s {
-		StructTypeT::StructTypeT(_sy, _pos) =>
-		    (format!("struct {}", _sy.get_string()), None)
-	    }
-	}
-	Type::Array(_s) => {
-	    match &**_s {
-		ArrayTypeT::ArrayPrimTypeT(_ty, _vec, _) => {
-		    let (_tys, _su) = _type_string(&_ty, _pos, ff, _tid);
-		    match _su {
-			Some (_) => {
-			    let _ = print_bytes(ff, _pos.0, _pos.1);
-			    panic!("Cannot write an empty type")
-			}
-			None => (),
-		    };
-		    let _vecs = _vec.iter().map(|x|
-						format!("[{}]",
-							x._type_string(_tid)));
-		    let _vecs = _vecs.fold(String::from(""), |acc, x| acc +
-					   x.as_str());
-		    (_tys, Some(_vecs))
-		}
-		ArrayTypeT::ArrayStructTypeT(_sy, _vec, _) => {
-		    let _tys = format!("struct {}", _sy.get_string());
-		    let _vecs = _vec.iter().map(|x|
-						format!("[{}]",
-							x._type_string(_tid)));
-		    let _vecs = _vecs.fold(String::from(""), |acc, x| acc +
-					   x.as_str());
-		    (_tys, Some(_vecs))
-		}
-	    }
-	}
-    }
-}
 
 fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
     &'a str {
