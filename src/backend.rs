@@ -12,10 +12,7 @@ use sysrust::ast::_type_string;
 
 type Pos = (usize, usize);
 
-use crate::{
-    error::print_bytes,
-    rewrite::{GraphNode, NodeT},
-};
+use crate::rewrite::{GraphNode, NodeT};
 
 fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
     &'a str {
@@ -25,10 +22,7 @@ fn _expr_op_std_op<'a>(_expr: &'a ExprOp, _pos: (usize, usize), _ff: &'a str) ->
             ExprOp::Mul => "std::multiplies",
             ExprOp::Div => "std::divides",
             ExprOp::Mod => "std::modulus",
-            ExprOp::Pow => {
-		let _ = print_bytes(_ff, _pos.0, _pos.1);
-		panic!("Power operator not yet supported in C++ backend")
-            },
+            ExprOp::Pow => "std::pow",
 	    ExprOp::RShift => todo!(),
 	    ExprOp::LShift => todo!()
 	}
