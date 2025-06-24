@@ -668,7 +668,7 @@ fn make_array_var_decl<'a>(_sy: &'a String, _tid: usize, _len:usize,
 impl Stmt {
     pub fn codegen<'a>(&'a self, _tid: usize, _smpt: & HashMap<&str, usize>,
 		   _ptids: &[i64], _vars: &[Vec<Stmt>],
-		   _ff: &'a str) -> RcDoc {
+		   _ff: &'a str) -> RcDoc<'a> {
         match self {
             Stmt::Emit(_sy, _sexpr, _pos) => {
                 let _s = format!(
