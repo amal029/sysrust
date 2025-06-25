@@ -21,11 +21,6 @@ mod backend;
 // mod error;
 mod rewrite;
 
-// type StackType = HashMap<String,
-// 			 (ast::Type,
-// 			  // analyse::SignalVarType,
-// 			  Option<ast::IO>)>;
-
 // XXX: Make the clap parser
 use clap::Parser;
 
@@ -60,29 +55,6 @@ fn main() {
     };
 
     let _ast = parse(&file_to_compile);
-
-    // XXX: Analyse signal/var declaration and their uses
-    // let mut stack: Vec<StackType> = Vec::with_capacity(50);
-
-    // XXX: The errors in the program are collected here.
-    // let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(50);
-
-    // XXX: Check the usage and declaration of signals and variables
-    // let tid = 0;
-    // stack.push(HashMap::with_capacity(50)); // pushed the first hashmap
-    // stack = _analyse_var_signal_uses(&file_to_compile, &_ast, stack, &mut rets, tid);
-    // stack.pop(); // removed the final hashmap
-
-    // XXX: Print all the errors as warnings.
-    // let bb = rets.is_empty();
-    // for i in rets {
-    //     print_bytes_warn(&file_to_compile, i.0, i.1).unwrap();
-    //     // println!("{} ", i.2);
-    // }
-    // Don't exit here
-    // if !bb {
-    //     exit(1);
-    // }
 
     // XXX: Get all the threads in the program
     let mut num_threads = 1usize;
