@@ -4,7 +4,7 @@ use analyse::{_check_signal_repeats,
 // use error::print_bytes;
 use rewrite::NodeT;
 // use sysrust::error::print_bytes_warn;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::process::{exit, Command};
@@ -12,7 +12,8 @@ use sysrust::ast::CallNameType;
 use sysrust::{ast, error, parse};
 
 use crate::analyse::{
-    _analyse_var_signal_uses, get_externs, get_s_v_ref, get_signals, get_vars
+    // _analyse_var_signal_uses,
+    get_externs, get_s_v_ref, get_signals, get_vars
 };
 use crate::rewrite::{rewrite_to_graph_fsm, GraphNode};
 mod analyse;
@@ -20,8 +21,10 @@ mod backend;
 // mod error;
 mod rewrite;
 
-type StackType = HashMap<String,
-			 (ast::Type, analyse::SignalVarType, Option<ast::IO>)>;
+// type StackType = HashMap<String,
+// 			 (ast::Type,
+// 			  // analyse::SignalVarType,
+// 			  Option<ast::IO>)>;
 
 // XXX: Make the clap parser
 use clap::Parser;
@@ -59,16 +62,16 @@ fn main() {
     let _ast = parse(&file_to_compile);
 
     // XXX: Analyse signal/var declaration and their uses
-    let mut stack: Vec<StackType> = Vec::with_capacity(50);
+    // let mut stack: Vec<StackType> = Vec::with_capacity(50);
 
     // XXX: The errors in the program are collected here.
-    let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(50);
+    // let mut rets: Vec<(usize, usize, String)> = Vec::with_capacity(50);
 
     // XXX: Check the usage and declaration of signals and variables
-    let tid = 0;
-    stack.push(HashMap::with_capacity(50)); // pushed the first hashmap
-    stack = _analyse_var_signal_uses(&file_to_compile, &_ast, stack, &mut rets, tid);
-    stack.pop(); // removed the final hashmap
+    // let tid = 0;
+    // stack.push(HashMap::with_capacity(50)); // pushed the first hashmap
+    // stack = _analyse_var_signal_uses(&file_to_compile, &_ast, stack, &mut rets, tid);
+    // stack.pop(); // removed the final hashmap
 
     // XXX: Print all the errors as warnings.
     // let bb = rets.is_empty();
