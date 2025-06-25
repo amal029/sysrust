@@ -129,6 +129,16 @@ pub IOSignal: ast::Stmt = {
    ":" "*" <r:@R> =>
 	  ast::Stmt::DataSignal(s, None, ast::Type::Struct(sts),
 	  ast::Val::InitList(iv), ast::ExprOp::Mul, (l, r)),
+
+   <l:@L> <sts:ArrayType> "signal" <s:Symbol> "=" <iv:InitializerList>
+   ":" "+" <r:@R> =>
+	  ast::Stmt::DataSignal(s, None, ast::Type::Array(Box::new(sts)),
+	  ast::Val::InitList(iv), ast::ExprOp::Plus, (l, r)),
+
+   <l:@L> <sts:ArrayType> "signal" <s:Symbol> "=" <iv:InitializerList>
+   ":" "*" <r:@R> =>
+	  ast::Stmt::DataSignal(s, None, ast::Type::Array(Box::new(sts)),
+	  ast::Val::InitList(iv), ast::ExprOp::Mul, (l, r)),
 }
 
 pub Statement: ast::Stmt = {
