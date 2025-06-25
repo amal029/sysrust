@@ -76,8 +76,8 @@ fn _check_sym_in_map(
                             let _dvt2 = &map.get(s.get_string()).unwrap().0;
                             match _dvt2 {
 				Type::Float | Type::Int => true,
-				Type::Struct(_) => todo!(),
-				| Type::Array(_) => todo!(),
+				Type::Struct(_) => true,
+				| Type::Array(_) => true,
 				Type::None => false,
                             }
 			}
