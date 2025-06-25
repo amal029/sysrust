@@ -578,7 +578,12 @@ fn _get_s_v_ref(
         }
 	Stmt::StructMemberAssign(_stref, _expr, _) => {
 	    match _stref {
-		StructRefT::StructRef(_sy, _sy1, _) => _vyref[*_tid].push(_sy.clone())
+		StructRefT::StructRef(_sy, _sy1, _)
+		    => _vyref[*_tid].push(_sy.clone()),
+		StructRefT::StructRefA(_sy, _sy1, _)
+		    => _vyref[*_tid].push(_sy.clone()),
+		StructRefT::StructRefI(_sy, _sy1, _)
+		    => _vyref[*_tid].push(_sy.clone())
 	    }
 	    _get_s_v_ref_expr(_sref, _vref, _expr, *_tid)
 	}

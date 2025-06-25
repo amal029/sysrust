@@ -34,7 +34,9 @@ pub enum ExprOp {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum StructRefT {
-    StructRef(Symbol, Symbol, Pos)
+    StructRef(Symbol, Symbol, Pos),
+    StructRefA(Symbol, ArrayRefT, Pos),
+    StructRefI(Symbol, Box<StructRefT>, Pos)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -526,9 +528,10 @@ impl SimpleDataExpr {
             }
 	    SimpleDataExpr::AggregateAssign(_il, _pos) =>
 		_il.codegen(_tid, _smpt, _ptids, _vars, _ff),
-	    SimpleDataExpr::StructRef(_s) => _s.codegen(_tid, _smpt),
+	    SimpleDataExpr::StructRef(_s) =>
+		_s.codegen(_tid, _smpt, _ptids, _vars, _ff, true),
 	    SimpleDataExpr::ArrayRef(_s) =>
-		_s.codegen(_tid, _smpt, _ptids, _vars, _ff),
+		_s.codegen(_tid, _smpt, _ptids, _vars, _ff, true),
 	    SimpleDataExpr::Cast(_t, _sde, _pos) => {
 		let _td = _t.codegen(_tid, _smpt, _ff);
 		let _sded = _sde.codegen(_tid, _smpt, _ptids, _vars, _ff);
@@ -543,7 +546,8 @@ impl SimpleDataExpr {
 
 impl ArrayRefT {
     pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>,
-		   _ptids:&[i64], _vars : &[Vec<Stmt>], _ff: &str) -> RcDoc {
+		   _ptids:&[i64], _vars : &[Vec<Stmt>], _ff: &str,
+		   _addtid: bool) -> RcDoc {
 	match self {
 	    ArrayRefT::ArrayRef(_s1, _s2, _pos) => {
 		let _s2 = _s2.iter().map(|x|
@@ -557,11 +561,27 @@ impl ArrayRefT {
 							  &_s1.get_string(),
 							  _tid as i64, _pos);
 		if _rtid == -1 {
-		    RcDoc::as_string(format!("{}_{}",
-					     _s1.get_string(), _tid)).append(_s2)
+		    match _addtid {
+			true =>
+			    RcDoc::as_string(
+				format!("{}_{}",
+					_s1.get_string(), _tid)).append(_s2),
+			false => 
+			    RcDoc::as_string(
+				format!("{}", _s1.get_string())).append(_s2),
+		    }
 		} else {
-		    RcDoc::as_string(format!("{}_{}",
-					     _s1.get_string(), _rtid)).append(_s2)
+		    match _addtid {
+			true =>
+			    RcDoc::as_string(
+				format!("{}_{}",
+					_s1.get_string(), _rtid)).append(_s2),
+			false => 
+			    RcDoc::as_string(
+				format!("{}", _s1.get_string())).append(_s2),
+		    }
+		    // RcDoc::as_string(format!("{}_{}",
+		    // 			     _s1.get_string(), _rtid)).append(_s2)
 		}
 	    }		
 	}
@@ -570,19 +590,56 @@ impl ArrayRefT {
 
 
 impl StructRefT {
-    pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>) -> RcDoc {
+    pub fn codegen(&self, _tid:usize, _smpt: & HashMap<&str, usize>,
+		   _ptids: &[i64], _vars: &[Vec<Stmt>], _ff: &str,
+		   _addtid: bool) -> RcDoc {
 	match self {
 	    StructRefT::StructRef(_s1, _s2, _pos) => {
-		let _s1 = format!("{}_{}", _s1.get_string(), _tid);
+		let _s1 =
+		    match _addtid {
+			true =>  format!("{}_{}", _s1.get_string(), _tid),
+			false =>  format!("{}", _s1.get_string())
+			    
+		    };
 		let _s2 = _s2.get_string();
 		let ss = format!("{_s1}.{_s2}");
 		RcDoc::<()>::as_string(ss)
-	    }		
+	    },
+	    StructRefT::StructRefA(_s1, _a, _pos) => {
+		// Here we should never add the tid to the array
+		// variable, because it is a field.
+		let _adoc = _a.codegen(_tid, _smpt, _ptids, _vars, _ff, false);
+		let _s1 =
+		    match _addtid {
+			true =>  format!("{}_{}", _s1.get_string(), _tid),
+			false =>  format!("{}", _s1.get_string())
+			    
+		    };
+		// let _s1 = format!("{}_{}", _s1.get_string(), _tid);
+		RcDoc::as_string(_s1).append(".").append(_adoc)
+	    }
+	    StructRefT::StructRefI(_s1, _si, _pos) => {
+		let _sidoc = _si.codegen(_tid, _smpt, _ptids, _vars, _ff, false);
+		let _s1 =
+		    match _addtid {
+			true =>  format!("{}_{}", _s1.get_string(), _tid),
+			false =>  format!("{}", _s1.get_string())
+			    
+		    };
+		// let _s1 = format!("{}_{}", _s1.get_string(), _tid);
+		RcDoc::as_string(_s1).append(".").append(_sidoc)
+	    }
 	}
     }
     pub fn get_string(&self) -> &String {
 	match self {
 	    StructRefT::StructRef(_s1, _s2, _pos) => {
+		_s1.get_string()
+	    }
+	    StructRefT::StructRefA(_s1, _s2, _pos) => {
+		_s1.get_string()
+	    }
+	    StructRefT::StructRefI(_s1, _s2, _pos) => {
 		_s1.get_string()
 	    }
 	}
@@ -591,6 +648,12 @@ impl StructRefT {
 	match self {
 	    StructRefT::StructRef(_s1, _s2, _pos) => {
 		_s2
+	    }
+	    StructRefT::StructRefA(_s1, _s2, _pos) => {
+		todo!()
+	    }
+	    StructRefT::StructRefI(_s1, _s2, _pos) => {
+		todo!()
 	    }
 	}
     }
@@ -742,7 +805,7 @@ impl Stmt {
             Stmt::DataSignal(_, _, _, _, _, _) => RcDoc::nil(),
             Stmt::Noop(_) => RcDoc::as_string(";"),
 	    Stmt::StructMemberAssign(_sy, _m, _) => {
-		let _sy = _sy.codegen(_tid, _smpt);
+		let _sy = _sy.codegen(_tid, _smpt, _ptids, _vars, _ff, true);
                 let _m = _m.codegen(_tid, _smpt, _ptids, _vars, _ff);
                 _sy
                     .append(RcDoc::as_string(" = "))
@@ -753,7 +816,7 @@ impl Stmt {
 	    Stmt::ArrayIndexAssign(_at, _sexpr, _) => {
 		// print!("Array assign codegen");
 		let _m = _sexpr.codegen(_tid , _smpt, _ptids, _vars, _ff);
-		let _at = _at.codegen(_tid, _smpt, _ptids, _vars, _ff);
+		let _at = _at.codegen(_tid, _smpt, _ptids, _vars, _ff, true);
 		_at.append(RcDoc::as_string(" = "))
 		    .append(_m).append(";").append(RcDoc::hardline())
 	    }

@@ -254,8 +254,12 @@ pub SimpleDataExpr: ast::SimpleDataExpr = {
 
 // This is the structref
 pub StructRef: ast::StructRefT = {
+ <l:@L> <s:Symbol> "." <stref: StructRef> <r:@R> =>
+ ast::StructRefT::StructRefI(s, Box::new(stref), (l, r)),
  <l:@L> <s:Symbol> "." <sm: Symbol> <r:@R> =>
- ast::StructRefT::StructRef(s, sm, (l, r))
+ ast::StructRefT::StructRef(s, sm, (l, r)),
+ <l:@L> <s:Symbol> "." <aref: ArrayRef> <r:@R> =>
+ ast::StructRefT::StructRefA(s, aref, (l, r))
 }
 
 // This is the arrayrefT
