@@ -146,6 +146,9 @@ pub Statement: ast::Stmt = {
    	  return ast::Stmt::Noop((l, r)),
    <l:@L> <s:Symbol> "=" <e:SimpleDataExpr> ";" <r:@R> =>
    	 ast::Stmt::Assign(s, e, (l,r)),
+   // This is assignment with brackets and simple data expression
+   <l:@L> <s:Symbol> "=" "(" <e:SimpleDataExpr> ")" ";" <r:@R> =>
+   	 ast::Stmt::Assign(s, e, (l,r)),
    <l:@L> <la:Symbol> ":" "pause" ";" <r:@R> => ast::Stmt::Pause(la, (l,r)),
    <l:@L> "emit" <s:Symbol> "(" <e:SimpleDataExpr> ")" ";" <r:@R> =>
    	 ast::Stmt::Emit(s, Some(e), (l,r)),
@@ -173,9 +176,14 @@ pub Statement: ast::Stmt = {
    // Add the assignment to struct
    <l:@L> <sr:StructRef> "=" <sde:SimpleDataExpr> <r:@R> ";" =>
    ast::Stmt::StructMemberAssign(sr, sde, (l, r)),
+   <l:@L> <sr:StructRef> "=" "(" <sde:SimpleDataExpr> ")" <r:@R> ";" =>
+   ast::Stmt::StructMemberAssign(sr, sde, (l, r)),
    // Add the assignment to array index
    <l:@L> <ar: ArrayRef> "=" <sde:SimpleDataExpr> <r:@R> ";" =>
+   ast::Stmt::ArrayIndexAssign(ar, sde, (l, r)),
+   <l:@L> <ar: ArrayRef> "=" "(" <sde:SimpleDataExpr> ")" <r:@R> ";" =>
    ast::Stmt::ArrayIndexAssign(ar, sde, (l, r))
+
 }
 
 pub IOT : ast::IO =  {
