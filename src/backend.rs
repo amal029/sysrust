@@ -319,6 +319,7 @@ pub fn _codegen(
     let h8 = RcDoc::<()>::as_string("#include <cassert>\n \
 				     #include \"mQueue.h\" \n \
 				     #include <cstddef>\n \
+				     #include <cstdint>\n \
 				     #include <cstring> \n \
 				     #include <iostream>\n");
 
